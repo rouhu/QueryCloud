@@ -3,7 +3,7 @@
 // General Configuration
 //////////////////////////////////////////////
 
-$config['appname'] = 'VisualQuery';
+$config['appname'] = 'QueryCloud';
 
 // specify whether to log errors. If false, errors will be shown on screen instead
 $config['log_errors'] = false;

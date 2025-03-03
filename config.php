@@ -21,5 +21,3 @@ $config['password'][] = 'admin';
 $config['username'][] = 'admin2';
 $config['password'][] = 'admin2';
 
-$config['log_errors'] = false;
-$config['log_path'] = '';
