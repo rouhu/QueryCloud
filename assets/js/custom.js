@@ -133,7 +133,7 @@ $('#addjoinedtablefields').click(addTablesToDropdown);
 // dynamically populate dropdowns for selected tables for visual query
 function addTablesToDropdown() {
     const selectedTables = [__table]; 
-    console.log('Selected Tables:', selectedTables);
+   // console.log('Selected Tables:', selectedTables);
 
     $('.jointable').each(function() {
         const table = $(this).val();
@@ -142,21 +142,21 @@ function addTablesToDropdown() {
         }
     });
 
-    console.log('Final Tables Sent:', selectedTables);
+    //console.log('Final Tables Sent:', selectedTables);
 
     if (selectedTables.length > 0) {
         const postData = {"tables": JSON.stringify(selectedTables)};
-        console.log('POST Data:', postData);
+        //console.log('POST Data:', postData);
 
         $.post(base + '/ajax/getselectfields', postData, function(response) {
-            console.log('Server Response:', response);
+          //  console.log('Server Response:', response);
             
             $('select.fields, select.fname, select.orderfields, select.groupfields').html(response).trigger('change');
             $('.select2').select2();
             
             $.jGrowl('Fields updated with joined tables!');
         }).fail(function(jqXHR, textStatus, errorThrown) {
-            console.error('AJAX Error:', textStatus, errorThrown);
+           // console.error('AJAX Error:', textStatus, errorThrown);
             $.jGrowl('Error loading fields: ' + textStatus, {header: 'Error', theme: 'error'});
         });
     }
