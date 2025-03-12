@@ -11,3 +11,8 @@ Requirements:
 - MySQL user with DESCRIBE rights
 
 Credits: Clone of old VisualQuery repository and updated to work with PHP 8.x
+
+Made using:
+ flightPHP framework - a light-weight php framework (http://flightphp.com)
+	idiorm - ORM and query builder (https://github.com/j4mie/idiorm)
+	Twitter Bootstrap - UI CSS Framework (http://getbootstrap.com)
