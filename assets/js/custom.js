@@ -189,6 +189,72 @@ $('body').on('click', '.btn-run-saved-query', function() {
     }
 });
 
+// --- Edit Saved Query Functionality ---
+$('body').on('click', '.btn-edit-saved-query', function() {
+    var queryId = $(this).data('query-id');
+    var queryName = $(this).data('query-name');
+    var sqlQuery = null;
+
+    // Find the query in the cache to get its SQL
+    if (typeof savedQueriesCache !== 'undefined') {
+        for (var i = 0; i < savedQueriesCache.length; i++) {
+            if (savedQueriesCache[i].id == queryId) { // Loose comparison for data attribute
+                sqlQuery = savedQueriesCache[i].sql_query;
+                break;
+            }
+        }
+    }
+
+    if (sqlQuery === null) {
+        $.jGrowl('Could not retrieve SQL for editing. Please refresh.', { header: 'Error', theme: 'error' });
+        return;
+    }
+
+    // Populate ACE editor (if available)
+    if (typeof editor !== 'undefined' && editor !== null) {
+        editor.setValue(sqlQuery, -1); // -1 moves cursor to start
+    } else {
+        // Fallback if ACE editor isn't on the page or available
+        $('#cquery').val(sqlQuery); // Assuming #cquery is the hidden input for custom SQL
+        console.warn('ACE editor not found. SQL set in hidden input for custom query.');
+    }
+
+    // Store editing state on the save query modal
+    $('#modal-save-query').data('editing-query-id', queryId);
+    $('#modal-save-query').data('editing-query-name', queryName); // Will be used to prefill name
+
+    // Set form action for custom query modal (similar to btn-run-saved-query)
+    var onDashboard = (!lastSegment || lastSegment === 'home' || lastSegment === 'dashboard');
+    var $customQueryForm = $('#modal-custom-query form');
+    if (onDashboard) {
+        var firstTableLink = $('.sidebar-nav a[href*="/table/"]').first();
+        if (firstTableLink.length > 0) {
+            var hrefParts = firstTableLink.attr('href').split('/');
+            var firstTableName = hrefParts[hrefParts.length -1];
+            if (firstTableName) {
+                $customQueryForm.attr('action', base + '/table/' + firstTableName);
+            } else {
+                 // This state should ideally not be reached if tables exist
+                $.jGrowl('Could not determine a default table context for editing.', { header: 'Error', theme: 'error' });
+                return;
+            }
+        } else {
+            $.jGrowl('No tables available for query context.', { header: 'Error', theme: 'error' });
+            return;
+        }
+    } else {
+        // On a table page, action should be current page context
+        $customQueryForm.attr('action', '');
+    }
+
+    // Open the custom query modal for editing SQL
+    $('#modal-custom-query').modal('show');
+    // The user will edit the SQL, then click "Run Query" in custom query modal.
+    // After running, they will be on table.php, then they can click "Save Current Query"
+    // which will trigger #btnShowSaveQueryModal, which needs to be aware of the edit state.
+});
+
+
 // --- Delete Saved Query Functionality (for dashboard and potentially modals if reused) ---
 // Delegated click handler for the delete button on a saved query item
 $('body').on('click', '.btn-delete-saved-query', function() {
@@ -432,8 +498,6 @@ $('body').on('change', 'select.jointable', function () {
 // --- Save Query Functionality ---
 // Show Save Query Modal
 $('body').on('click', '#btnShowSaveQueryModal', function() {
-    // Get the displayed SQL query text
-    // The SQL is inside a <pre> tag within #generatedQueryDisplay
     var sqlQueryText = $('#generatedQueryDisplay pre').text();
     if (!sqlQueryText || $.trim(sqlQueryText) === '') {
         $.jGrowl('No query generated yet to save!', { sticky: false, header: 'Error', theme: 'error' });
@@ -441,16 +505,27 @@ $('body').on('click', '#btnShowSaveQueryModal', function() {
     }
 
     $('#sql_query_save').val(sqlQueryText);
-    $('#query_name_save').val(''); // Clear previous name
+
+    // Check if we are in an "edit" workflow
+    var editingQueryId = $('#modal-save-query').data('editing-query-id');
+    var editingQueryName = $('#modal-save-query').data('editing-query-name');
+
+    if (editingQueryId) {
+        $('#query_name_save').val(editingQueryName); // Pre-fill name if editing
+    } else {
+        $('#query_name_save').val(''); // Clear name for new save
+    }
+
     $('#saveQueryMsg').hide().removeClass('alert-success alert-danger').text('');
     $('#modal-save-query').modal('show');
 });
 
-// Confirm and Save Query (AJAX)
+// Confirm and Save/Update Query (AJAX)
 $('body').on('click', '#btnSaveQueryConfirm', function() {
     var queryName = $('#query_name_save').val();
     var sqlQuery = $('#sql_query_save').val();
     var $saveQueryMsg = $('#saveQueryMsg');
+    var editingQueryId = $('#modal-save-query').data('editing-query-id'); // Get editing ID
 
     if ($.trim(queryName) === '') {
         $saveQueryMsg.removeClass('alert-success').addClass('alert-danger').text('Query name cannot be empty.').show();
@@ -458,7 +533,6 @@ $('body').on('click', '#btnSaveQueryConfirm', function() {
     }
 
     if ($.trim(sqlQuery) === '') {
-        // This case should ideally be prevented by the #btnShowSaveQueryModal logic
         $saveQueryMsg.removeClass('alert-success').addClass('alert-danger').text('SQL query is empty. Cannot save.').show();
         return;
     }
@@ -466,23 +540,57 @@ $('body').on('click', '#btnSaveQueryConfirm', function() {
     var $thisButton = $(this);
     $thisButton.prop('disabled', true).find('i').removeClass('fa-save').addClass('fa-spinner fa-spin');
 
+    var ajaxData = {
+        query_name: queryName,
+        sql_query: sqlQuery
+    };
+
+    if (editingQueryId) {
+        ajaxData.query_id = editingQueryId; // Add query_id if we are editing
+    }
 
     $.ajax({
-        url: base + '/ajax/saveQuery', // Ensure 'base' variable is globally available or adjust path
+        url: base + '/ajax/saveQuery',
         type: 'POST',
-        data: {
-            query_name: queryName,
-            sql_query: sqlQuery
-        },
+        data: ajaxData,
         dataType: 'json',
         success: function(response) {
             if (response.status === 'success') {
                 $saveQueryMsg.removeClass('alert-danger').addClass('alert-success').text(response.message).show();
-                $('#query_name_save').val(''); // Clear name for next save
+
+                if (!editingQueryId) { // Only clear name if it was a new save
+                    $('#query_name_save').val('');
+                }
+                // If it was an update, and successful, we might want to update the name on the dashboard if it changed.
+                // This requires refreshing the dashboard list or finding and updating the specific item.
+                // For now, a full refresh of dashboard or re-opening saved queries list from dashboard will show changes.
+                // Or, update the cache and re-render the specific item if possible.
+                if (editingQueryId && typeof initialSavedQueries !== 'undefined') { // If on dashboard
+                     // Simple refresh of dashboard content to show updated name/query
+                     // This is a bit heavy-handed, a more targeted update would be better for UX.
+                     // Consider just updating the name in savedQueriesCache and on the specific list item.
+                    var itemInCache = savedQueriesCache.find(function(q) { return q.id == editingQueryId; });
+                    if(itemInCache) {
+                        itemInCache.query_name = queryName;
+                        itemInCache.sql_query = sqlQuery; // also update sql in cache
+                        // Update the name in the dashboard list
+                        $('li[data-query-list-id="' + editingQueryId + '"]').contents().filter(function() {
+                            return this.nodeType === 3; // Text node
+                        }).first().replaceWith(escapeHtml(queryName));
+                         // Update the data-query-name attribute on the edit/delete buttons for this item
+                        $('li[data-query-list-id="' + editingQueryId + '"]').find('.btn-edit-saved-query, .btn-delete-saved-query').data('query-name', queryName);
+
+                    }
+                }
+
+
                 setTimeout(function() {
-                    //$('#modal-save-query').modal('hide'); // Optionally hide modal
                     $saveQueryMsg.fadeOut();
-                }, 3000);
+                    if (editingQueryId) { // Optionally close modal after successful update
+                         $('#modal-save-query').modal('hide');
+                    }
+                }, editingQueryId ? 1500 : 3000); // Shorter timeout for updates
+
             } else {
                 $saveQueryMsg.removeClass('alert-success').addClass('alert-danger').text(response.message || 'An unknown error occurred.').show();
             }
@@ -492,8 +600,19 @@ $('body').on('click', '#btnSaveQueryConfirm', function() {
         },
         complete: function() {
             $thisButton.prop('disabled', false).find('i').removeClass('fa-spinner fa-spin').addClass('fa-save');
+            if (editingQueryId && $('#modal-save-query').is(':hidden')) { // If closed by timeout
+                 $('#modal-save-query').removeData('editing-query-id');
+                 $('#modal-save-query').removeData('editing-query-name');
+            }
+            // If not closed by timeout, it will be cleared on next 'show' or if closed manually.
         }
     });
+});
+
+// Clear editing state if the save modal is closed manually
+$('#modal-save-query').on('hidden.bs.modal', function () {
+    $(this).removeData('editing-query-id');
+    $(this).removeData('editing-query-name');
 });
 
 
