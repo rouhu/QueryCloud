@@ -160,26 +160,20 @@ $('body').on('click', '.btn-run-saved-query', function() {
     }
 });
 
-// --- Delete Saved Query Functionality ---
+// --- Delete Saved Query Functionality (for dashboard and potentially modals if reused) ---
 // Delegated click handler for the delete button on a saved query item
 $('body').on('click', '.btn-delete-saved-query', function() {
     var queryId = $(this).data('query-id');
-    var queryName = $(this).data('query-name'); // Get the name for the confirmation message
+    var queryName = $(this).data('query-name');
 
-    // Store the queryId on the confirmation modal's delete button
-    // This is one way to pass the ID to the actual delete action
     $('#modal-delete-confirm').data('query-id-to-delete', queryId);
-
-    // Customize confirmation message (optional, if the modal can display dynamic text)
-    // For now, relying on the generic message in #modal-delete-confirm
-    // If #modal-delete-confirm had a <span id="item-to-delete-name"></span>, you could do:
-    // $('#item-to-delete-name').text(queryName || 'this item');
+    // If you want to customize the confirmation modal's text:
+    // $('#modal-delete-confirm .modal-body p:first').html('You are about to delete the query: <strong>' + escapeHtml(queryName) + '</strong>. This procedure is irreversible.');
 
     $('#modal-delete-confirm').modal('show');
 });
 
 // Click handler for the final delete confirmation button inside #modal-delete-confirm
-// Assumes #modal-delete-confirm has a button with class .btnDelete (as per modals.php)
 $('#modal-delete-confirm').on('click', '.btnDelete', function() {
     var queryIdToDelete = $('#modal-delete-confirm').data('query-id-to-delete');
 
@@ -189,8 +183,8 @@ $('#modal-delete-confirm').on('click', '.btnDelete', function() {
         return;
     }
 
-    var $thisButton = $(this); // The .btnDelete inside the confirmation modal
-    $thisButton.prop('disabled', true); // Disable while processing
+    var $thisButton = $(this);
+    $thisButton.prop('disabled', true).find('i').removeClass('fa-trash-o').addClass('fa-spinner fa-spin');
 
     $.ajax({
         url: base + '/ajax/deleteQuery',
@@ -201,17 +195,22 @@ $('#modal-delete-confirm').on('click', '.btnDelete', function() {
             if (response.status === 'success') {
                 $.jGrowl(response.message || 'Query deleted successfully!', { header: 'Success', theme: 'success' });
 
-                // Remove the item from the list in #modal-list-queries
-                $('#savedQueriesListContainer li[data-query-list-id="' + queryIdToDelete + '"]').fadeOut(function() {
+                // Remove the item from the list (works for both dashboard and previous modal list)
+                $('li[data-query-list-id="' + queryIdToDelete + '"]').fadeOut(function() {
                     $(this).remove();
-                    if ($('#savedQueriesListContainer li').length === 0) {
-                        $('#savedQueriesListContainer').html('<p class="text-muted">No saved queries found.</p>');
+                    // Check if the list is empty on the dashboard specifically
+                    if ($('#dashboardSavedQueriesList li').length === 0 && $('#dashboardSavedQueriesList').length > 0) {
+                        $('#dashboardSavedQueriesList').replaceWith('<div class="alert alert-info"><p><span class="fa fa-info-circle"></span> You have no saved queries yet. You can save a query after running it from the table view.</p></div>');
+                    }
+                    // Check if the list is empty in the (now removed) modal list container
+                    if ($('#savedQueriesListContainer li').length === 0 && $('#savedQueriesListContainer').length > 0) {
+                         $('#savedQueriesListContainer').html('<p class="text-muted">No saved queries found.</p>');
                     }
                 });
 
                 // Remove from cache
                 savedQueriesCache = savedQueriesCache.filter(function(query) {
-                    return query.id != queryIdToDelete;
+                    return query.id != queryIdToDelete; // Use loose equality as data attributes can be strings
                 });
 
             } else {
@@ -223,12 +222,18 @@ $('#modal-delete-confirm').on('click', '.btnDelete', function() {
         },
         complete: function() {
             $('#modal-delete-confirm').modal('hide');
-            $thisButton.prop('disabled', false); // Re-enable button
-            $('#modal-delete-confirm').removeData('query-id-to-delete'); // Clean up
+            $thisButton.prop('disabled', false).find('i').removeClass('fa-spinner fa-spin').addClass('fa-trash-o');
+            $('#modal-delete-confirm').removeData('query-id-to-delete');
         }
     });
 });
 
+$(document).ready(function() {
+    // Populate savedQueriesCache if initialSavedQueries is available (from dashboard.php)
+    if (typeof initialSavedQueries !== 'undefined' && Array.isArray(initialSavedQueries)) {
+        savedQueriesCache = initialSavedQueries;
+    }
+});
 
 function updateHavingFieldNameOptions() {
     var options = [];
@@ -463,73 +468,30 @@ $('body').on('click', '#btnSaveQueryConfirm', function() {
 });
 
 
-// --- List Saved Queries Functionality ---
-var savedQueriesCache = []; // Simple cache for query SQL
+// --- List Saved Queries Functionality (Obsolete, kept for reference during cleanup, will be removed) ---
+// var savedQueriesCache = []; // This is now initialized by initialSavedQueries if on dashboard
 
+/* // Obsolete: fetchAndDisplaySavedQueries function
 function fetchAndDisplaySavedQueries() {
-    var $container = $('#savedQueriesListContainer');
-    var $msgContainer = $('#listQueriesMsg');
-    $container.html('<p><i class="fa fa-spinner fa-spin"></i> Loading saved queries...</p>');
-    $msgContainer.hide();
-
-    $.ajax({
-        url: base + '/ajax/getSavedQueries',
-        type: 'GET',
-        dataType: 'json',
-        success: function(response) {
-            $container.empty(); // Clear loading message
-            if (response.status === 'success' && response.queries && response.queries.length > 0) {
-                savedQueriesCache = response.queries; // Cache the queries
-                var listHtml = '<ul class="list-group">';
-                $.each(response.queries, function(index, query) {
-                    listHtml += '<li class="list-group-item d-flex justify-content-between align-items-center" data-query-list-id="' + query.id + '">'; // Add data-query-list-id to li for easy removal
-                    listHtml += escapeHtml(query.query_name); // Display query name
-                    listHtml += '<div>'; // Group buttons
-                    listHtml += '<button type="button" class="btn btn-primary btn-xs btn-run-saved-query" data-query-id="' + query.id + '" style="margin-left: 10px;"><i class="fa fa-play"></i> Run</button>';
-                    listHtml += '<button type="button" class="btn btn-danger btn-xs btn-delete-saved-query" data-query-id="' + query.id + '" data-query-name="' + escapeHtml(query.query_name) + '" style="margin-left: 5px;"><i class="fa fa-trash-o"></i> Delete</button>';
-                    listHtml += '</div>';
-                    listHtml += '</li>';
-                });
-                listHtml += '</ul>';
-                $container.html(listHtml);
-            } else if (response.status === 'success') {
-                $container.html('<p class="text-muted">No saved queries found.</p>');
-            }
-            else {
-                $msgContainer.removeClass('alert-success').addClass('alert-danger').text(response.message || 'Could not load saved queries.').show();
-                $container.html('<p class="text-danger">Error loading queries.</p>');
-            }
-        },
-        error: function(jqXHR, textStatus, errorThrown) {
-            $container.html('<p class="text-danger">Error loading queries.</p>');
-            $msgContainer.removeClass('alert-success').addClass('alert-danger').text('AJAX Error: ' + textStatus + ' - ' + errorThrown).show();
-        }
-    });
+    // ... content removed ...
 }
+*/
 
-// Using escapeHtml to prevent XSS from query names
+/* // Obsolete: escapeHtml function (if only used by fetchAndDisplaySavedQueries)
 function escapeHtml(unsafe) {
-    if (unsafe === null || typeof unsafe === 'undefined') {
-        return '';
-    }
-    return unsafe
-         .replace(/&/g, "&amp;")
-         .replace(/</g, "&lt;")
-         .replace(/>/g, "&gt;")
-         .replace(/"/g, "&quot;")
-         .replace(/'/g, "&#039;");
- }
+    // ... content removed ...
+}
+*/
 
-// When the "List Saved Queries" modal is shown, fetch the list
+/* // Obsolete: Modal event listeners for list queries
 $('#modal-list-queries').on('show.bs.modal', function () {
-    fetchAndDisplaySavedQueries();
+    // fetchAndDisplaySavedQueries(); // Removed
 });
 
-// Refresh button click
 $('body').on('click', '#btnRefreshSavedQueries', function() {
-    fetchAndDisplaySavedQueries();
+    // fetchAndDisplaySavedQueries(); // Removed
 });
-
+*/
 
 $('#addjoinedtablefields').click(addTablesToDropdown);
 

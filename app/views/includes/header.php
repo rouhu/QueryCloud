@@ -43,11 +43,7 @@
 
         <ul class="sidebar-nav">
             <?php echo Flight::get('tables'); ?>
-            <li style="margin-top: 15px;">
-                <a href="#" data-toggle="modal" data-target="#modal-list-queries">
-                    <i class="fa fa-list-alt"></i> Saved Queries
-                </a>
-            </li>
+            <!-- Saved Queries link removed, queries are now shown on dashboard -->
         </ul>
     </div>
     <!-- End Sidebar -->
