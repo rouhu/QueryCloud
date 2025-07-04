@@ -21,3 +21,12 @@ $config['password'][] = 'admin';
 $config['username'][] = 'admin2';
 $config['password'][] = 'admin2';
 
+// table to store saved queries
+/*
+CREATE TABLE saved_queries (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    query_name VARCHAR(255) NOT NULL,
+    sql_query TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+*/
