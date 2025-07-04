@@ -66,4 +66,74 @@ class Ajax
             }
         }
     }
+
+    public static function saveQuery()
+    {
+        header('Content-Type: application/json'); // Ensure JSON response
+        $response = ['status' => 'error', 'message' => 'An unknown error occurred.'];
+
+        if (empty($_POST['query_name']) || empty($_POST['sql_query'])) {
+            $response['message'] = 'Query name and SQL query cannot be empty.';
+            echo json_encode($response);
+            return;
+        }
+
+        $query_name = trim($_POST['query_name']);
+        $sql_query = $_POST['sql_query']; // SQL query is already a string from client
+
+        try {
+            $saved_query = ORM::for_table('saved_queries')->create();
+            $saved_query->query_name = $query_name;
+            $saved_query->sql_query = $sql_query;
+            // created_at is handled by database default
+
+            if ($saved_query->save()) {
+                $response['status'] = 'success';
+                $response['message'] = 'Query "' . htmlspecialchars($query_name) . '" saved successfully!';
+            } else {
+                $response['message'] = 'Failed to save query to the database.';
+            }
+        } catch (PDOException $e) {
+            error_log("Error saving query: " . $e->getMessage()); // Log the actual error
+            $response['message'] = 'Database error: Could not save the query. ' . $e->getMessage();
+        } catch (Exception $e) {
+            error_log("General error saving query: " . $e->getMessage());
+            $response['message'] = 'An unexpected error occurred: ' . $e->getMessage();
+        }
+
+        echo json_encode($response);
+    }
+
+    public static function getSavedQueries()
+    {
+        header('Content-Type: application/json');
+        $response = ['status' => 'error', 'message' => 'Could not retrieve saved queries.', 'queries' => []];
+
+        try {
+            $queries = ORM::for_table('saved_queries')
+                            ->select('id')
+                            ->select('query_name')
+                            ->select('sql_query') // Also fetch sql_query to be used by client-side run button
+                            ->select('created_at')
+                            ->order_by_desc('created_at')
+                            ->find_array();
+
+            if ($queries !== false) { // find_array returns false on failure with some ORM configurations
+                $response['status'] = 'success';
+                $response['queries'] = $queries;
+                $response['message'] = 'Saved queries retrieved successfully.';
+            } else {
+                // This path might not be hit if an exception is thrown first for actual DB errors
+                $response['message'] = 'Failed to retrieve queries or no queries found.';
+            }
+        } catch (PDOException $e) {
+            error_log("Error fetching saved queries: " . $e->getMessage());
+            $response['message'] = 'Database error: Could not retrieve saved queries. ' . $e->getMessage();
+        } catch (Exception $e) {
+            error_log("General error fetching saved queries: " . $e->getMessage());
+            $response['message'] = 'An unexpected error occurred: ' . $e->getMessage();
+        }
+
+        echo json_encode($response);
+    }
 }

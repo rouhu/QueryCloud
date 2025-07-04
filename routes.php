@@ -19,4 +19,5 @@ Flight::route('POST /table/[a-zA-Z0-9-_?+]+', 'Table::runquery');
 //Flight::route('POST /ajax/[a-zA-Z0-9-_?+]+', array('Ajax', Flight::get('lastSegment')));
 $lastSegment = Flight::get('lastSegment');
 Flight::route('POST /ajax/[a-zA-Z0-9-_?+]+', 'Ajax::'.$lastSegment);
+Flight::route('GET /ajax/getSavedQueries', 'Ajax::getSavedQueries'); // Route for fetching saved queries
 //Flight::route('POST /ajax/@action', 'Ajax::@action');
