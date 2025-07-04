@@ -118,36 +118,86 @@ class Table
         } // for visual query
         else {
 
-            $query = 'SELECT ';
+            $select_parts = [];
 
-            // find out which fields to SELECT
-            if (array_key_exists('fields', $_POST) && count($_POST['fields'])) {
-                $total = count($_POST['fields']);
-
-                $duplicateNameFields = array();
-                $counter = 0;
-
+            // Process non-aggregated fields
+            if (!empty($_POST['fields'])) {
+                $duplicateNameFields = []; // To handle potential duplicate field names if selected multiple times (though less likely with table.field format)
                 foreach ($_POST['fields'] as $value) {
-                    $counter ++;
-
                     if ($value) {
-                        $duplicateNameFields[] = $value;
-
-                        // apply AS keyword for same field names from different tables
-                        if (in_array($value, $duplicateNameFields)) {
-                            $fieldArray = explode('.', $value);
-                            $tableName = $fieldArray[0];
-                            $fieldName = $fieldArray[1];
-                            $value = $value . ' AS ' . $tableName . '_' . $fieldName;
+                        // Basic protection for field names, assuming 'table.field' format
+                        // More robust quoting might be needed if arbitrary values are allowed.
+                        // The current UI generates table.field, so direct usage is mostly safe.
+                        // For aliasing to avoid conflicts if the same simple field is selected multiple times (e.g. from different joins before full qualification was implemented)
+                        // This logic might be less critical if all fields are fully qualified (table.field)
+                        $baseValue = $value;
+                        if (in_array($baseValue, $duplicateNameFields)) {
+                            $fieldArray = explode('.', $baseValue);
+                            if (count($fieldArray) === 2) {
+                                $value = $baseValue . ' AS ' . $fieldArray[0] . '_' . $fieldArray[1];
+                            }
+                            // If it's already aliased or not in table.field format, use as is or consider more complex aliasing
                         }
-
-                        if ($total === $counter) {
-                            $query .= $value;
-                        } else {
-                            $query .= $value . ', ';
-                        }
+                        $duplicateNameFields[] = $baseValue;
+                        $select_parts[] = $value;
                     }
                 }
+            }
+
+            // Process aggregated fields
+            if (!empty($_POST['agg_field']) && is_array($_POST['agg_field'])) {
+                foreach ($_POST['agg_field'] as $key => $field_name) {
+                    if (empty($field_name) || empty($_POST['agg_func'][$key])) {
+                        continue; // Skip if field name or function is missing
+                    }
+
+                    $func = strtoupper($_POST['agg_func'][$key]);
+                    $alias = $_POST['agg_alias'][$key] ?? '';
+
+                    // Basic validation for aggregate functions
+                    $allowed_funcs = ['COUNT', 'SUM', 'AVG', 'MIN', 'MAX'];
+                    if (!in_array($func, $allowed_funcs)) {
+                        // Potentially log an error or skip
+                        continue;
+                    }
+
+                    // Field name is expected to be table.field - quote it carefully if needed
+                    // For now, assuming $field_name is like 'tablename.fieldname'
+                    // Proper quoting: `table`.`field`
+                    $field_parts = explode('.', $field_name, 2);
+                    $quoted_field_name = $field_name; // Default to as-is if not 'table.field'
+                    if (count($field_parts) == 2) {
+                         // Basic quoting, can be improved for robustness
+                        $quoted_field_name = "`" . str_replace("`", "``", $field_parts[0]) . "`.`" . str_replace("`", "``", $field_parts[1]) . "`";
+                    } else {
+                        // If it's a single word, assume it's a field from the primary table or already quoted
+                        $quoted_field_name = "`" . str_replace("`", "``", $field_name) . "`";
+                    }
+
+
+                    $agg_string = $func . '(' . $quoted_field_name . ')';
+
+                    if (!empty($alias)) {
+                        // Sanitize alias: basic, allow alphanumeric and underscores
+                        $alias = preg_replace('/[^a-zA-Z0-9_]/', '', $alias);
+                        if (!empty($alias)) {
+                            $agg_string .= ' AS `' . $alias . '`';
+                        } else { // if alias became empty after sanitizing, generate default
+                            $default_alias = strtolower($func . '_' . preg_replace('/[^a-zA-Z0-9_]/', '', $field_parts[1] ?? $field_name));
+                            $agg_string .= ' AS `' . $default_alias . '`';
+                        }
+                    } else {
+                        $default_alias = strtolower($func . '_' . preg_replace('/[^a-zA-Z0-9_]/', '', $field_parts[1] ?? $field_name));
+                        $agg_string .= ' AS `' . $default_alias . '`';
+                    }
+                    $select_parts[] = $agg_string;
+                }
+            }
+
+            if (empty($select_parts)) {
+                $query = 'SELECT *';
+            } else {
+                $query = 'SELECT ' . implode(', ', $select_parts);
             }
 
             $query .= ' FROM `' . Flight::get('lastSegment') . '`';
@@ -198,6 +248,49 @@ class Table
                 $query .= ' GROUP BY ';
                 $query .= implode(', ', $_POST['groupfields']);
             }
+
+            // find out which fields/conditions to put in HAVING clause
+            if (!empty($_POST['hfname']) && is_array($_POST['hfname'])) {
+                $having_conditions = [];
+                $first_having_condition = true;
+                foreach ($_POST['hfname'] as $key => $hfname_val) {
+                    if (!empty($hfname_val) && isset($_POST['hfvalue'][$key]) && $_POST['hfvalue'][$key] !== '') {
+                        $hcondition_string = '';
+                        if (!$first_having_condition && isset($_POST['htype'][$key])) {
+                            $hcondition_string .= ' ' . $_POST['htype'][$key] . ' ';
+                        }
+                        $first_having_condition = false;
+
+                        // Quote field name/alias for HAVING. Aliases should not be table.field
+                        // If hfname_val contains '.', it's likely a table.field from GROUP BY, otherwise an alias.
+                        // For safety, we'll assume aliases do not contain '.' and fields from GROUP BY might.
+                        // SQL standard allows aliases from SELECT to be used in HAVING.
+                        // If it's an alias, it shouldn't be `table`.`alias`. Just `alias`.
+                        if (strpos($hfname_val, '.') === false) {
+                             // Likely an alias, quote it simply
+                            $hcondition_string .= '`' . str_replace("`", "``", $hfname_val) . '`';
+                        } else {
+                            // Likely a table.field from GROUP BY. Quote accordingly.
+                            $hfield_parts = explode('.', $hfname_val, 2);
+                            if (count($hfield_parts) == 2) {
+                                $hcondition_string .= "`" . str_replace("`", "``", $hfield_parts[0]) . "`.`" . str_replace("`", "``", $hfield_parts[1]) . "`";
+                            } else { // Fallback for non-standard field name
+                                $hcondition_string .= "`" . str_replace("`", "``", $hfname_val) . "`";
+                            }
+                        }
+
+                        // The hfvalue is expected to contain operator and value, e.g., "> 100" or "= 'text'"
+                        // This part needs to be robust. For now, direct concatenation.
+                        // TODO: Separate operator and value in UI and process them safely here.
+                        $hcondition_string .= ' ' . $_POST['hfvalue'][$key];
+                        $having_conditions[] = $hcondition_string;
+                    }
+                }
+                if (!empty($having_conditions)) {
+                    $query .= ' HAVING ' . implode('', $having_conditions); // Conditions already include AND/OR
+                }
+            }
+
 
             // find out ORDER BY fields
             if (array_key_exists('orderfields', $_POST) && count($_POST['orderfields'])) {

@@ -111,13 +111,25 @@ $fields = $fields ?? [];
                     </div>
 
                     <div class="form-group">
-    <label class="control-label" for="fields">Select Fields</label>
+    <label class="control-label" for="fields">Select Non-Aggregated Fields</label>
     <div class="controls">
         <select name="fields[]" multiple="multiple" class="form-control fields" style="width: 100%;">
             <?php echo $fields; ?>
         </select>
     </div>
 </div>
+
+                    <div class="form-group">
+                        <hr/>
+                        <label class="control-label">Aggregated Fields</label>
+                        <button style="margin-bottom: 10px !important;" type="button" id="btnAddAggregateField" class="btn btn-info" rel="hover_popover" data-content="Add SUM, COUNT, AVG etc.">
+                            <i class="glyphicon glyphicon-plus-sign"></i> Add Aggregate Field
+                        </button>
+                        <div id="aggregateFieldsContainer">
+                            <!-- Cloned aggregate fields will be inserted here -->
+                        </div>
+                        <hr/>
+                    </div>
 
                     <div class="form-group">
                         <button style="margin-bottom: 10px !important;" type="button" id="btnAddWhere" class="btn btn-primary" rel="hover_popover" data-content="Add WHERE clause conditions">
@@ -166,10 +178,22 @@ $fields = $fields ?? [];
                             &nbsp;
                         </div>
                         <div class="controls pull-left">
-                            <select name="groupfields[]" id="groupfields" multiple class="groupfields form-control" style="width: 400px;">
+                            <select name="groupfields[]" id="groupfields" multiple class="groupfields form-control fields" style="width: 400px;">
                                 <?php echo $fields; ?>
                             </select>
                         </div>
+                    </div>
+
+                    <div class="form-group">
+                        <hr/>
+                        <label class="control-label">Having Conditions</label>
+                        <button style="margin-bottom: 10px !important;" type="button" id="btnAddHavingCondition" class="btn btn-warning" rel="hover_popover" data-content="Add HAVING clause conditions (filters on aggregate values)">
+                            <i class="glyphicon glyphicon-filter"></i> Add Having Condition
+                        </button>
+                        <div id="havingConditionsContainer">
+                            <!-- Cloned having conditions will be inserted here -->
+                        </div>
+                        <hr/>
                     </div>
 
                     <div class="form-group">
@@ -252,6 +276,36 @@ $fields = $fields ?? [];
     <div class="clearfix"></div>
 </div>
 
+<div id="fieldCloneHaving" class="parent" style="display: none; margin: 3px;">
+    <div class="pull-left">
+        <a href="#" class="remove"><i class="glyphicon glyphicon-trash glyphicon-2x" style="margin-top: 5px;"></i></a>
+    </div>
+    <div class="pull-left" style="margin: 3px;">
+        &nbsp;
+    </div>
+    <div class="pull-left">
+        <select name="htype[]" class="form-control" style="width: 70px;">
+            <option value="AND">AND</option>
+            <option value="OR">OR</option>
+        </select>
+    </div>
+    <div class="pull-left" style="margin: 3px;">
+        &nbsp;
+    </div>
+    <div class="pull-left">
+        <select name="hfname[]" placeholder="Field Name / Alias" class="hfname form-control fields" style="width: 250px;">
+            <?php echo $fields; ?>
+        </select>
+    </div>
+    <div class="pull-left" style="margin: 3px;">
+        &nbsp;
+    </div>
+    <div class="pull-left">
+        <input type="text" name="hfvalue[]" placeholder="Operator + Value eg > 100" class="form-control" style="height: 28px; width: 250px;">
+    </div>
+    <div class="clearfix"></div>
+</div>
+
 <div id="fieldCloneTable" class="parent" style="display: none; margin: 3px;">
     <div class="pull-left">
         <a href="#" class="remove removeme"><i class="glyphicon glyphicon-trash glyphicon-2x" style="margin-top: 5px;"></i></a>
@@ -288,10 +342,44 @@ $fields = $fields ?? [];
         &nbsp;
     </div>
     <div class="pull-left">
-        <select name="joinfieldp[]" class="joinfieldmain form-control" style="width: 160px;">
+        <select name="joinfieldp[]" class="joinfieldmain form-control fields" style="width: 160px;">
             <option value="">Joining with Field</option>
-            <?= $fields ?? '' ?>
+            <?php echo $fields ?? '' ?>
         </select>
+    </div>
+    <div class="clearfix"></div>
+</div>
+
+<div id="fieldCloneAggregate" class="parent" style="display: none; margin: 10px 0;">
+    <div class="pull-left">
+        <a href="#" class="remove"><i class="glyphicon glyphicon-trash glyphicon-2x" style="margin-top: 5px;"></i></a>
+    </div>
+    <div class="pull-left" style="margin: 3px;">
+        &nbsp;
+    </div>
+    <div class="pull-left">
+        <select name="agg_field[]" class="form-control fields agg_field" style="width: 200px;" data-placeholder="Select Field">
+            <?php echo $fields; ?>
+        </select>
+    </div>
+    <div class="pull-left" style="margin: 3px;">
+        &nbsp;
+    </div>
+    <div class="pull-left">
+        <select name="agg_func[]" class="form-control agg_func" style="width: 120px;">
+            <option value="">None</option>
+            <option value="COUNT">COUNT</option>
+            <option value="SUM">SUM</option>
+            <option value="AVG">AVG</option>
+            <option value="MIN">MIN</option>
+            <option value="MAX">MAX</option>
+        </select>
+    </div>
+    <div class="pull-left" style="margin: 3px;">
+        &nbsp;
+    </div>
+    <div class="pull-left">
+        <input type="text" name="agg_alias[]" placeholder="Alias (optional)" class="form-control agg_alias" style="height: 28px; width: 180px;">
     </div>
     <div class="clearfix"></div>
 </div>

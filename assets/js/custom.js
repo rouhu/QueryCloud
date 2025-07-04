@@ -64,6 +64,129 @@ $('#btnAddWhere').click(function () {
     $clone.find('select').select2();
 });
 
+// add aggregate field for visual query
+$('#btnAddAggregateField').click(function () {
+    var $clone = $('#fieldCloneAggregate').clone().removeAttr('id'); // clone and remove id to avoid duplicates
+    $('#aggregateFieldsContainer').append($clone);
+    $clone.find('.agg_field').select2({ placeholder: 'Select Field', allowClear: true }); // Initialize select2 for the field selection
+    // No need to initialize select2 for agg_func unless specific styling/features are needed for it.
+    $clone.slideDown('fast');
+    updateHavingFieldNameOptions(); // Update HAVING field options when a new aggregate is added
+});
+
+// add Having condition for visual query
+$('#btnAddHavingCondition').click(function () {
+    var $clone = $('#fieldCloneHaving').clone().removeAttr('id');
+    $('#havingConditionsContainer').append($clone);
+    // Initialize select2 for the hfname dropdown, it will be populated by updateHavingFieldNameOptions
+    $clone.find('.hfname').select2({ placeholder: 'Select Field/Alias', allowClear: true });
+    $clone.slideDown('fast');
+    updateHavingFieldNameOptions(); // Ensure new HAVING rows get the correct options
+});
+
+// When aggregate alias or group by fields change, update HAVING field name options
+$('body').on('change', '.agg_alias, .groupfields', function() {
+    updateHavingFieldNameOptions();
+});
+
+
+function updateHavingFieldNameOptions() {
+    var options = [];
+    var existingOptions = {}; // To avoid duplicate options
+
+    // Get options from original fields (table.column)
+    // This re-uses the logic from addTablesToDropdown by fetching the current content of a 'fields' class select
+    // and adapting it. This is a bit of a workaround. A cleaner way might be to have a dedicated source for these options.
+    var generalFieldsHtml = $('select.fields').first().html(); // Get HTML of options from a representative 'fields' select
+    if (generalFieldsHtml) {
+        $(generalFieldsHtml).filter('optgroup').each(function() {
+            var optgroupLabel = $(this).attr('label');
+            var groupOptions = [];
+            $(this).find('option').each(function() {
+                var val = $(this).val();
+                var text = $(this).text();
+                if (!existingOptions[val]) {
+                    groupOptions.push({ val: val, text: text });
+                    existingOptions[val] = true;
+                }
+            });
+            if (groupOptions.length > 0) {
+                options.push({ label: optgroupLabel, options: groupOptions });
+            }
+        });
+         $(generalFieldsHtml).filter('option').each(function() {
+            var val = $(this).val();
+            var text = $(this).text();
+            if (!existingOptions[val]) {
+                options.push({ val: val, text: text }); // Add non-optgrouped options
+                existingOptions[val] = true;
+            }
+        });
+    }
+
+
+    // Get aliases from aggregated fields
+    $('#aggregateFieldsContainer .parent').each(function() {
+        var alias = $(this).find('.agg_alias').val();
+        var field = $(this).find('.agg_field').val();
+        var func = $(this).find('.agg_func').val();
+
+        if (func && field) { // Only consider if function and field are selected
+            var val = alias;
+            if (!val) { // Generate default alias if not provided by user
+                val = func.toLowerCase() + '_' + (field.includes('.') ? field.split('.')[1] : field) ;
+            }
+            var text = alias ? alias + ' (Alias)' : val + ' (Auto-Alias)';
+            if (val && !existingOptions[val]) {
+                options.push({ val: val, text: text, isAlias: true });
+                existingOptions[val] = true;
+            }
+        }
+    });
+
+    // Get fields from GROUP BY clause
+    $('select.groupfields').find('option:selected').each(function() {
+        var val = $(this).val();
+        var text = $(this).text() + ' (Group By)';
+        if (val && !existingOptions[val]) {
+            options.push({ val: val, text: text, isGroupBy: true });
+            existingOptions[val] = true;
+        }
+    });
+
+    var $hfnameSelects = $('select.hfname');
+    var newHtml = '<option value=""></option>'; // Add a blank option for placeholder
+
+    // Build HTML for options, handling optgroups if present in the initial set
+    options.forEach(function(opt) {
+        if (opt.label) { // This is an optgroup
+            newHtml += '<optgroup label="' + opt.label + '">';
+            opt.options.forEach(function(innerOpt) {
+                newHtml += '<option value="' + innerOpt.val + '">' + innerOpt.text + '</option>';
+            });
+            newHtml += '</optgroup>';
+        } else if (opt.isAlias) {
+             newHtml += '<option value="' + opt.val + '">' + opt.text + '</option>';
+        } else if (opt.isGroupBy) {
+             newHtml += '<option value="' + opt.val + '">' + opt.text + '</option>';
+        } else { // These are general fields that might not be in an optgroup
+            newHtml += '<option value="' + opt.val + '">' + opt.text + '</option>';
+        }
+    });
+
+
+    $hfnameSelects.each(function() {
+        var $select = $(this);
+        var currentValue = $select.val(); // Preserve selected value if possible
+        $select.html(newHtml);
+        if (currentValue && $select.find('option[value="' + currentValue + '"]').length > 0) {
+            $select.val(currentValue);
+        }
+        $select.trigger('change.select2'); // Notify select2 of update
+    });
+}
+
+
 // add order by clause for visual query
 $('#btnOrderby').click(function () {
     $('#orderby').slideDown('fast');
