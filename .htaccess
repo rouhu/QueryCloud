@@ -1,4 +1,4 @@
-RewriteEngine off
+RewriteEngine on
 RewriteBase /QueryCloud/
 
 RewriteCond %{REQUEST_URI} ^/(?:system|application) [NC]
