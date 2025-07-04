@@ -21,8 +21,9 @@ function autoloadController($className) {
 function autoloadClass($className) {
 	if (false !== strpos($className, 'flight')) return;
 
-	$className = strtolower($className);
-    $filename = "app/classes/" . $className . ".php";
+    // Preserve original class name for filename lookup
+    $originalClassName = $className;
+    $filename = "app/classes/" . $originalClassName . ".php";
     
 	if (is_readable($filename)) {
         require $filename;
@@ -32,8 +33,9 @@ function autoloadClass($className) {
 function autoloadPresenter($className) {
 	if (false !== strpos($className, 'flight')) return;
 
-	$className = strtolower($className);
-    $filename = "app/presenters/" . $className . ".php";
+    // Preserve original class name for filename lookup (assuming Presenters also follow PascalCase)
+    $originalClassName = $className;
+    $filename = "app/presenters/" . $originalClassName . ".php";
 	
     if (is_readable($filename)) {
         require $filename;
