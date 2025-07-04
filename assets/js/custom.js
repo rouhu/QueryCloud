@@ -56,12 +56,21 @@ $('#btnCustomQuery').click(function () {
 
 // add query condition for visual query
 $('#btnAddWhere').click(function () {
-    var $clone = $('#fieldClone').clone();
-    $(this).after($clone);
-    $clone.slideDown('fast');
-    //$clone.find('select').select2({});
+    var $clone = $('#fieldClone').clone().removeAttr('id'); // Good practice to remove ID from the parent clone if it had one.
+    var $selectInClone = $clone.find('select.fname');
+
+    // Destroy potential Select2 instance from the template before appending and re-initializing
+    $selectInClone.select2('destroy');
+
+    // Removing .select2-container manually might still be useful if destroy isn't perfect with older Select2 versions or specific CSS.
+    // However, with a proper destroy, it should ideally not be necessary. Let's keep it for now as it was there.
     $clone.find('.select2-container').remove();
-    $clone.find('select').select2();
+
+    $(this).after($clone); // Append the clone to the DOM
+
+    // Initialize Select2 on the select element within the newly appended clone
+    $selectInClone.select2({ placeholder: 'Choose Field', allowClear: true });
+    $clone.slideDown('fast');
 });
 
 // add aggregate field for visual query
@@ -469,11 +478,59 @@ function addTablesToDropdown() {
         //console.log('POST Data:', postData);
 
         $.post(base + '/ajax/getselectfields', postData, function(response) {
-          //  console.log('Server Response:', response);
+            // console.log('Server Response for getselectfields:', response); // For debugging the raw response
             
-            $('select.fields, select.fname, select.orderfields, select.groupfields').html(response).trigger('change');
-            $('.select2').select2();
+            // More robust way to update Select2 elements
+            var selectorsToUpdate = [
+                'select.fields',          // For general field selection
+                'select.fname',           // For WHERE clause field names
+                'select.orderfields',     // For ORDER BY field names
+                'select.groupfields',     // For GROUP BY field names
+                'select.joinfieldmain',   // For JOIN clause primary table fields (part of fieldCloneTable)
+                'select.agg_field'        // For Aggregate function field names (part of fieldCloneAggregate)
+                                          // Note: .hfname is handled by updateHavingFieldNameOptions separately
+            ];
+
+            $(selectorsToUpdate.join(', ')).each(function() {
+                var $select = $(this);
+                var currentValues = $select.val(); // Store current value(s)
+
+                // Try to destroy existing Select2 instance.
+                // If it wasn't initialized, this might throw a benign error or do nothing, depending on Select2 version.
+                // It's generally safer to try.
+                try {
+                    $select.select2('destroy');
+                } catch (e) {
+                    // console.warn('Could not destroy select2 instance on an element:', $select, e);
+                }
+
+                $select.html(response); // Populate with new options from AJAX
+
+                // Attempt to re-select previous value(s)
+                if (currentValues) {
+                    if (Array.isArray(currentValues)) {
+                        var newValues = [];
+                        currentValues.forEach(function(val) {
+                            if ($select.find('option[value="' + val + '"]').length > 0) {
+                                newValues.push(val);
+                            }
+                        });
+                        $select.val(newValues);
+                    } else {
+                        if ($select.find('option[value="' + currentValues + '"]').length > 0) {
+                            $select.val(currentValues);
+                        }
+                    }
+                }
+
+                // Re-initialize Select2 with appropriate placeholder
+                var placeholderText = $select.data('placeholder') || 'Choose'; // Use data-placeholder if available
+                $select.select2({ placeholder: placeholderText, allowClear: true });
+            });
             
+            // The global $('.select2').select2(); is removed to avoid conflicts.
+            // Specific initializations are handled above or in their respective cloning functions.
+
             $.jGrowl('Fields updated with joined tables!');
         }).fail(function(jqXHR, textStatus, errorThrown) {
            // console.error('AJAX Error:', textStatus, errorThrown);
