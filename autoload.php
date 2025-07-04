@@ -33,9 +33,9 @@ function autoloadClass($className) {
 function autoloadPresenter($className) {
 	if (false !== strpos($className, 'flight')) return;
 
-    // Preserve original class name for filename lookup (assuming Presenters also follow PascalCase)
-    $originalClassName = $className;
-    $filename = "app/presenters/" . $originalClassName . ".php";
+    // Revert to lowercase for presenter filename lookup as 'presenter.php' is lowercase
+	$lowercaseClassName = strtolower($className);
+    $filename = "app/presenters/" . $lowercaseClassName . ".php";
 	
     if (is_readable($filename)) {
         require $filename;
