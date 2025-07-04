@@ -143,17 +143,46 @@ $('body').on('click', '.btn-run-saved-query', function() {
         // So, setting the editor value should be sufficient if the custom query modal is open.
         // If we want to run it without opening the custom query modal first, we'd need a more direct submission.
 
-        // Close the list modal
-        $('#modal-list-queries').modal('hide');
+        // Close the list modal (if it's open - it won't be if running from dashboard)
+        if ($('#modal-list-queries').is(':visible')) {
+            $('#modal-list-queries').modal('hide');
+        }
 
-        // Open the custom query modal (if not already open) and then click its run button
-        // This reuses the existing custom query infrastructure.
+        // Determine if on dashboard or a table page
+        // The `lastSegment` variable is already available globally from PHP.
+        // It contains the last part of the URL. Empty for home, 'home' for /home, or table name for /table/tablename
+        var onDashboard = (!lastSegment || lastSegment === 'home' || lastSegment === 'dashboard');
+        var $customQueryForm = $('#modal-custom-query form');
+
+        if (onDashboard) {
+            var firstTableLink = $('.sidebar-nav a[href*="/table/"]').first();
+            if (firstTableLink.length > 0) {
+                var hrefParts = firstTableLink.attr('href').split('/');
+                var firstTableName = hrefParts[hrefParts.length -1]; // Get last part
+                if (firstTableName) {
+                    $customQueryForm.attr('action', base + '/table/' + firstTableName);
+                } else {
+                    $.jGrowl('Could not determine a default table to run the query. Please select a table first.', { header: 'Error', theme: 'error' });
+                    return;
+                }
+            } else {
+                $.jGrowl('No tables available to run the query. Please ensure tables are loaded.', { header: 'Error', theme: 'error' });
+                return;
+            }
+        } else {
+            // On a table page, ensure action is relative to current table or correctly set
+            // If `action` is empty, it will submit to current page (e.g., /table/current_table_name)
+            // If `action` was previously changed by dashboard run, reset it.
+             $customQueryForm.attr('action', ''); // Reset to submit to current page context
+        }
+
+        // Open the custom query modal and then click its run button
         $('#modal-custom-query').modal('show');
 
-        // It's better to ensure the modal is fully shown before clicking, but a slight delay can often work.
-        // Or, more robustly, trigger run from within 'shown.bs.modal' event of custom query modal if it was just opened.
-        // For now, a direct click:
-        $('#btnCustomQuery').click();
+        // Ensure modal is shown before clicking run, using Bootstrap's event
+        $('#modal-custom-query').one('shown.bs.modal', function () {
+            $('#btnCustomQuery').click();
+        });
 
     } else {
         $.jGrowl('Could not find the SQL for the selected query.', { sticky: false, header: 'Error', theme: 'error' });
