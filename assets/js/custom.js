@@ -67,8 +67,13 @@ $('#btnAddWhere').click(function () {
 // add aggregate field for visual query
 $('#btnAddAggregateField').click(function () {
     var $clone = $('#fieldCloneAggregate').clone().removeAttr('id'); // clone and remove id to avoid duplicates
+    var $aggFieldSelect = $clone.find('.agg_field');
+
+    // Destroy existing Select2 instance if any, then re-initialize
+    $aggFieldSelect.select2('destroy');
     $('#aggregateFieldsContainer').append($clone);
-    $clone.find('.agg_field').select2({ placeholder: 'Select Field', allowClear: true }); // Initialize select2 for the field selection
+    $aggFieldSelect.select2({ placeholder: 'Select Field', allowClear: true });
+
     // No need to initialize select2 for agg_func unless specific styling/features are needed for it.
     $clone.slideDown('fast');
     updateHavingFieldNameOptions(); // Update HAVING field options when a new aggregate is added
@@ -77,9 +82,13 @@ $('#btnAddAggregateField').click(function () {
 // add Having condition for visual query
 $('#btnAddHavingCondition').click(function () {
     var $clone = $('#fieldCloneHaving').clone().removeAttr('id');
+    var $hfnameSelect = $clone.find('.hfname');
+
+    // Destroy existing Select2 instance if any, then re-initialize
+    $hfnameSelect.select2('destroy');
     $('#havingConditionsContainer').append($clone);
-    // Initialize select2 for the hfname dropdown, it will be populated by updateHavingFieldNameOptions
-    $clone.find('.hfname').select2({ placeholder: 'Select Field/Alias', allowClear: true });
+    $hfnameSelect.select2({ placeholder: 'Select Field/Alias', allowClear: true });
+
     $clone.slideDown('fast');
     updateHavingFieldNameOptions(); // Ensure new HAVING rows get the correct options
 });
@@ -227,11 +236,15 @@ function updateHavingFieldNameOptions() {
     $hfnameSelects.each(function() {
         var $select = $(this);
         var currentValue = $select.val(); // Preserve selected value if possible
+
+        $select.select2('destroy'); // Destroy before updating HTML
         $select.html(newHtml);
+
         if (currentValue && $select.find('option[value="' + currentValue + '"]').length > 0) {
             $select.val(currentValue);
         }
-        $select.trigger('change.select2'); // Notify select2 of update
+        // Re-initialize Select2 after updating options
+        $select.select2({ placeholder: 'Select Field/Alias', allowClear: true });
     });
 }
 
