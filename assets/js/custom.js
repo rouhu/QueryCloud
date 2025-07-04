@@ -89,6 +89,55 @@ $('body').on('change', '.agg_alias, .groupfields', function() {
     updateHavingFieldNameOptions();
 });
 
+// Run Saved Query
+$('body').on('click', '.btn-run-saved-query', function() {
+    var queryId = $(this).data('query-id');
+    var queryToRun = null;
+
+    // Find the query in the cache
+    for (var i = 0; i < savedQueriesCache.length; i++) {
+        if (savedQueriesCache[i].id == queryId) { // Note: queryId from data attribute might be string
+            queryToRun = savedQueriesCache[i];
+            break;
+        }
+    }
+
+    if (queryToRun && queryToRun.sql_query) {
+        // Check if ACE editor instance 'editor' is available
+        if (typeof editor !== 'undefined' && editor !== null) {
+            editor.setValue(queryToRun.sql_query, -1); // -1 moves cursor to the start
+        } else {
+            // Fallback or alternative if ACE editor is not on the current page context or not used for custom query
+            // This might happen if the custom query modal isn't initialized or visible.
+            // For now, we assume custom query modal is the primary way to run these.
+            console.warn('ACE editor instance not found. Cannot set query value directly for custom query modal.');
+            // As a direct fallback, try to set #cquery if it exists, though this is less ideal without ACE sync
+            $('#cquery').val(queryToRun.sql_query);
+        }
+
+        // Ensure the hidden #cquery input (used by the form that submits custom queries) is updated.
+        // This is critical if #btnCustomQuery relies on this hidden field rather than exclusively on editor.getValue() at the moment of click.
+        // The existing #btnCustomQuery handler does `var query = editor.getValue(); $input.val(query);`
+        // So, setting the editor value should be sufficient if the custom query modal is open.
+        // If we want to run it without opening the custom query modal first, we'd need a more direct submission.
+
+        // Close the list modal
+        $('#modal-list-queries').modal('hide');
+
+        // Open the custom query modal (if not already open) and then click its run button
+        // This reuses the existing custom query infrastructure.
+        $('#modal-custom-query').modal('show');
+
+        // It's better to ensure the modal is fully shown before clicking, but a slight delay can often work.
+        // Or, more robustly, trigger run from within 'shown.bs.modal' event of custom query modal if it was just opened.
+        // For now, a direct click:
+        $('#btnCustomQuery').click();
+
+    } else {
+        $.jGrowl('Could not find the SQL for the selected query.', { sticky: false, header: 'Error', theme: 'error' });
+    }
+});
+
 
 function updateHavingFieldNameOptions() {
     var options = [];
@@ -250,6 +299,141 @@ $('body').on('change', 'select.jointable', function () {
         });
     }
 });
+
+// --- Save Query Functionality ---
+// Show Save Query Modal
+$('body').on('click', '#btnShowSaveQueryModal', function() {
+    // Get the displayed SQL query text
+    // The SQL is inside a <pre> tag within #generatedQueryDisplay
+    var sqlQueryText = $('#generatedQueryDisplay pre').text();
+    if (!sqlQueryText || $.trim(sqlQueryText) === '') {
+        $.jGrowl('No query generated yet to save!', { sticky: false, header: 'Error', theme: 'error' });
+        return;
+    }
+
+    $('#sql_query_save').val(sqlQueryText);
+    $('#query_name_save').val(''); // Clear previous name
+    $('#saveQueryMsg').hide().removeClass('alert-success alert-danger').text('');
+    $('#modal-save-query').modal('show');
+});
+
+// Confirm and Save Query (AJAX)
+$('body').on('click', '#btnSaveQueryConfirm', function() {
+    var queryName = $('#query_name_save').val();
+    var sqlQuery = $('#sql_query_save').val();
+    var $saveQueryMsg = $('#saveQueryMsg');
+
+    if ($.trim(queryName) === '') {
+        $saveQueryMsg.removeClass('alert-success').addClass('alert-danger').text('Query name cannot be empty.').show();
+        return;
+    }
+
+    if ($.trim(sqlQuery) === '') {
+        // This case should ideally be prevented by the #btnShowSaveQueryModal logic
+        $saveQueryMsg.removeClass('alert-success').addClass('alert-danger').text('SQL query is empty. Cannot save.').show();
+        return;
+    }
+
+    var $thisButton = $(this);
+    $thisButton.prop('disabled', true).find('i').removeClass('fa-save').addClass('fa-spinner fa-spin');
+
+
+    $.ajax({
+        url: base + '/ajax/saveQuery', // Ensure 'base' variable is globally available or adjust path
+        type: 'POST',
+        data: {
+            query_name: queryName,
+            sql_query: sqlQuery
+        },
+        dataType: 'json',
+        success: function(response) {
+            if (response.status === 'success') {
+                $saveQueryMsg.removeClass('alert-danger').addClass('alert-success').text(response.message).show();
+                $('#query_name_save').val(''); // Clear name for next save
+                setTimeout(function() {
+                    //$('#modal-save-query').modal('hide'); // Optionally hide modal
+                    $saveQueryMsg.fadeOut();
+                }, 3000);
+            } else {
+                $saveQueryMsg.removeClass('alert-success').addClass('alert-danger').text(response.message || 'An unknown error occurred.').show();
+            }
+        },
+        error: function(jqXHR, textStatus, errorThrown) {
+            $saveQueryMsg.removeClass('alert-success').addClass('alert-danger').text('AJAX Error: ' + textStatus + ' - ' + errorThrown).show();
+        },
+        complete: function() {
+            $thisButton.prop('disabled', false).find('i').removeClass('fa-spinner fa-spin').addClass('fa-save');
+        }
+    });
+});
+
+
+// --- List Saved Queries Functionality ---
+var savedQueriesCache = []; // Simple cache for query SQL
+
+function fetchAndDisplaySavedQueries() {
+    var $container = $('#savedQueriesListContainer');
+    var $msgContainer = $('#listQueriesMsg');
+    $container.html('<p><i class="fa fa-spinner fa-spin"></i> Loading saved queries...</p>');
+    $msgContainer.hide();
+
+    $.ajax({
+        url: base + '/ajax/getSavedQueries',
+        type: 'GET',
+        dataType: 'json',
+        success: function(response) {
+            $container.empty(); // Clear loading message
+            if (response.status === 'success' && response.queries && response.queries.length > 0) {
+                savedQueriesCache = response.queries; // Cache the queries
+                var listHtml = '<ul class="list-group">';
+                $.each(response.queries, function(index, query) {
+                    listHtml += '<li class="list-group-item d-flex justify-content-between align-items-center">';
+                    listHtml += escapeHtml(query.query_name); // Display query name
+                    listHtml += '<button type="button" class="btn btn-primary btn-xs btn-run-saved-query" data-query-id="' + query.id + '" style="margin-left: 10px;"><i class="fa fa-play"></i> Run</button>';
+                    // Future: Add edit/delete buttons here, using query.id
+                    // listHtml += '<span class="badge badge-primary badge-pill">' + query.id + '</span>'; // Example badge
+                    listHtml += '</li>';
+                });
+                listHtml += '</ul>';
+                $container.html(listHtml);
+            } else if (response.status === 'success') {
+                $container.html('<p class="text-muted">No saved queries found.</p>');
+            }
+            else {
+                $msgContainer.removeClass('alert-success').addClass('alert-danger').text(response.message || 'Could not load saved queries.').show();
+                $container.html('<p class="text-danger">Error loading queries.</p>');
+            }
+        },
+        error: function(jqXHR, textStatus, errorThrown) {
+            $container.html('<p class="text-danger">Error loading queries.</p>');
+            $msgContainer.removeClass('alert-success').addClass('alert-danger').text('AJAX Error: ' + textStatus + ' - ' + errorThrown).show();
+        }
+    });
+}
+
+// Using escapeHtml to prevent XSS from query names
+function escapeHtml(unsafe) {
+    if (unsafe === null || typeof unsafe === 'undefined') {
+        return '';
+    }
+    return unsafe
+         .replace(/&/g, "&amp;")
+         .replace(/</g, "&lt;")
+         .replace(/>/g, "&gt;")
+         .replace(/"/g, "&quot;")
+         .replace(/'/g, "&#039;");
+ }
+
+// When the "List Saved Queries" modal is shown, fetch the list
+$('#modal-list-queries').on('show.bs.modal', function () {
+    fetchAndDisplaySavedQueries();
+});
+
+// Refresh button click
+$('body').on('click', '#btnRefreshSavedQueries', function() {
+    fetchAndDisplaySavedQueries();
+});
+
 
 $('#addjoinedtablefields').click(addTablesToDropdown);
 

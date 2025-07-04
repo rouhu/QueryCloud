@@ -11,8 +11,11 @@
     </div>
 
     <hr/>
-    <h3>Generated Query</h3>
-    <div class="footer">
+    <div style="margin-bottom: 10px;">
+        <h3 style="display: inline-block; margin-right: 10px;">Generated Query</h3>
+        <button type="button" class="btn btn-success" id="btnShowSaveQueryModal"><i class="fa fa-save"></i> Save Current Query</button>
+    </div>
+    <div class="footer" id="generatedQueryDisplay">
         <?php echo $query; ?>
     </div>
     <span class="alert-warning timetaken">Time Taken: <strong><?php echo $timetaken ? $timetaken : '0.00'; ?></strong> second(s)!</span>
