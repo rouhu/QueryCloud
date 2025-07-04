@@ -136,4 +136,43 @@ class Ajax
 
         echo json_encode($response);
     }
+
+    public static function deleteQuery()
+    {
+        header('Content-Type: application/json');
+        $response = ['status' => 'error', 'message' => 'An unknown error occurred while deleting the query.'];
+
+        if (empty($_POST['query_id']) || !is_numeric($_POST['query_id'])) {
+            $response['message'] = 'Invalid Query ID provided.';
+            echo json_encode($response);
+            return;
+        }
+
+        $query_id = $_POST['query_id'];
+
+        try {
+            $query_to_delete = ORM::for_table('saved_queries')->find_one($query_id);
+
+            if ($query_to_delete) {
+                if ($query_to_delete->delete()) {
+                    $response['status'] = 'success';
+                    $response['message'] = 'Query deleted successfully.';
+                } else {
+                    $response['message'] = 'Failed to delete query from the database.';
+                }
+            } else {
+                $response['message'] = 'Query not found or already deleted.';
+                // Optionally set status to success if not finding it means it's "deleted" from user perspective
+                // For now, keeping it as an error if not found.
+            }
+        } catch (PDOException $e) {
+            error_log("Error deleting query: " . $e->getMessage());
+            $response['message'] = 'Database error: Could not delete the query. ' . $e->getMessage();
+        } catch (Exception $e) {
+            error_log("General error deleting query: " . $e->getMessage());
+            $response['message'] = 'An unexpected error occurred: ' . $e->getMessage();
+        }
+
+        echo json_encode($response);
+    }
 }

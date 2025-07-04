@@ -160,6 +160,75 @@ $('body').on('click', '.btn-run-saved-query', function() {
     }
 });
 
+// --- Delete Saved Query Functionality ---
+// Delegated click handler for the delete button on a saved query item
+$('body').on('click', '.btn-delete-saved-query', function() {
+    var queryId = $(this).data('query-id');
+    var queryName = $(this).data('query-name'); // Get the name for the confirmation message
+
+    // Store the queryId on the confirmation modal's delete button
+    // This is one way to pass the ID to the actual delete action
+    $('#modal-delete-confirm').data('query-id-to-delete', queryId);
+
+    // Customize confirmation message (optional, if the modal can display dynamic text)
+    // For now, relying on the generic message in #modal-delete-confirm
+    // If #modal-delete-confirm had a <span id="item-to-delete-name"></span>, you could do:
+    // $('#item-to-delete-name').text(queryName || 'this item');
+
+    $('#modal-delete-confirm').modal('show');
+});
+
+// Click handler for the final delete confirmation button inside #modal-delete-confirm
+// Assumes #modal-delete-confirm has a button with class .btnDelete (as per modals.php)
+$('#modal-delete-confirm').on('click', '.btnDelete', function() {
+    var queryIdToDelete = $('#modal-delete-confirm').data('query-id-to-delete');
+
+    if (!queryIdToDelete) {
+        $.jGrowl('Could not determine which query to delete. Please try again.', { header: 'Error', theme: 'error' });
+        $('#modal-delete-confirm').modal('hide');
+        return;
+    }
+
+    var $thisButton = $(this); // The .btnDelete inside the confirmation modal
+    $thisButton.prop('disabled', true); // Disable while processing
+
+    $.ajax({
+        url: base + '/ajax/deleteQuery',
+        type: 'POST',
+        data: { query_id: queryIdToDelete },
+        dataType: 'json',
+        success: function(response) {
+            if (response.status === 'success') {
+                $.jGrowl(response.message || 'Query deleted successfully!', { header: 'Success', theme: 'success' });
+
+                // Remove the item from the list in #modal-list-queries
+                $('#savedQueriesListContainer li[data-query-list-id="' + queryIdToDelete + '"]').fadeOut(function() {
+                    $(this).remove();
+                    if ($('#savedQueriesListContainer li').length === 0) {
+                        $('#savedQueriesListContainer').html('<p class="text-muted">No saved queries found.</p>');
+                    }
+                });
+
+                // Remove from cache
+                savedQueriesCache = savedQueriesCache.filter(function(query) {
+                    return query.id != queryIdToDelete;
+                });
+
+            } else {
+                $.jGrowl(response.message || 'Could not delete the query.', { header: 'Error', theme: 'error' });
+            }
+        },
+        error: function(jqXHR, textStatus, errorThrown) {
+            $.jGrowl('AJAX Error: Could not delete query. ' + textStatus, { header: 'Error', theme: 'error' });
+        },
+        complete: function() {
+            $('#modal-delete-confirm').modal('hide');
+            $thisButton.prop('disabled', false); // Re-enable button
+            $('#modal-delete-confirm').removeData('query-id-to-delete'); // Clean up
+        }
+    });
+});
+
 
 function updateHavingFieldNameOptions() {
     var options = [];
@@ -413,11 +482,12 @@ function fetchAndDisplaySavedQueries() {
                 savedQueriesCache = response.queries; // Cache the queries
                 var listHtml = '<ul class="list-group">';
                 $.each(response.queries, function(index, query) {
-                    listHtml += '<li class="list-group-item d-flex justify-content-between align-items-center">';
+                    listHtml += '<li class="list-group-item d-flex justify-content-between align-items-center" data-query-list-id="' + query.id + '">'; // Add data-query-list-id to li for easy removal
                     listHtml += escapeHtml(query.query_name); // Display query name
+                    listHtml += '<div>'; // Group buttons
                     listHtml += '<button type="button" class="btn btn-primary btn-xs btn-run-saved-query" data-query-id="' + query.id + '" style="margin-left: 10px;"><i class="fa fa-play"></i> Run</button>';
-                    // Future: Add edit/delete buttons here, using query.id
-                    // listHtml += '<span class="badge badge-primary badge-pill">' + query.id + '</span>'; // Example badge
+                    listHtml += '<button type="button" class="btn btn-danger btn-xs btn-delete-saved-query" data-query-id="' + query.id + '" data-query-name="' + escapeHtml(query.query_name) + '" style="margin-left: 5px;"><i class="fa fa-trash-o"></i> Delete</button>';
+                    listHtml += '</div>';
                     listHtml += '</li>';
                 });
                 listHtml += '</ul>';
