@@ -276,31 +276,6 @@ $fields = $fields ?? [];
     <div class="clearfix"></div>
 </div>
 
-<!-- List Saved Queries Modal -->
-<div class="modal fade" id="modal-list-queries">
-    <div class="modal-dialog modal-lg"> <!-- Larger modal for better list display -->
-        <div class="modal-content">
-            <div class="modal-header label-info">
-                <button type="button" class="close" data-dismiss="modal">&times;</button>
-                <h4 class="modal-title"><i class="fa fa-list-alt"></i> Saved Queries</h4>
-            </div>
-            <div class="modal-body">
-                <div id="listQueriesMsg" class="alert" style="display:none;"></div>
-                <button type="button" class="btn btn-default btn-sm" id="btnRefreshSavedQueries" style="margin-bottom: 10px;">
-                    <i class="fa fa-refresh"></i> Refresh List
-                </button>
-                <div id="savedQueriesListContainer" style="max-height: 400px; overflow-y: auto;">
-                    <!-- Saved queries will be listed here by JavaScript -->
-                    <p>Loading...</p>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-default" data-dismiss="modal"><i class="fa fa-times"></i> Close</button>
-            </div>
-        </div>
-    </div>
-</div>
-
 <!-- Save Query Modal -->
 <div class="modal fade" id="modal-save-query">
     <div class="modal-dialog">
