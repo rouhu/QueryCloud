@@ -69,7 +69,7 @@ class Ajax
 
     public static function saveQuery()
     {
-        header('Content-Type: application/json'); // Ensure JSON response
+        header('Content-Type: application/json');
         $response = ['status' => 'error', 'message' => 'An unknown error occurred.'];
 
         if (empty($_POST['query_name']) || empty($_POST['sql_query'])) {
@@ -79,25 +79,46 @@ class Ajax
         }
 
         $query_name = trim($_POST['query_name']);
-        $sql_query = $_POST['sql_query']; // SQL query is already a string from client
+        $sql_query = $_POST['sql_query'];
+        $query_id = $_POST['query_id'] ?? null;
 
         try {
-            $saved_query = ORM::for_table('saved_queries')->create();
-            $saved_query->query_name = $query_name;
-            $saved_query->sql_query = $sql_query;
-            // created_at is handled by database default
-
-            if ($saved_query->save()) {
-                $response['status'] = 'success';
-                $response['message'] = 'Query "' . htmlspecialchars($query_name) . '" saved successfully!';
+            if ($query_id && is_numeric($query_id)) {
+                // Update existing query
+                $saved_query = ORM::for_table('saved_queries')->find_one($query_id);
+                if ($saved_query) {
+                    $saved_query->query_name = $query_name;
+                    $saved_query->sql_query = $sql_query;
+                    // Note: created_at is not updated, consider adding an updated_at column if needed
+                    if ($saved_query->save()) {
+                        $response['status'] = 'success';
+                        $response['message'] = 'Query "' . htmlspecialchars($query_name) . '" updated successfully!';
+                    } else {
+                        $response['message'] = 'Failed to update query in the database.';
+                    }
+                } else {
+                    $response['message'] = 'Query not found for update.';
+                }
             } else {
-                $response['message'] = 'Failed to save query to the database.';
+                // Create new query
+                $saved_query = ORM::for_table('saved_queries')->create();
+                $saved_query->query_name = $query_name;
+                $saved_query->sql_query = $sql_query;
+                // created_at is handled by database default
+
+                if ($saved_query->save()) {
+                    $response['status'] = 'success';
+                    $response['message'] = 'Query "' . htmlspecialchars($query_name) . '" saved successfully!';
+                    // Optionally return the new ID if needed by client: $response['new_id'] = $saved_query->id();
+                } else {
+                    $response['message'] = 'Failed to save new query to the database.';
+                }
             }
         } catch (PDOException $e) {
-            error_log("Error saving query: " . $e->getMessage()); // Log the actual error
-            $response['message'] = 'Database error: Could not save the query. ' . $e->getMessage();
+            error_log("Error saving/updating query: " . $e->getMessage());
+            $response['message'] = 'Database error: ' . $e->getMessage();
         } catch (Exception $e) {
-            error_log("General error saving query: " . $e->getMessage());
+            error_log("General error saving/updating query: " . $e->getMessage());
             $response['message'] = 'An unexpected error occurred: ' . $e->getMessage();
         }
 
