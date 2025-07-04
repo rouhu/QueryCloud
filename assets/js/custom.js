@@ -18,8 +18,12 @@ if ($('table tr').length) {
     });
 }
 
-// replace selects with select2
-$('select').select2({ placeholder: 'Choose' });
+// replace selects with select2 - BEWARE: This global initializer might be problematic for hidden templates.
+// It's generally better to initialize Select2 specifically when elements are shown or activated.
+// For now, we'll make it slightly more specific to avoid direct init on known template contents.
+var initialSelect2Selector = 'select:not(#fieldClone select, #fieldCloneTable select, #fieldCloneAggregate select, #fieldCloneHaving select)';
+$(initialSelect2Selector).select2({ placeholder: 'Choose' });
+
 
 // for tooltips
 $(".tip").tooltip();
