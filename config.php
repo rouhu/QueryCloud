@@ -27,6 +27,8 @@ CREATE TABLE saved_queries (
     id INT AUTO_INCREMENT PRIMARY KEY,
     query_name VARCHAR(255) NOT NULL,
     sql_query TEXT NOT NULL,
+    is_visual_query TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'Flag to indicate if the query was created/saved via the visual builder',
+    visual_params TEXT NULL COMMENT 'JSON string representing the visual builder parameters',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 */
