@@ -16,6 +16,8 @@ class Dashboard
                             ->select('id')
                             ->select('query_name')
                             ->select('sql_query')
+                            ->select('is_visual_query')
+                            ->select('visual_params')
                             ->select('created_at')
                             ->order_by_desc('created_at')
                             ->find_array();
