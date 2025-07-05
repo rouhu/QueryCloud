@@ -1,8 +1,36 @@
+:root {
+    --primary-accent-color: #7B64FF; /* Metabase-like purple */
+    --primary-accent-hover-color: #6a55e0; /* Darker purple for hover */
+    --page-bg-color: #F8F9FA;       /* Light gray */
+    --content-bg-color: #FFFFFF;     /* White */
+    --primary-text-color: #4C5773;   /* Darker gray-blue */
+    --secondary-text-color: #7C8BA5; /* Medium gray-blue */
+    --border-color: #DEE2E6;       /* Very light gray */
+    --success-color: #28A745;
+    --info-color: #17A2B8;
+    --warning-color: #FFC107;
+    --danger-color: #DC3545;
+    --link-color: var(--primary-accent-color);
+    --link-hover-color: var(--primary-accent-hover-color);
+    --font-family-sans-serif: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+}
+
 body {
-    background: url("../img/bg.png");
+    /* background: url("../img/bg.png"); */ /* Removing old background image */
+    background-color: var(--page-bg-color);
+    font-family: var(--font-family-sans-serif);
+    color: var(--primary-text-color);
+    font-size: 14px; /* Base font size */
+    line-height: 1.5;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    color: var(--primary-text-color);
+    font-family: var(--font-family-sans-serif); /* Ensure headings also use the new font */
 }
 
 a {
+    color: var(--link-color);
     outline: none !important;
 }
 
@@ -14,77 +42,148 @@ a {
 #sidebar-wrapper {
     margin-left: -250px;
     width: 250px;
-    background: #31353E;
+    background-color: var(--content-bg-color); /* White sidebar */
+    border-right: 1px solid var(--border-color);
     position: fixed;
     height: 100%;
     overflow-y: auto;
     overflow-x: hidden;
     z-index: 1000;
     transition: all 0.4s ease 0s;
+    padding: 20px 0; /* Adjusted padding */
 }
 
 #sidebar-wrapper label {
-    color: #fff;
+    color: var(--primary-text-color); /* Updated label color */
+    font-weight: 500; /* Slightly bolder label */
+    padding-left: 15px; /* Align with nav items */
+    margin-bottom: 5px;
 }
+
+#sidebar-wrapper .form-control { /* Style select within sidebar */
+    border-radius: 0.25rem;
+    border-color: var(--border-color);
+    font-size: 13px; /* Slightly smaller font for select */
+    margin-left: 15px;
+    width: calc(100% - 30px); /* Adjust width considering padding */
+    margin-bottom: 15px;
+}
+
 
 #page-content-wrapper {
     width: 100%;
+    background-color: var(--page-bg-color); /* Ensure page bg color is applied here */
+    padding-top: 0; /* Reset any top padding if header is fixed or part of this */
 }
 
 .page-content {
-    margin-top: -5px;
+    /* margin-top: -5px; */ /* Removing this, header will manage its own space */
+    padding: 20px; /* Add some padding around the main content block */
+    background-color: var(--content-bg-color); /* White background for the actual content area within page-content */
+    margin: 15px; /* Margin around the content block */
+    border-radius: 4px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04); /* Subtle shadow */
 }
 
 .content-header {
-    background-color: transparent;
-    background-color: rgba(200, 200, 200, 0.3); /* FF3+, Saf3+, Opera 10.10+, Chrome, IE9 */
+    background-color: var(--content-bg-color); /* White background */
+    border-bottom: 1px solid var(--border-color);
+    padding: 15px 20px; /* Consistent padding */
+    margin-bottom: 0; /* Remove bottom margin if .page-content adds its own top margin/padding */
+    /* display: flex; */ /* Consider flex for alignment if needed later */
+    /* align-items: center; */
 }
 
+.content-header h1 {
+    margin-top: 0; /* Reset margin from h1 default */
+    margin-left: 0; /* Reset margin from h1 default */
+    font-size: 24px; /* Adjust size as needed */
+    font-weight: 600; /* Modern bold */
+    line-height: 1.2;
+}
+
+.content-header h1 .glyphicon {
+    font-size: 22px; /* Adjust icon size to match text */
+    margin-right: 8px;
+    color: var(--secondary-text-color); /* Softer icon color */
+}
+
+
+#addbuttoncontainer {
+    margin: 0; /* Reset from original 20px, as it's inside content-header now */
+    /* float: right; is handled by pull-right class */
+}
+
+
+/* Adjusting the main page padding provided by .inset, if .page-content is the new primary container */
+.inset {
+    /* padding: 30px; */ /* Original padding, now handled by .page-content */
+    /* This class might need to be re-evaluated or removed if .page-content takes over */
+}
+
+
 .sidebar-nav {
-    position: absolute;
-    top: 130px;
-    width: 250px;
+    /* position: absolute; */ /* Removing absolute positioning for natural flow */
+    /* top: 130px; */ /* Original top value, now determined by flow */
+    width: 100%; /* Take full width of sidebar-wrapper */
     list-style: none;
     margin: 0;
-    padding: 0;
+    padding: 0; /* Remove default ul padding */
 }
 
 .sidebar-nav li {
-    line-height: 25px;
-    text-indent: 10px;
+    line-height: 1.8; /* Increased line-height for better spacing */
+    /* text-indent: 10px; */ /* Will control padding on <a> tag instead */
+    width: 100%;
 }
 
 .sidebar-nav li a {
-    color: #ddd;
+    color: var(--secondary-text-color);
     display: block;
     text-decoration: none;
-    font-size: 12px;
+    font-size: 14px; /* Increased font size */
+    padding: 8px 15px; /* Added padding */
+    border-left: 3px solid transparent; /* For active link indicator */
+    transition: all 0.2s ease-in-out;
 }
 
-.activelink, .sidebar-nav li a:hover {
-    color: #fff;
-    background: rgba(255, 255, 255, 0.2);
-    text-decoration: none;
-}
-
-.sidebar-nav li a:active,
+.sidebar-nav li a:hover,
 .sidebar-nav li a:focus {
+    color: var(--primary-accent-color);
+    background-color: rgba(123, 100, 255, 0.05); /* Very light purple on hover */
     text-decoration: none;
+    border-left-color: var(--primary-accent-hover-color);
 }
+
+.sidebar-nav li.activelink a {
+    color: var(--primary-accent-color);
+    background-color: rgba(123, 100, 255, 0.1); /* Light purple for active */
+    font-weight: 500; /* Slightly bolder active link */
+    border-left-color: var(--primary-accent-color); /* Prominent left border for active */
+}
+
+.sidebar-nav li.activelink a:hover {
+    background-color: rgba(123, 100, 255, 0.15); /* Slightly darker on hover for active */
+}
+
 
 .sidebar-brand {
-    height: 40px;
-    color: #fff;
-    line-height: 60px;
-    font-size: 24px !important;
-    margin-left: 10px;
-    margin-bottom: -30px;
+    display: block; /* Make it a block to control padding/margin better */
+    color: var(--primary-accent-color);
+    font-size: 22px !important; /* Slightly reduced */
+    font-weight: 600;
+    padding: 10px 15px; /* Consistent padding */
+    margin-bottom: 10px; /* Space below brand */
     text-decoration: none !important;
+    /* Removed height and line-height for more natural flow */
 }
 
-.sidebar-brand:hover
-{
-    color: #fff;
+.sidebar-brand:hover {
+    color: var(--primary-accent-hover-color);
+}
+
+.sidebar-brand i.fa-database {
+    margin-right: 8px;
 }
 
 .content-header h1 {
@@ -237,4 +336,95 @@ pre {
     padding: 9px;
     word-break: break-all;
     word-wrap: break-word;
+}
+
+/* Modern Button Styles */
+.btn {
+    border-radius: 0.25rem; /* Slightly less rounded corners */
+    padding: 0.5rem 1rem; /* Adjust padding for a modern feel */
+    font-weight: 500;
+    border-width: 1px;
+    transition: background-color 0.15s ease-in-out, border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.btn-lg {
+    padding: 0.65rem 1.25rem;
+    font-size: 1rem; /* Bootstrap 4 like sizing */
+}
+
+.btn-xs {
+    padding: 0.2rem 0.4rem;
+    font-size: 0.75rem;
+}
+
+.btn-primary {
+    background-color: var(--primary-accent-color);
+    border-color: var(--primary-accent-color);
+    color: #fff;
+}
+.btn-primary:hover, .btn-primary:focus, .btn-primary:active {
+    background-color: var(--primary-accent-hover-color);
+    border-color: var(--primary-accent-hover-color);
+    color: #fff;
+    box-shadow: 0 0 0 0.2rem rgba(123, 100, 255, 0.25); /* Focus shadow with accent */
+}
+
+.btn-success {
+    background-color: var(--success-color);
+    border-color: var(--success-color);
+    color: #fff;
+}
+.btn-success:hover, .btn-success:focus, .btn-success:active {
+    background-color: #1e7e34; /* Darker green */
+    border-color: #1c7430;
+    color: #fff;
+}
+
+.btn-info {
+    background-color: var(--info-color);
+    border-color: var(--info-color);
+    color: #fff;
+}
+.btn-info:hover, .btn-info:focus, .btn-info:active {
+    background-color: #117a8b; /* Darker cyan */
+    border-color: #10707f;
+    color: #fff;
+}
+
+.btn-warning {
+    background-color: var(--warning-color);
+    border-color: var(--warning-color);
+    color: #212529; /* Dark text for yellow */
+}
+.btn-warning:hover, .btn-warning:focus, .btn-warning:active {
+    background-color: #d39e00; /* Darker yellow */
+    border-color: #c69500;
+    color: #212529;
+}
+
+.btn-danger {
+    background-color: var(--danger-color);
+    border-color: var(--danger-color);
+    color: #fff;
+}
+.btn-danger:hover, .btn-danger:focus, .btn-danger:active {
+    background-color: #bd2130; /* Darker red */
+    border-color: #b21f2d;
+    color: #fff;
+}
+
+.btn-default {
+    background-color: var(--content-bg-color); /* White */
+    border-color: var(--border-color);
+    color: var(--primary-text-color);
+}
+.btn-default:hover, .btn-default:focus, .btn-default:active {
+    background-color: #e9ecef; /* Light gray for hover */
+    border-color: #ced4da;
+    color: var(--primary-text-color);
+}
+
+/* Ensure icons in buttons align well */
+.btn .fa, .btn .glyphicon {
+    margin-right: 0.3em;
 }
