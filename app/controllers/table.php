@@ -313,13 +313,30 @@ class Table
 
             $query = self::fixQuery($query);
 
+            // Collect visual parameters if this was a visual query build
+            $visual_params_for_view = [];
+            // These are the POST keys used by the visual builder UI in modals.php and processed in Table::runquery()
+            $visual_param_keys = [
+                'fields', 'jointype', 'jointable', 'joinfield', 'joinfieldp',
+                'fname', 'fvalue', 'ftype',
+                'groupfields', 'orderfields', 'chkDescending',
+                'limitStart', 'limitNumRows',
+                'agg_field', 'agg_func', 'agg_alias',
+                'hfname', 'hfvalue', 'htype'
+            ];
+            foreach($visual_param_keys as $key) {
+                if (isset($_POST[$key])) {
+                    $visual_params_for_view[$key] = $_POST[$key];
+                }
+            }
+
             // run query and render view
-            self::runQueryWithView($query, $fields, $printArray);
+            self::runQueryWithView($query, $fields, $printArray, $visual_params_for_view);
         }
 
     }
 
-    private static function runQueryWithView($query, $fields, $printArray)
+    private static function runQueryWithView($query, $fields, $printArray, $visual_query_params = null)
     {
         $_SESSION['tableData'] = array();
 
@@ -369,7 +386,8 @@ foreach ($data as $row) {
               'fields' => getOptions($fields),
               'query' => SqlFormatter::format($query),
               'printArray' => $printArray,
-              'timetaken' => $exec_time_row[0][1]
+              'timetaken' => $exec_time_row[0][1],
+              'visual_params_json' => $visual_query_params ? json_encode($visual_query_params) : ''
            )
         );
     }

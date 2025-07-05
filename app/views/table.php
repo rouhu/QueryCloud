@@ -25,6 +25,8 @@
         <?php echo $printArray; ?>
     </div>
 
+    <input type="hidden" id="current_visual_params" value="<?php echo isset($visual_params_json) ? htmlspecialchars($visual_params_json, ENT_QUOTES, 'UTF-8') : ''; ?>">
+
     <script>
         var __table = '<?php echo Flight::get('lastSegment');?>';
     </script>
