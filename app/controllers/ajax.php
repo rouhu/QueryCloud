@@ -81,6 +81,8 @@ class Ajax
         $query_name = trim($_POST['query_name']);
         $sql_query = $_POST['sql_query'];
         $query_id = $_POST['query_id'] ?? null;
+        $is_visual_query = isset($_POST['is_visual_query']) ? filter_var($_POST['is_visual_query'], FILTER_VALIDATE_BOOLEAN) : false;
+        $visual_params = ($is_visual_query && isset($_POST['visual_params'])) ? $_POST['visual_params'] : null;
 
         try {
             if ($query_id && is_numeric($query_id)) {
@@ -89,6 +91,8 @@ class Ajax
                 if ($saved_query) {
                     $saved_query->query_name = $query_name;
                     $saved_query->sql_query = $sql_query;
+                    $saved_query->is_visual_query = $is_visual_query;
+                    $saved_query->visual_params = $is_visual_query ? $visual_params : null;
                     // Note: created_at is not updated, consider adding an updated_at column if needed
                     if ($saved_query->save()) {
                         $response['status'] = 'success';
@@ -104,12 +108,16 @@ class Ajax
                 $saved_query = ORM::for_table('saved_queries')->create();
                 $saved_query->query_name = $query_name;
                 $saved_query->sql_query = $sql_query;
+                $saved_query->is_visual_query = $is_visual_query;
+                $saved_query->visual_params = $is_visual_query ? $visual_params : null;
                 // created_at is handled by database default
 
                 if ($saved_query->save()) {
                     $response['status'] = 'success';
                     $response['message'] = 'Query "' . htmlspecialchars($query_name) . '" saved successfully!';
-                    // Optionally return the new ID if needed by client: $response['new_id'] = $saved_query->id();
+                    if (isset($saved_query->id)) { // Check if ID is available after save
+                        $response['new_query_id'] = $saved_query->id();
+                    }
                 } else {
                     $response['message'] = 'Failed to save new query to the database.';
                 }
@@ -134,7 +142,9 @@ class Ajax
             $queries = ORM::for_table('saved_queries')
                             ->select('id')
                             ->select('query_name')
-                            ->select('sql_query') // Also fetch sql_query to be used by client-side run button
+                            ->select('sql_query')
+                            ->select('is_visual_query')
+                            ->select('visual_params')
                             ->select('created_at')
                             ->order_by_desc('created_at')
                             ->find_array();

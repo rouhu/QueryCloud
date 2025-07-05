@@ -563,6 +563,14 @@ $('body').on('click', '#btnShowSaveQueryModal', function() {
     $('#sql_query_save').val(sqlQueryText);
     $('#query_name_save').val(''); // Always clear name for a new save
 
+    // For saving visual query params
+    var visualParamsJson = $('#current_visual_params').val();
+    if (visualParamsJson && visualParamsJson !== '') {
+        $('#modal-save-query').data('visual-params', visualParamsJson);
+    } else {
+        $('#modal-save-query').removeData('visual-params'); // Ensure it's clear if no params
+    }
+
     $('#saveQueryMsg').hide().removeClass('alert-success alert-danger').text('');
     $('#modal-save-query').modal('show');
 });
@@ -572,8 +580,7 @@ $('body').on('click', '#btnSaveQueryConfirm', function() {
     var queryName = $('#query_name_save').val();
     var sqlQuery = $('#sql_query_save').val();
     var $saveQueryMsg = $('#saveQueryMsg');
-
-    // This button now only handles NEW saves, so no editingQueryId check needed here for data sending.
+    var visualParams = $('#modal-save-query').data('visual-params');
 
     if ($.trim(queryName) === '') {
         $saveQueryMsg.removeClass('alert-success').addClass('alert-danger').text('Query name cannot be empty.').show();
@@ -588,10 +595,11 @@ $('body').on('click', '#btnSaveQueryConfirm', function() {
     var $thisButton = $(this);
     $thisButton.prop('disabled', true).find('i').removeClass('fa-save').addClass('fa-spinner fa-spin');
 
-    var ajaxData = { // Data for a NEW save
+    var ajaxData = {
         query_name: queryName,
-        sql_query: sqlQuery
-        // No query_id is sent, so server treats as new.
+        sql_query: sqlQuery,
+        is_visual_query: (visualParams && visualParams !== '') ? true : false,
+        visual_params: (visualParams && visualParams !== '') ? visualParams : null
     };
 
     $.ajax({
@@ -602,11 +610,19 @@ $('body').on('click', '#btnSaveQueryConfirm', function() {
         success: function(response) {
             if (response.status === 'success') {
                 $saveQueryMsg.removeClass('alert-danger').addClass('alert-success').text(response.message).show();
-                $('#query_name_save').val(''); // Clear name after successful new save
+                $('#query_name_save').val('');
 
-                // Potentially refresh dashboard list if user is on dashboard or redirect there
-                // For now, user has to manually refresh dashboard to see new query.
-                // Or, if response contains new query details, add it to savedQueriesCache and dashboard list.
+                // If a new query is saved and user is on dashboard, ideally refresh the dashboard list or add to it.
+                // For now, a jGrowl message might be enough, or they can refresh.
+                if (typeof initialSavedQueries !== 'undefined' && response.new_query_id) { // Assuming server sends back new_query_id
+                    // To dynamically update dashboard:
+                    // 1. Add new query to savedQueriesCache
+                    // savedQueriesCache.unshift({id: response.new_query_id, query_name: queryName, sql_query: sqlQuery, is_visual_query: ajaxData.is_visual_query, visual_params: ajaxData.visual_params, created_at: new Date().toISOString()});
+                    // 2. Re-render the list on dashboard or prepend the new item.
+                    // This part can be complex, for now, we'll rely on user refreshing dashboard or a success message.
+                     $.jGrowl('New query saved! Refresh dashboard to see it in the list.', { header: 'Info', theme: 'info', life: 5000 });
+                }
+
 
                 setTimeout(function() {
                     $saveQueryMsg.fadeOut();
@@ -620,17 +636,15 @@ $('body').on('click', '#btnSaveQueryConfirm', function() {
         },
         complete: function() {
             $thisButton.prop('disabled', false).find('i').removeClass('fa-spinner fa-spin').addClass('fa-save');
-            // No edit-specific data to clear from this modal anymore
+            $('#modal-save-query').removeData('visual-params'); // Clean up
         }
     });
 });
 
-// The hidden.bs.modal handler for #modal-save-query is no longer needed to clear edit state,
-// as this modal doesn't hold edit state anymore.
-// $('#modal-save-query').on('hidden.bs.modal', function () {
-// $(this).removeData('editing-query-id');
-// $(this).removeData('editing-query-name');
-// });
+// Clear visual_params data if the save modal is closed manually
+$('#modal-save-query').on('hidden.bs.modal', function () {
+    $(this).removeData('visual-params');
+});
 
 
 // --- List Saved Queries Functionality (Obsolete, kept for reference during cleanup, will be removed) ---
