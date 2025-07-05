@@ -177,11 +177,41 @@ $('body').on('click', '.btn-run-saved-query', function(e) {
              $customQueryForm.attr('action', ''); // Reset to submit to current page context
         }
 
-        // Open the custom query modal and then click its run button
-        $('#modal-custom-query').modal('show');
+        // This section was the source of the confusion.
+        // The 'Run Saved Query' button should *directly* submit the form.
+        // It should NOT interact with the ACE editor or the custom query modal UI.
+
+        var formAction = ''; // To be determined based on context (dashboard vs table page)
+
+        // Determine if on dashboard or a table page
+        var onDashboard = (!lastSegment || lastSegment === 'home' || lastSegment === 'dashboard');
+
+        if (onDashboard) {
+            var firstTableLink = $('.sidebar-nav a[href*="/table/"]').first();
+            if (firstTableLink.length > 0) {
+                var hrefParts = firstTableLink.attr('href').split('/');
+                var firstTableName = hrefParts[hrefParts.length -1];
+                if (firstTableName) {
+                    formAction = base + '/table/' + firstTableName;
+                } else {
+                    $.jGrowl('Could not determine a default table to run the query. Please select a table first.', { header: 'Error', theme: 'error' });
+                    return;
+                }
+            } else {
+                $.jGrowl('No tables available to run the query. Please ensure tables are loaded.', { header: 'Error', theme: 'error' });
+                return;
+            }
+        } else {
+            // On a table page, the action is the current page's URL.
+            // The original custom query form has action="", so it posts to current URL.
+            formAction = $('#modal-custom-query form').attr('action') || window.location.pathname + window.location.search + window.location.hash;
+            if(formAction === "") { // If action attr is empty string from the form, it means current page
+                 formAction = window.location.pathname + window.location.search + window.location.hash;
+            }
+        }
 
         // Dynamically create and submit a hidden form
-        var $form = $('<form>', {
+        var $dynamicForm = $('<form>', { // Renamed to $dynamicForm to avoid confusion with $customQueryForm
             'action': formAction,
             'method': 'POST',
             'style': 'display:none;'
@@ -191,16 +221,9 @@ $('body').on('click', '.btn-run-saved-query', function(e) {
             'value': queryToRun.sql_query
         }));
 
-        // If the original custom query form has other specific hidden inputs that Table::runquery might expect,
-        // they would need to be cloned here. For example, if 'vquery' or 'printArray' were relevant for non-visual runs.
-        // var $originalCustomQueryForm = $('#modal-custom-query form');
-        // $form.append($originalCustomQueryForm.find('input[name="vquery"]').clone());
-        // $form.append($originalCustomQueryForm.find('input[name="printArray"]').clone()); // This one is a checkbox, cloning needs care.
-        // For now, assuming only 'cquery' is essential for this direct run.
-
-        $('body').append($form);
-        $form.submit();
-        $form.remove();
+        $('body').append($dynamicForm);
+        $dynamicForm.submit();
+        $dynamicForm.remove();
 
     } else {
         $.jGrowl('Could not find the SQL for the selected query.', { sticky: false, header: 'Error', theme: 'error' });
