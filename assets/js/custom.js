@@ -113,105 +113,48 @@ $('body').on('change', '.agg_alias, .groupfields', function() {
 
 // Run Saved Query
 $('body').on('click', '.btn-run-saved-query', function(e) {
-    e.preventDefault(); // Prevent default anchor action if it were an <a> tag
+    e.preventDefault();
     var queryId = $(this).data('query-id');
     var queryToRun = null;
 
-    // Find the query in the cache
-    for (var i = 0; i < savedQueriesCache.length; i++) {
-        if (savedQueriesCache[i].id == queryId) { // Note: queryId from data attribute might be string
-            queryToRun = savedQueriesCache[i];
-            break;
+    if (typeof savedQueriesCache !== 'undefined') {
+        for (var i = 0; i < savedQueriesCache.length; i++) {
+            if (savedQueriesCache[i].id == queryId) {
+                queryToRun = savedQueriesCache[i];
+                break;
+            }
         }
     }
 
     if (queryToRun && queryToRun.sql_query) {
-        // Check if ACE editor instance 'editor' is available
-        if (typeof editor !== 'undefined' && editor !== null) {
-            editor.setValue(queryToRun.sql_query, -1); // -1 moves cursor to the start
-        } else {
-            // Fallback or alternative if ACE editor is not on the current page context or not used for custom query
-            // This might happen if the custom query modal isn't initialized or visible.
-            // For now, we assume custom query modal is the primary way to run these.
-            console.warn('ACE editor instance not found. Cannot set query value directly for custom query modal.');
-            // As a direct fallback, try to set #cquery if it exists, though this is less ideal without ACE sync
-            $('#cquery').val(queryToRun.sql_query);
-        }
-
-        // Ensure the hidden #cquery input (used by the form that submits custom queries) is updated.
-        // This is critical if #btnCustomQuery relies on this hidden field rather than exclusively on editor.getValue() at the moment of click.
-        // The existing #btnCustomQuery handler does `var query = editor.getValue(); $input.val(query);`
-        // So, setting the editor value should be sufficient if the custom query modal is open.
-        // If we want to run it without opening the custom query modal first, we'd need a more direct submission.
-
-        // Close the list modal (if it's open - it won't be if running from dashboard)
-        if ($('#modal-list-queries').is(':visible')) {
-            $('#modal-list-queries').modal('hide');
-        }
-
-        // Determine if on dashboard or a table page
-        // The `lastSegment` variable is already available globally from PHP.
-        // It contains the last part of the URL. Empty for home, 'home' for /home, or table name for /table/tablename
-        var onDashboard = (!lastSegment || lastSegment === 'home' || lastSegment === 'dashboard');
-        var $customQueryForm = $('#modal-custom-query form');
-
-        if (onDashboard) {
-            var firstTableLink = $('.sidebar-nav a[href*="/table/"]').first();
-            if (firstTableLink.length > 0) {
-                var hrefParts = firstTableLink.attr('href').split('/');
-                var firstTableName = hrefParts[hrefParts.length -1]; // Get last part
-                if (firstTableName) {
-                    $customQueryForm.attr('action', base + '/table/' + firstTableName);
-                } else {
-                    $.jGrowl('Could not determine a default table to run the query. Please select a table first.', { header: 'Error', theme: 'error' });
-                    return;
-                }
-            } else {
-                $.jGrowl('No tables available to run the query. Please ensure tables are loaded.', { header: 'Error', theme: 'error' });
-                return;
-            }
-        } else {
-            // On a table page, ensure action is relative to current table or correctly set
-            // If `action` is empty, it will submit to current page (e.g., /table/current_table_name)
-            // If `action` was previously changed by dashboard run, reset it.
-             $customQueryForm.attr('action', ''); // Reset to submit to current page context
-        }
-
-        // This section was the source of the confusion.
-        // The 'Run Saved Query' button should *directly* submit the form.
-        // It should NOT interact with the ACE editor or the custom query modal UI.
-
-        var formAction = ''; // To be determined based on context (dashboard vs table page)
-
-        // Determine if on dashboard or a table page
+        var formAction = '';
         var onDashboard = (!lastSegment || lastSegment === 'home' || lastSegment === 'dashboard');
 
         if (onDashboard) {
             var firstTableLink = $('.sidebar-nav a[href*="/table/"]').first();
             if (firstTableLink.length > 0) {
                 var hrefParts = firstTableLink.attr('href').split('/');
-                var firstTableName = hrefParts[hrefParts.length -1];
+                var firstTableName = hrefParts[hrefParts.length - 1];
                 if (firstTableName) {
                     formAction = base + '/table/' + firstTableName;
                 } else {
-                    $.jGrowl('Could not determine a default table to run the query. Please select a table first.', { header: 'Error', theme: 'error' });
+                    $.jGrowl('Could not determine a default table context. Please select a table first.', { header: 'Error', theme: 'error' });
                     return;
                 }
             } else {
-                $.jGrowl('No tables available to run the query. Please ensure tables are loaded.', { header: 'Error', theme: 'error' });
+                $.jGrowl('No tables available for query context. Please ensure tables are loaded.', { header: 'Error', theme: 'error' });
                 return;
             }
         } else {
             // On a table page, the action is the current page's URL.
-            // The original custom query form has action="", so it posts to current URL.
-            formAction = $('#modal-custom-query form').attr('action') || window.location.pathname + window.location.search + window.location.hash;
-            if(formAction === "") { // If action attr is empty string from the form, it means current page
+            // The custom query form in #modal-custom-query has action=""
+            formAction = $('#modal-custom-query form').attr('action'); // This will be ""
+            if(formAction === "" || typeof formAction === 'undefined') {
                  formAction = window.location.pathname + window.location.search + window.location.hash;
             }
         }
 
-        // Dynamically create and submit a hidden form
-        var $dynamicForm = $('<form>', { // Renamed to $dynamicForm to avoid confusion with $customQueryForm
+        var $dynamicForm = $('<form>', {
             'action': formAction,
             'method': 'POST',
             'style': 'display:none;'
@@ -226,7 +169,7 @@ $('body').on('click', '.btn-run-saved-query', function(e) {
         $dynamicForm.remove();
 
     } else {
-        $.jGrowl('Could not find the SQL for the selected query.', { sticky: false, header: 'Error', theme: 'error' });
+        $.jGrowl('Could not find the SQL for the selected query. Please refresh.', { sticky: false, header: 'Error', theme: 'error' });
     }
 });
 
@@ -260,11 +203,13 @@ $('body').on('click', '.btn-edit-saved-query', function() {
         console.warn('ACE editor not found. SQL set in hidden input for custom query.');
     }
 
-    // Store editing state on the save query modal
-    $('#modal-save-query').data('editing-query-id', queryId);
-    $('#modal-save-query').data('editing-query-name', queryName); // Will be used to prefill name
+    // Populate the new fields in the Custom Query Modal
+    $('#custom_query_id_edit').val(queryId);
+    $('#custom_query_name_edit').val(queryName);
+    $('#updateCustomQueryMsg').hide().removeClass('alert-success alert-danger').text('');
 
-    // Set form action for custom query modal (similar to btn-run-saved-query)
+
+    // Set form action for custom query modal (this is for the "Run Query (from editor)" button)
     var onDashboard = (!lastSegment || lastSegment === 'home' || lastSegment === 'dashboard');
     var $customQueryForm = $('#modal-custom-query form');
     if (onDashboard) {
@@ -293,6 +238,76 @@ $('body').on('click', '.btn-edit-saved-query', function() {
     // The user will edit the SQL, then click "Run Query" in custom query modal.
     // After running, they will be on table.php, then they can click "Save Current Query"
     // which will trigger #btnShowSaveQueryModal, which needs to be aware of the edit state.
+});
+
+// --- Update Saved Query (from Custom Query Modal) ---
+$('body').on('click', '#btnUpdateSavedQuery', function() {
+    var queryId = $('#custom_query_id_edit').val();
+    var queryName = $('#custom_query_name_edit').val();
+    var sqlQuery = (typeof editor !== 'undefined' && editor !== null) ? editor.getValue() : $('#cquery').val(); // Get SQL from ACE or fallback
+    var $msgContainer = $('#updateCustomQueryMsg');
+
+    if (!queryId) {
+        $msgContainer.removeClass('alert-success').addClass('alert-danger').text('Error: Query ID is missing. Cannot update.').show();
+        return;
+    }
+    if ($.trim(queryName) === '') {
+        $msgContainer.removeClass('alert-success').addClass('alert-danger').text('Query name cannot be empty.').show();
+        return;
+    }
+    if ($.trim(sqlQuery) === '') {
+        $msgContainer.removeClass('alert-success').addClass('alert-danger').text('SQL query is empty. Cannot update.').show();
+        return;
+    }
+
+    var $thisButton = $(this);
+    $thisButton.prop('disabled', true).find('i').removeClass('fa-save').addClass('fa-spinner fa-spin');
+
+    var ajaxData = {
+        query_id: queryId,
+        query_name: queryName,
+        sql_query: sqlQuery
+    };
+
+    $.ajax({
+        url: base + '/ajax/saveQuery', // Existing endpoint handles updates
+        type: 'POST',
+        data: ajaxData,
+        dataType: 'json',
+        success: function(response) {
+            if (response.status === 'success') {
+                $msgContainer.removeClass('alert-danger').addClass('alert-success').text(response.message).show();
+
+                // Update cache
+                if (typeof savedQueriesCache !== 'undefined') {
+                    var itemInCache = savedQueriesCache.find(function(q) { return q.id == queryId; });
+                    if (itemInCache) {
+                        itemInCache.query_name = queryName;
+                        itemInCache.sql_query = sqlQuery;
+                    }
+                }
+                // Update dashboard list item
+                var $listItem = $('li[data-query-list-id="' + queryId + '"]');
+                if ($listItem.length) {
+                    $listItem.contents().filter(function() { return this.nodeType === 3; }).first().replaceWith(escapeHtml(queryName));
+                    $listItem.find('.btn-edit-saved-query, .btn-delete-saved-query').data('query-name', queryName);
+                }
+
+                setTimeout(function() {
+                    $msgContainer.fadeOut(function() { $(this).hide(); });
+                    $('#modal-custom-query').modal('hide');
+                }, 1500);
+            } else {
+                $msgContainer.removeClass('alert-success').addClass('alert-danger').text(response.message || 'An unknown error occurred.').show();
+            }
+        },
+        error: function(jqXHR, textStatus, errorThrown) {
+            $msgContainer.removeClass('alert-success').addClass('alert-danger').text('AJAX Error: ' + textStatus + ' - ' + errorThrown).show();
+        },
+        complete: function() {
+            $thisButton.prop('disabled', false).find('i').removeClass('fa-spinner fa-spin').addClass('fa-save');
+        }
+    });
 });
 
 
@@ -536,7 +551,7 @@ $('body').on('change', 'select.jointable', function () {
     }
 });
 
-// --- Save Query Functionality ---
+// --- Save Query Functionality (Handles NEW saves only now) ---
 // Show Save Query Modal
 $('body').on('click', '#btnShowSaveQueryModal', function() {
     var sqlQueryText = $('#generatedQueryDisplay pre').text();
@@ -546,27 +561,19 @@ $('body').on('click', '#btnShowSaveQueryModal', function() {
     }
 
     $('#sql_query_save').val(sqlQueryText);
-
-    // Check if we are in an "edit" workflow
-    var editingQueryId = $('#modal-save-query').data('editing-query-id');
-    var editingQueryName = $('#modal-save-query').data('editing-query-name');
-
-    if (editingQueryId) {
-        $('#query_name_save').val(editingQueryName); // Pre-fill name if editing
-    } else {
-        $('#query_name_save').val(''); // Clear name for new save
-    }
+    $('#query_name_save').val(''); // Always clear name for a new save
 
     $('#saveQueryMsg').hide().removeClass('alert-success alert-danger').text('');
     $('#modal-save-query').modal('show');
 });
 
-// Confirm and Save/Update Query (AJAX)
+// Confirm and Save NEW Query (AJAX)
 $('body').on('click', '#btnSaveQueryConfirm', function() {
     var queryName = $('#query_name_save').val();
     var sqlQuery = $('#sql_query_save').val();
     var $saveQueryMsg = $('#saveQueryMsg');
-    var editingQueryId = $('#modal-save-query').data('editing-query-id'); // Get editing ID
+
+    // This button now only handles NEW saves, so no editingQueryId check needed here for data sending.
 
     if ($.trim(queryName) === '') {
         $saveQueryMsg.removeClass('alert-success').addClass('alert-danger').text('Query name cannot be empty.').show();
@@ -581,14 +588,11 @@ $('body').on('click', '#btnSaveQueryConfirm', function() {
     var $thisButton = $(this);
     $thisButton.prop('disabled', true).find('i').removeClass('fa-save').addClass('fa-spinner fa-spin');
 
-    var ajaxData = {
+    var ajaxData = { // Data for a NEW save
         query_name: queryName,
         sql_query: sqlQuery
+        // No query_id is sent, so server treats as new.
     };
-
-    if (editingQueryId) {
-        ajaxData.query_id = editingQueryId; // Add query_id if we are editing
-    }
 
     $.ajax({
         url: base + '/ajax/saveQuery',
@@ -598,40 +602,15 @@ $('body').on('click', '#btnSaveQueryConfirm', function() {
         success: function(response) {
             if (response.status === 'success') {
                 $saveQueryMsg.removeClass('alert-danger').addClass('alert-success').text(response.message).show();
+                $('#query_name_save').val(''); // Clear name after successful new save
 
-                if (!editingQueryId) { // Only clear name if it was a new save
-                    $('#query_name_save').val('');
-                }
-                // If it was an update, and successful, we might want to update the name on the dashboard if it changed.
-                // This requires refreshing the dashboard list or finding and updating the specific item.
-                // For now, a full refresh of dashboard or re-opening saved queries list from dashboard will show changes.
-                // Or, update the cache and re-render the specific item if possible.
-                if (editingQueryId && typeof initialSavedQueries !== 'undefined') { // If on dashboard
-                     // Simple refresh of dashboard content to show updated name/query
-                     // This is a bit heavy-handed, a more targeted update would be better for UX.
-                     // Consider just updating the name in savedQueriesCache and on the specific list item.
-                    var itemInCache = savedQueriesCache.find(function(q) { return q.id == editingQueryId; });
-                    if(itemInCache) {
-                        itemInCache.query_name = queryName;
-                        itemInCache.sql_query = sqlQuery; // also update sql in cache
-                        // Update the name in the dashboard list
-                        $('li[data-query-list-id="' + editingQueryId + '"]').contents().filter(function() {
-                            return this.nodeType === 3; // Text node
-                        }).first().replaceWith(escapeHtml(queryName));
-                         // Update the data-query-name attribute on the edit/delete buttons for this item
-                        $('li[data-query-list-id="' + editingQueryId + '"]').find('.btn-edit-saved-query, .btn-delete-saved-query').data('query-name', queryName);
-
-                    }
-                }
-
+                // Potentially refresh dashboard list if user is on dashboard or redirect there
+                // For now, user has to manually refresh dashboard to see new query.
+                // Or, if response contains new query details, add it to savedQueriesCache and dashboard list.
 
                 setTimeout(function() {
                     $saveQueryMsg.fadeOut();
-                    if (editingQueryId) { // Optionally close modal after successful update
-                         $('#modal-save-query').modal('hide');
-                    }
-                }, editingQueryId ? 1500 : 3000); // Shorter timeout for updates
-
+                }, 3000);
             } else {
                 $saveQueryMsg.removeClass('alert-success').addClass('alert-danger').text(response.message || 'An unknown error occurred.').show();
             }
@@ -641,20 +620,17 @@ $('body').on('click', '#btnSaveQueryConfirm', function() {
         },
         complete: function() {
             $thisButton.prop('disabled', false).find('i').removeClass('fa-spinner fa-spin').addClass('fa-save');
-            if (editingQueryId && $('#modal-save-query').is(':hidden')) { // If closed by timeout
-                 $('#modal-save-query').removeData('editing-query-id');
-                 $('#modal-save-query').removeData('editing-query-name');
-            }
-            // If not closed by timeout, it will be cleared on next 'show' or if closed manually.
+            // No edit-specific data to clear from this modal anymore
         }
     });
 });
 
-// Clear editing state if the save modal is closed manually
-$('#modal-save-query').on('hidden.bs.modal', function () {
-    $(this).removeData('editing-query-id');
-    $(this).removeData('editing-query-name');
-});
+// The hidden.bs.modal handler for #modal-save-query is no longer needed to clear edit state,
+// as this modal doesn't hold edit state anymore.
+// $('#modal-save-query').on('hidden.bs.modal', function () {
+// $(this).removeData('editing-query-id');
+// $(this).removeData('editing-query-name');
+// });
 
 
 // --- List Saved Queries Functionality (Obsolete, kept for reference during cleanup, will be removed) ---
