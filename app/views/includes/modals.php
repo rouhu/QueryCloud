@@ -66,15 +66,26 @@ $fields = $fields ?? [];
                 </div>
 
                 <div class="modal-body">
-                    <div id="ace"></div>
+                    <input type="hidden" id="custom_query_id_edit" name="custom_query_id_edit">
+                    <div class="form-group">
+                        <label for="custom_query_name_edit">Query Name:</label>
+                        <input type="text" class="form-control" id="custom_query_name_edit" name="custom_query_name_edit" placeholder="Enter a name for this query">
+                    </div>
+                    <div class="form-group">
+                        <label>SQL Query:</label>
+                        <div id="ace" style="height: 250px; width: 100%;"></div>
+                    </div>
+                    <div id="updateCustomQueryMsg" class="alert" style="display:none;"></div>
                 </div>
 
                 <div class="modal-footer">
-                    <button type="button" id="btnCustomQuery" class="btn btn-success"><i class="fa fa-play"></i>
-                        Run Query
+                    <button type="button" id="btnUpdateSavedQuery" class="btn btn-primary"><i class="fa fa-save"></i>
+                        Update Saved Query
                     </button>
-
-                    <button type="button" class="btn btn-danger" data-dismiss="modal"><i class="fa fa-times"></i>
+                    <button type="button" id="btnCustomQuery" class="btn btn-success"><i class="fa fa-play"></i>
+                        Run Query (from editor)
+                    </button>
+                    <button type="button" class="btn btn-default" data-dismiss="modal"><i class="fa fa-times"></i>
                         Close
                     </button>
                 </div>
@@ -82,6 +93,7 @@ $fields = $fields ?? [];
             </div>
 
             <input type="hidden" id="cquery" name="cquery"/>
+            <!-- This hidden input 'cquery' is still used by the #btnCustomQuery (Run Query) button -->
 
         </form>
         <!-- /.modal-content -->
