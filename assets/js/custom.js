@@ -112,7 +112,8 @@ $('body').on('change', '.agg_alias, .groupfields', function() {
 });
 
 // Run Saved Query
-$('body').on('click', '.btn-run-saved-query', function() {
+$('body').on('click', '.btn-run-saved-query', function(e) {
+    e.preventDefault(); // Prevent default anchor action if it were an <a> tag
     var queryId = $(this).data('query-id');
     var queryToRun = null;
 
@@ -179,10 +180,27 @@ $('body').on('click', '.btn-run-saved-query', function() {
         // Open the custom query modal and then click its run button
         $('#modal-custom-query').modal('show');
 
-        // Ensure modal is shown before clicking run, using Bootstrap's event
-        $('#modal-custom-query').one('shown.bs.modal', function () {
-            $('#btnCustomQuery').click();
-        });
+        // Dynamically create and submit a hidden form
+        var $form = $('<form>', {
+            'action': formAction,
+            'method': 'POST',
+            'style': 'display:none;'
+        }).append($('<input>', {
+            'type': 'hidden',
+            'name': 'cquery',
+            'value': queryToRun.sql_query
+        }));
+
+        // If the original custom query form has other specific hidden inputs that Table::runquery might expect,
+        // they would need to be cloned here. For example, if 'vquery' or 'printArray' were relevant for non-visual runs.
+        // var $originalCustomQueryForm = $('#modal-custom-query form');
+        // $form.append($originalCustomQueryForm.find('input[name="vquery"]').clone());
+        // $form.append($originalCustomQueryForm.find('input[name="printArray"]').clone()); // This one is a checkbox, cloning needs care.
+        // For now, assuming only 'cquery' is essential for this direct run.
+
+        $('body').append($form);
+        $form.submit();
+        $form.remove();
 
     } else {
         $.jGrowl('Could not find the SQL for the selected query.', { sticky: false, header: 'Error', theme: 'error' });
