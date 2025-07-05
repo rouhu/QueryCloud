@@ -194,50 +194,86 @@ $('body').on('click', '.btn-edit-saved-query', function() {
         return;
     }
 
-    // Populate ACE editor (if available)
-    if (typeof editor !== 'undefined' && editor !== null) {
-        editor.setValue(sqlQuery, -1); // -1 moves cursor to start
-    } else {
-        // Fallback if ACE editor isn't on the page or available
-        $('#cquery').val(sqlQuery); // Assuming #cquery is the hidden input for custom SQL
-        console.warn('ACE editor not found. SQL set in hidden input for custom query.');
+    var queryData = null;
+    if (typeof savedQueriesCache !== 'undefined') {
+        queryData = savedQueriesCache.find(function(q) { return q.id == queryId; });
     }
 
-    // Populate the new fields in the Custom Query Modal
-    $('#custom_query_id_edit').val(queryId);
-    $('#custom_query_name_edit').val(queryName);
-    $('#updateCustomQueryMsg').hide().removeClass('alert-success alert-danger').text('');
+    if (!queryData) {
+        $.jGrowl('Could not retrieve query details for editing. Please refresh.', { header: 'Error', theme: 'error' });
+        return;
+    }
 
+    sqlQuery = queryData.sql_query; // Already have queryName from data attribute
+    var isVisual = queryData.is_visual_query == '1' || queryData.is_visual_query === true; // Ensure boolean check
+    var visualParams = queryData.visual_params;
 
-    // Set form action for custom query modal (this is for the "Run Query (from editor)" button)
-    var onDashboard = (!lastSegment || lastSegment === 'home' || lastSegment === 'dashboard');
-    var $customQueryForm = $('#modal-custom-query form');
-    if (onDashboard) {
-        var firstTableLink = $('.sidebar-nav a[href*="/table/"]').first();
-        if (firstTableLink.length > 0) {
-            var hrefParts = firstTableLink.attr('href').split('/');
-            var firstTableName = hrefParts[hrefParts.length -1];
-            if (firstTableName) {
-                $customQueryForm.attr('action', base + '/table/' + firstTableName);
+    // Clear any old data from the save modal (as it's not used in this new flow)
+    $('#modal-save-query').removeData('editing-query-id').removeData('editing-query-name');
+
+    if (isVisual && visualParams && visualParams !== '') {
+        // Populate and show Visual Query Modal
+        $('#visual_query_id_edit').val(queryId);
+        $('#visual_query_name_edit').val(queryName);
+        // TODO: Implement populateVisualQueryModal(JSON.parse(visualParams));
+        // For now, just opening it with name and ID. User has to rebuild.
+        console.log("Attempting to open visual editor for:", queryName, "Params:", visualParams);
+        $.jGrowl('Populating visual editor from saved params is not yet fully implemented. Opening with name/ID.', { header: 'Info', theme: 'info', life: 5000});
+
+        // Set form action for the visual query modal's run button (if it submits directly)
+        // The visual query modal's form also needs its action set correctly.
+        var $visualQueryForm = $('#modal-visual-query form');
+        var onDashboardCtx = (!lastSegment || lastSegment === 'home' || lastSegment === 'dashboard');
+        if (onDashboardCtx) {
+            var firstTableLinkCtx = $('.sidebar-nav a[href*="/table/"]').first();
+            if (firstTableLinkCtx.length > 0) {
+                var hrefPartsCtx = firstTableLinkCtx.attr('href').split('/');
+                var firstTableNameCtx = hrefPartsCtx[hrefPartsCtx.length -1];
+                if (firstTableNameCtx) {
+                    $visualQueryForm.attr('action', base + '/table/' + firstTableNameCtx);
+                } else {
+                    $.jGrowl('Could not determine default table context for visual editor.', { header: 'Error', theme: 'error' }); return;
+                }
             } else {
-                 // This state should ideally not be reached if tables exist
-                $.jGrowl('Could not determine a default table context for editing.', { header: 'Error', theme: 'error' });
-                return;
+                $.jGrowl('No tables available for visual editor context.', { header: 'Error', theme: 'error' }); return;
             }
         } else {
-            $.jGrowl('No tables available for query context.', { header: 'Error', theme: 'error' });
-            return;
+            $visualQueryForm.attr('action', ''); // Current table context
         }
-    } else {
-        // On a table page, action should be current page context
-        $customQueryForm.attr('action', '');
-    }
+        $('#modal-visual-query').modal('show');
 
-    // Open the custom query modal for editing SQL
-    $('#modal-custom-query').modal('show');
-    // The user will edit the SQL, then click "Run Query" in custom query modal.
-    // After running, they will be on table.php, then they can click "Save Current Query"
-    // which will trigger #btnShowSaveQueryModal, which needs to be aware of the edit state.
+    } else {
+        // Fallback to Custom SQL Editor
+        if (typeof editor !== 'undefined' && editor !== null) {
+            editor.setValue(sqlQuery, -1);
+        } else {
+            $('#cquery').val(sqlQuery);
+            console.warn('ACE editor not found. SQL set in hidden input for custom query.');
+        }
+        $('#custom_query_id_edit').val(queryId);
+        $('#custom_query_name_edit').val(queryName);
+        $('#updateCustomQueryMsg').hide().removeClass('alert-success alert-danger').text('');
+
+        var onDashboardCtxSql = (!lastSegment || lastSegment === 'home' || lastSegment === 'dashboard');
+        var $customQueryFormSql = $('#modal-custom-query form');
+        if (onDashboardCtxSql) {
+            var firstTableLinkSql = $('.sidebar-nav a[href*="/table/"]').first();
+            if (firstTableLinkSql.length > 0) {
+                var hrefPartsSql = firstTableLinkSql.attr('href').split('/');
+                var firstTableNameSql = hrefPartsSql[hrefPartsSql.length -1];
+                if (firstTableNameSql) {
+                    $customQueryFormSql.attr('action', base + '/table/' + firstTableNameSql);
+                } else {
+                    $.jGrowl('Could not determine default table context for SQL editor.', { header: 'Error', theme: 'error' }); return;
+                }
+            } else {
+                $.jGrowl('No tables available for SQL editor context.', { header: 'Error', theme: 'error' }); return;
+            }
+        } else {
+            $customQueryFormSql.attr('action', '');
+        }
+        $('#modal-custom-query').modal('show');
+    }
 });
 
 // --- Update Saved Query (from Custom Query Modal) ---

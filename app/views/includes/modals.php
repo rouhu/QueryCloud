@@ -113,6 +113,13 @@ $fields = $fields ?? [];
                 </div>
 
                 <div class="modal-body">
+                    <input type="hidden" id="visual_query_id_edit" name="visual_query_id_edit">
+                    <div class="form-group">
+                        <label for="visual_query_name_edit">Query Name:</label>
+                        <input type="text" class="form-control" id="visual_query_name_edit" name="visual_query_name_edit" placeholder="Enter a name for this query">
+                    </div>
+                     <hr>
+
                     <div class="form-group">
                     <h4> Table: <?php echo strtoupper(Flight::get('lastSegment')); ?></h4>
                         <button style="margin-bottom: 10px !important;" type="button" id="btnJoinTable" class="btn btn-primary" rel="hover_popover" data-content="Join a table">
@@ -239,11 +246,13 @@ $fields = $fields ?? [];
                     <label for="printArray">Print POST Array</label>
                     &nbsp;&nbsp;
 
-                    <button type="submit" id="btnVisualQuery" class="btn btn-success"><i class="fa fa-play"></i>
-                        Run Query
+                    <button type="button" id="btnUpdateVisualQuery" class="btn btn-primary"><i class="fa fa-save"></i>
+                        Update Visual Query
                     </button>
-
-                    <button type="button" class="btn btn-danger" data-dismiss="modal"><i class="fa fa-times"></i>
+                    <button type="submit" id="btnVisualQuery" class="btn btn-success"><i class="fa fa-play"></i>
+                        Run Query (from editor)
+                    </button>
+                    <button type="button" class="btn btn-default" data-dismiss="modal"><i class="fa fa-times"></i>
                         Close
                     </button>
                 </div>
@@ -251,6 +260,8 @@ $fields = $fields ?? [];
             </div>
 
             <input type="hidden" name="vquery"/>
+            <input type="hidden" name="visual_query_id_edit_submit" id="visual_query_id_edit_submit_field">
+            <!-- The above field is not strictly needed if JS handles ID for update, but good for form context if ever used -->
 
         </form>
         <!-- /.modal-content -->
