@@ -68,10 +68,6 @@ $fields = $fields ?? [];
                 <div class="modal-body">
                     <input type="hidden" id="custom_query_id_edit" name="custom_query_id_edit">
                     <div class="form-group">
-                        <label for="custom_query_name_edit">Query Name:</label>
-                        <input type="text" class="form-control" id="custom_query_name_edit" name="custom_query_name_edit" placeholder="Enter a name for this query">
-                    </div>
-                    <div class="form-group">
                         <label>SQL Query:</label>
                         <div id="ace" style="height: 250px; width: 100%;"></div>
                     </div>
@@ -114,10 +110,6 @@ $fields = $fields ?? [];
 
                 <div class="modal-body">
                     <input type="hidden" id="visual_query_id_edit" name="visual_query_id_edit">
-                    <div class="form-group">
-                        <label for="visual_query_name_edit">Query Name:</label>
-                        <input type="text" class="form-control" id="visual_query_name_edit" name="visual_query_name_edit" placeholder="Enter a name for this query">
-                    </div>
                      <hr>
 
                     <div class="form-group">
@@ -299,6 +291,29 @@ $fields = $fields ?? [];
     <div class="clearfix"></div>
 </div>
 
+<!-- Rename Query Modal -->
+<div class="modal fade" id="modal-rename-query">
+    <div class="modal-dialog modal-sm"> <!-- Using modal-sm for a smaller modal -->
+        <div class="modal-content">
+            <div class="modal-header label-info"> <!-- Changed color for distinction -->
+                <button type="button" class="close" data-dismiss="modal">&times;</button>
+                <h4 class="modal-title"><i class="fa fa-pencil"></i> Rename Query</h4>
+            </div>
+            <div class="modal-body">
+                <div id="renameQueryMsg" class="alert" style="display:none;"></div>
+                <input type="hidden" id="rename_query_id" name="rename_query_id">
+                <div class="form-group">
+                    <label for="rename_query_name">New Query Name:</label>
+                    <input type="text" class="form-control" id="rename_query_name" name="rename_query_name" required>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-dismiss="modal"><i class="fa fa-times"></i> Cancel</button>
+                <button type="button" class="btn btn-primary" id="btnSaveRenameQuery"><i class="fa fa-save"></i> Save Rename</button>
+            </div>
+        </div>
+    </div>
+</div>
 <!-- Save Query Modal -->
 <div class="modal fade" id="modal-save-query">
     <div class="modal-dialog">

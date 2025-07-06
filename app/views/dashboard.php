@@ -10,8 +10,11 @@
                         <li class="list-group-item d-flex justify-content-between align-items-center" data-query-list-id="<?php echo htmlspecialchars($query['id']); ?>">
                             <?php echo htmlspecialchars($query['query_name']); ?>
                             <div style="float: right;"> <!-- Group buttons on the right -->
-                                <button type="button" class="btn btn-info btn-sm btn-edit-saved-query" data-query-id="<?php echo htmlspecialchars($query['id']); ?>" data-query-name="<?php echo htmlspecialchars($query['query_name']); ?>" style="margin-left: 10px;">
-                                    <i class="fa fa-pencil"></i> Edit
+                                <button type="button" class="btn btn-warning btn-sm btn-rename-query" data-query-id="<?php echo htmlspecialchars($query['id']); ?>" data-query-name="<?php echo htmlspecialchars($query['query_name']); ?>" style="margin-left: 10px;">
+                                    <i class="fa fa-i-cursor"></i> Rename
+                                </button>
+                                <button type="button" class="btn btn-info btn-sm btn-edit-saved-query" data-query-id="<?php echo htmlspecialchars($query['id']); ?>" data-query-name="<?php echo htmlspecialchars($query['query_name']); ?>" style="margin-left: 5px;">
+                                    <i class="fa fa-pencil"></i> Edit SQL/Visual
                                 </button>
                                 <button type="button" class="btn btn-primary btn-sm btn-run-saved-query" data-query-id="<?php echo htmlspecialchars($query['id']); ?>" style="margin-left: 5px;">
                                     <i class="fa fa-play"></i> Run
