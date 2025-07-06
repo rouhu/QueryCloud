@@ -717,14 +717,21 @@ $('body').on('change', 'select.jointable', function () {
 
     if (value) {
         var $this = $(this);
-       // console.log("Selected table:", value); // debug
-        $.post(base + '/ajax/gettablefields', {"table": value}, function (response) {
-            var $select = $this.closest('.parent').find('select.joinfieldselected');
-         //   console.log("Fields:", response); // debug
-            $select.html(response);
-            $select.select2();
-        }).fail(function() {
-            $.jGrowl('Error loading fields!', { sticky: false, header: 'Error' });
+        var $targetSelect = $this.closest('.parent').find('select.joinfieldselected');
+       // console.log("Manual Join: Selected table:", value, "Target select:", $targetSelect);
+
+        // Use the new populateJoinFieldDropdown function
+        populateJoinFieldDropdown($targetSelect, value, null, function(success) {
+            if (success) {
+                // Optional: Trigger change on the populated select if other elements depend on its value
+                // $targetSelect.trigger('change');
+
+                // After a join table is manually selected and its fields loaded,
+                // we need to update the general field dropdowns in VQB (like joinfieldmain in other rows)
+                // to include fields from this newly selected table.
+                addTablesToDropdown();
+            }
+            // Error handling is done within populateJoinFieldDropdown
         });
     }
 });
