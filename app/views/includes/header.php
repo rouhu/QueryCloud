@@ -7,7 +7,19 @@
     <link rel="shortcut icon" href="<?php echo Flight::get('base'); ?>/favicon.ico" type="image/x-icon">
     <link rel="icon" href="<?php echo Flight::get('base'); ?>/favicon.ico" type="image/x-icon">
 
-    <title><?php echo Flight::get('appname'); ?></title>
+    <title>
+        <?php
+        $page_title = Flight::get('appname'); // Default
+        if (!empty($title)) { // $title is usually the table name from Flight::get('lastSegment')
+            $page_title = "Table: " . htmlspecialchars($title) . " | " . Flight::get('appname');
+        }
+        // $executed_query_name is passed from Table::runQueryWithView
+        if (!empty($executed_query_name)) {
+            $page_title = "Query: " . htmlspecialchars($executed_query_name) . " - " . $page_title;
+        }
+        echo $page_title;
+        ?>
+    </title>
     <link href="<?php echo Flight::get('base'); ?>/assets/css/bootstrap.min.css" rel="stylesheet">
     <link href="<?php echo Flight::get('base'); ?>/assets/css/font-awesome.css" rel="stylesheet">
     <link href="<?php echo Flight::get(
@@ -52,7 +64,13 @@
     <div id="page-content-wrapper">
 
         <div class="content-header">
-            <div class="pull-left"><h1><i class="glyphicon <?php echo $icon; ?>"></i> <?php echo $title; ?></h1></div>
+            <div class="pull-left">
+                <?php if (!empty($executed_query_name)): ?>
+                    <h1><i class="fa fa-play-circle-o"></i> Query: <?php echo htmlspecialchars($executed_query_name); ?> <small>(on table: <?php echo htmlspecialchars($title); ?>)</small></h1>
+                <?php else: ?>
+                    <h1><i class="glyphicon <?php echo $icon; ?>"></i> <?php echo $title; ?></h1>
+                <?php endif; ?>
+            </div>
 
             <div class="pull-right" id="addbuttoncontainer">
                 <?php if (false !== strpos($_SERVER['REQUEST_URI'], '/table')) { ?>
