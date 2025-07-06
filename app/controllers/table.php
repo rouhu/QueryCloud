@@ -14,14 +14,26 @@ class Table
         try {
             // Get table structure
             $stmt = Flight::get('db')->query("DESCRIBE `$table`");
-            $fields = $stmt->fetchAll(PDO::FETCH_ASSOC);
-            $fieldOptions = getOptions(array_column($fields, 'Field'));
+            $table_fields_data = $stmt->fetchAll(PDO::FETCH_ASSOC); // Renamed to avoid conflict with $fields later
+            // Pass the table name to getOptions to generate qualified field names
+            $fieldOptions = getOptions(array_column($table_fields_data, 'Field'), false, $table);
         } catch (PDOException $e) {
-            $fields = [];
+            $table_fields_data = []; // Renamed
+            $fieldOptions = ''; // Initialize $fieldOptions in case of error
             error_log("Table structure error: ".$e->getMessage());
         }
 
-        $_SESSION['tableData'] = array();
+        // This $fields array is used for $_SESSION['tableData'], keep it as simple field names
+        $fields_for_session = array();
+        // The $columns variable seems to be fetching the same DESCRIBE info again.
+        // We can reuse $table_fields_data if it's already fetched and valid.
+        // If $table_fields_data is empty due to an earlier error, this will also be empty.
+        foreach ($table_fields_data as $values) {
+            if (isset($values['Field'])) {
+                $fields_for_session[] = $values['Field'];
+            }
+        }
+        $_SESSION['tableData'] = array(); // Initialize
 
         // Checks whether or not user is logged in
         self::checkLogin();
@@ -40,21 +52,14 @@ class Table
 
         $exec_time_row = $exec_time_result->fetchAll(PDO::FETCH_NUM);
 
-        // table columns
-        $stmt = Flight::get('db')->query("DESCRIBE " . Flight::get('lastSegment'));
-        $columns = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        //pretty_print($columns);
+        // $fields_for_session is already populated from $table_fields_data earlier
+        // No need for the second DESCRIBE query for $columns or re-populating $fields.
 
-        $fields = array();
-        foreach ($columns as $values) {
-            if (isset($values['Field'])) {
-                $fields[] = $values['Field'];
-            }
-        }
-        //pretty_print($fields);
+        //pretty_print($fields_for_session);
 
         // store table fields/columns + data rows in session for exporting later
-        $_SESSION['tableData'] = array_merge($fields, $records);
+        // Ensure $fields_for_session is used here instead of an undefined $fields
+        $_SESSION['tableData'] = array_merge($fields_for_session, $records);
 
 
         $fieldTypes = array();
@@ -406,7 +411,7 @@ foreach ($data as $row) {
               'title' => Flight::get('lastSegment'),
               'icon' => self::$icon,
               'table_data' => $records,
-              'fields' => getOptions($fields),
+              'fields' => getOptions($fields, false, Flight::get('lastSegment')), // Pass table name
               'query' => SqlFormatter::format($query),
               'printArray' => $printArray,
               'timetaken' => $exec_time_row[0][1],
