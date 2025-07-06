@@ -217,8 +217,31 @@ class Table
 
                     // build ON table join clause
                     if ($_POST['jointable'][$key]) {
-                        $query .= $_POST['jointable'][$key];
-                        $query .= ' ON ' . $primaryTable . '.`' . $_POST['joinfieldp'][$key] . '` = ' . $_POST['jointable'][$key] . '.`' . $_POST['joinfield'][$key] . '`';
+                        $query .= '`' . str_replace('`', '``', $_POST['jointable'][$key]) . '`'; // Quote the joined table name
+
+                        // Primary table's join field
+                        $primary_join_field = $_POST['joinfieldp'][$key];
+                        if (strpos($primary_join_field, '.') !== false) {
+                            // Field is already qualified (e.g., table.column)
+                            list($pt_table, $pt_col) = explode('.', $primary_join_field, 2);
+                            $primary_join_field_sql = '`' . str_replace('`', '``', $pt_table) . '`.`' . str_replace('`', '``', $pt_col) . '`';
+                        } else {
+                            // Field is not qualified, prepend primary table name
+                            $primary_join_field_sql = '`' . str_replace('`', '``', $primaryTable) . '`.`' . str_replace('`', '``', $primary_join_field) . '`';
+                        }
+
+                        // Joined table's join field
+                        $secondary_join_field = $_POST['joinfield'][$key];
+                        if (strpos($secondary_join_field, '.') !== false) {
+                            // Field is already qualified (e.g., table.column)
+                            list($st_table, $st_col) = explode('.', $secondary_join_field, 2);
+                            $secondary_join_field_sql = '`' . str_replace('`', '``', $st_table) . '`.`' . str_replace('`', '``', $st_col) . '`';
+                        } else {
+                            // Field is not qualified, prepend joined table name
+                            $secondary_join_field_sql = '`' . str_replace('`', '``', $_POST['jointable'][$key]) . '`.`' . str_replace('`', '``', $secondary_join_field) . '`';
+                        }
+
+                        $query .= ' ON ' . $primary_join_field_sql . ' = ' . $secondary_join_field_sql;
                     }
                 }
             }
