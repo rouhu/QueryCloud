@@ -162,6 +162,10 @@ $('body').on('click', '.btn-run-saved-query', function(e) {
             'type': 'hidden',
             'name': 'cquery',
             'value': queryToRun.sql_query
+        })).append($('<input>', { // Add query name as a hidden field
+            'type': 'hidden',
+            'name': 'running_saved_query_name',
+            'value': queryToRun.query_name
         }));
 
         $('body').append($dynamicForm);

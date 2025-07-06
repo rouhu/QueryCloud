@@ -116,9 +116,11 @@ class Table
         }
         //pretty_print($fields);
 
+        $running_saved_query_name = $_POST['running_saved_query_name'] ?? null;
+
         // for custom query
         if ($query) {
-            self::runQueryWithView($query, $fields, $printArray);
+            self::runQueryWithView($query, $fields, $printArray, null, $running_saved_query_name);
 
         } // for visual query
         else {
@@ -359,12 +361,13 @@ class Table
             }
 
             // run query and render view
-            self::runQueryWithView($query, $fields, $printArray, $visual_params_for_view);
+            // Pass $running_saved_query_name which would be null here as this is VQB path
+            self::runQueryWithView($query, $fields, $printArray, $visual_params_for_view, $running_saved_query_name);
         }
 
     }
 
-    private static function runQueryWithView($query, $fields, $printArray, $visual_query_params = null)
+    private static function runQueryWithView($query, $fields, $printArray, $visual_query_params = null, $running_saved_query_name = null)
     {
         $_SESSION['tableData'] = array();
 
@@ -415,7 +418,8 @@ foreach ($data as $row) {
               'query' => SqlFormatter::format($query),
               'printArray' => $printArray,
               'timetaken' => $exec_time_row[0][1],
-              'visual_params_json' => $visual_query_params ? json_encode($visual_query_params) : ''
+              'visual_params_json' => $visual_query_params ? json_encode($visual_query_params) : '',
+              'executed_query_name' => $running_saved_query_name // Pass the saved query name to the view
            )
         );
     }
