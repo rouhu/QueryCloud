@@ -72,33 +72,82 @@ class Ajax
         header('Content-Type: application/json');
         $response = ['status' => 'error', 'message' => 'An unknown error occurred.'];
 
-        if (empty($_POST['query_name']) || empty($_POST['sql_query'])) {
-            $response['message'] = 'Query name and SQL query cannot be empty.';
-            echo json_encode($response);
-            return;
+        $query_id = $_POST['query_id'] ?? null;
+        // Use null coalescing and provide default empty string for trim if not set
+        $query_name = trim($_POST['query_name'] ?? '');
+        $sql_query = $_POST['sql_query'] ?? null;
+        $is_visual_query_provided = isset($_POST['is_visual_query']);
+        $visual_params_provided = isset($_POST['visual_params']);
+
+        if ($query_id && is_numeric($query_id)) { // This is an UPDATE operation
+            $has_name_to_update = isset($_POST['query_name']); // Check if 'query_name' key was sent
+            $has_sql_to_update = isset($_POST['sql_query']);   // Check if 'sql_query' key was sent
+            $has_visual_to_update = $is_visual_query_provided; // Check if 'is_visual_query' was sent
+
+            // If query_name is explicitly sent, it must not be empty
+            if ($has_name_to_update && empty($query_name)) {
+                $response['message'] = 'Query name cannot be empty when provided for an update.';
+                echo json_encode($response);
+                return;
+            }
+
+            // If sql_query is explicitly sent, it must not be empty
+            if ($has_sql_to_update && empty($sql_query)) {
+                $response['message'] = 'SQL query cannot be empty when provided for an update.';
+                echo json_encode($response);
+                return;
+            }
+
+            // At least one field must be intended for update if query_id is present
+            if (!$has_name_to_update && !$has_sql_to_update && !$has_visual_to_update) {
+                 $response['message'] = 'No data provided to update for existing query.';
+                 echo json_encode($response);
+                 return;
+            }
+
+        } else { // This is a CREATE operation
+            if (empty($query_name) || empty($sql_query)) {
+                $response['message'] = 'For a new query, name and SQL query cannot be empty.';
+                echo json_encode($response);
+                return;
+            }
         }
 
-        $query_name = trim($_POST['query_name']);
-        $sql_query = $_POST['sql_query'];
-        $query_id = $_POST['query_id'] ?? null;
-        $is_visual_query = isset($_POST['is_visual_query']) ? filter_var($_POST['is_visual_query'], FILTER_VALIDATE_BOOLEAN) : false;
-        $visual_params = ($is_visual_query && isset($_POST['visual_params'])) ? $_POST['visual_params'] : null;
+        $is_visual_query = $is_visual_query_provided ? filter_var($_POST['is_visual_query'], FILTER_VALIDATE_BOOLEAN) : false;
+        $visual_params = ($is_visual_query && $visual_params_provided) ? $_POST['visual_params'] : null;
 
         try {
             if ($query_id && is_numeric($query_id)) {
                 // Update existing query
                 $saved_query = ORM::for_table('saved_queries')->find_one($query_id);
                 if ($saved_query) {
-                    $saved_query->query_name = $query_name;
-                    $saved_query->sql_query = $sql_query;
-                    $saved_query->is_visual_query = $is_visual_query;
-                    $saved_query->visual_params = $is_visual_query ? $visual_params : null;
-                    // Note: created_at is not updated, consider adding an updated_at column if needed
-                    if ($saved_query->save()) {
-                        $response['status'] = 'success';
-                        $response['message'] = 'Query "' . htmlspecialchars($query_name) . '" updated successfully!';
+                    $updated_fields_count = 0;
+                    if (isset($_POST['query_name'])) {
+                        $saved_query->query_name = $query_name; // Already trimmed
+                        $updated_fields_count++;
+                    }
+                    if (isset($_POST['sql_query'])) {
+                        $saved_query->sql_query = $sql_query;
+                        $updated_fields_count++;
+                    }
+                    if ($is_visual_query_provided) { // Update visual only if is_visual_query was part of the request
+                        $saved_query->is_visual_query = $is_visual_query;
+                        $saved_query->visual_params = $is_visual_query ? $visual_params : null;
+                        $updated_fields_count++;
+                    }
+
+                    if ($updated_fields_count > 0) {
+                        if ($saved_query->save()) {
+                            $response['status'] = 'success';
+                            $response['message'] = 'Query "' . htmlspecialchars($saved_query->query_name) . '" updated successfully!';
+                        } else {
+                            $response['message'] = 'Failed to update query in the database.';
+                        }
                     } else {
-                        $response['message'] = 'Failed to update query in the database.';
+                         // This case should ideally be caught by earlier validation,
+                         // but as a safeguard if somehow fields were present but not set on $saved_query.
+                        $response['message'] = 'No changes detected to save for the query.';
+                        $response['status'] = 'info'; // Or 'success' if no change is not an error
                     }
                 } else {
                     $response['message'] = 'Query not found for update.';
@@ -106,8 +155,8 @@ class Ajax
             } else {
                 // Create new query
                 $saved_query = ORM::for_table('saved_queries')->create();
-                $saved_query->query_name = $query_name;
-                $saved_query->sql_query = $sql_query;
+                $saved_query->query_name = $query_name; // Already trimmed
+                $saved_query->sql_query = $sql_query; // Must be present due to earlier check
                 $saved_query->is_visual_query = $is_visual_query;
                 $saved_query->visual_params = $is_visual_query ? $visual_params : null;
                 // created_at is handled by database default

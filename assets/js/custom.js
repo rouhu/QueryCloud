@@ -214,10 +214,10 @@ $('body').on('click', '.btn-edit-saved-query', function() {
     if (isVisual && visualParams && visualParams !== '') {
         // Populate and show Visual Query Modal
         $('#visual_query_id_edit').val(queryId);
-        $('#visual_query_name_edit').val(queryName);
+        // Name is no longer edited in this modal
         // TODO: Implement populateVisualQueryModal(JSON.parse(visualParams));
         // For now, just opening it with name and ID. User has to rebuild.
-        console.log("Attempting to open visual editor for:", queryName, "Params:", visualParams);
+        console.log("Attempting to open visual editor for query ID:", queryId, "Params:", visualParams);
         $.jGrowl('Populating visual editor from saved params is not yet fully implemented. Opening with name/ID.', { header: 'Info', theme: 'info', life: 5000});
 
         // Set form action for the visual query modal's run button (if it submits directly)
@@ -251,7 +251,7 @@ $('body').on('click', '.btn-edit-saved-query', function() {
             console.warn('ACE editor not found. SQL set in hidden input for custom query.');
         }
         $('#custom_query_id_edit').val(queryId);
-        $('#custom_query_name_edit').val(queryName);
+        // Name is no longer edited in this modal
         $('#updateCustomQueryMsg').hide().removeClass('alert-success alert-danger').text('');
 
         var onDashboardCtxSql = (!lastSegment || lastSegment === 'home' || lastSegment === 'dashboard');
@@ -277,20 +277,23 @@ $('body').on('click', '.btn-edit-saved-query', function() {
 });
 
 // --- Update Saved Query (from Custom Query Modal) ---
+// This button is now primarily for updating the SQL of an existing query.
+// Name editing is handled by the new Rename modal.
 $('body').on('click', '#btnUpdateSavedQuery', function() {
     var queryId = $('#custom_query_id_edit').val();
-    var queryName = $('#custom_query_name_edit').val();
+    // var queryName = $('#custom_query_name_edit').val(); // Field removed from modal
     var sqlQuery = (typeof editor !== 'undefined' && editor !== null) ? editor.getValue() : $('#cquery').val(); // Get SQL from ACE or fallback
     var $msgContainer = $('#updateCustomQueryMsg');
 
     if (!queryId) {
-        $msgContainer.removeClass('alert-success').addClass('alert-danger').text('Error: Query ID is missing. Cannot update.').show();
+        $msgContainer.removeClass('alert-success').addClass('alert-danger').text('Error: Query ID is missing. Cannot update SQL.').show();
         return;
     }
-    if ($.trim(queryName) === '') {
-        $msgContainer.removeClass('alert-success').addClass('alert-danger').text('Query name cannot be empty.').show();
-        return;
-    }
+    // Query name validation removed as it's not edited here.
+    // if ($.trim(queryName) === '') {
+    //     $msgContainer.removeClass('alert-success').addClass('alert-danger').text('Query name cannot be empty.').show();
+    //     return;
+    // }
     if ($.trim(sqlQuery) === '') {
         $msgContainer.removeClass('alert-success').addClass('alert-danger').text('SQL query is empty. Cannot update.').show();
         return;
@@ -299,10 +302,12 @@ $('body').on('click', '#btnUpdateSavedQuery', function() {
     var $thisButton = $(this);
     $thisButton.prop('disabled', true).find('i').removeClass('fa-save').addClass('fa-spinner fa-spin');
 
+    // query_name is removed from this request. The backend should only update the SQL.
     var ajaxData = {
         query_id: queryId,
-        query_name: queryName,
         sql_query: sqlQuery
+        // If visual_params were ever relevant here, they'd be included.
+        // For now, this modal seems to be for raw SQL queries.
     };
 
     $.ajax({
@@ -314,20 +319,20 @@ $('body').on('click', '#btnUpdateSavedQuery', function() {
             if (response.status === 'success') {
                 $msgContainer.removeClass('alert-danger').addClass('alert-success').text(response.message).show();
 
-                // Update cache
+                // Update cache for sql_query
                 if (typeof savedQueriesCache !== 'undefined') {
                     var itemInCache = savedQueriesCache.find(function(q) { return q.id == queryId; });
                     if (itemInCache) {
-                        itemInCache.query_name = queryName;
+                        // itemInCache.query_name = queryName; // Name is not updated here
                         itemInCache.sql_query = sqlQuery;
                     }
                 }
-                // Update dashboard list item
-                var $listItem = $('li[data-query-list-id="' + queryId + '"]');
-                if ($listItem.length) {
-                    $listItem.contents().filter(function() { return this.nodeType === 3; }).first().replaceWith(escapeHtml(queryName));
-                    $listItem.find('.btn-edit-saved-query, .btn-delete-saved-query').data('query-name', queryName);
-                }
+                // Update dashboard list item - only SQL changes, name display is not affected by this action.
+                // var $listItem = $('li[data-query-list-id="' + queryId + '"]');
+                // if ($listItem.length) {
+                //    $listItem.contents().filter(function() { return this.nodeType === 3; }).first().replaceWith(escapeHtml(queryName));
+                //    $listItem.find('.btn-edit-saved-query, .btn-delete-saved-query').data('query-name', queryName);
+                // }
 
                 setTimeout(function() {
                     $msgContainer.fadeOut(function() { $(this).hide(); });
@@ -680,6 +685,97 @@ $('body').on('click', '#btnSaveQueryConfirm', function() {
 // Clear visual_params data if the save modal is closed manually
 $('#modal-save-query').on('hidden.bs.modal', function () {
     $(this).removeData('visual-params');
+});
+
+// Basic HTML escaping function
+function escapeHtml(unsafe) {
+    if (typeof unsafe !== 'string') {
+        return ''; // Or handle other types as needed
+    }
+    return unsafe
+         .replace(/&/g, "&amp;")
+         .replace(/</g, "&lt;")
+         .replace(/>/g, "&gt;")
+         .replace(/"/g, "&quot;")
+         .replace(/'/g, "&#039;");
+}
+
+// --- Rename Saved Query ---
+// Show Rename Query Modal
+$('body').on('click', '.btn-rename-query', function() {
+    var queryId = $(this).data('query-id');
+    var currentQueryName = $(this).data('query-name');
+
+    $('#rename_query_id').val(queryId);
+    $('#rename_query_name').val(currentQueryName); // Populate with current name
+    $('#renameQueryMsg').hide().removeClass('alert-success alert-danger').text('');
+    $('#modal-rename-query').modal('show');
+});
+
+// Handle saving the renamed query
+$('body').on('click', '#btnSaveRenameQuery', function() {
+    var queryId = $('#rename_query_id').val();
+    var newQueryName = $('#rename_query_name').val();
+    var $msgContainer = $('#renameQueryMsg');
+    var $thisButton = $(this);
+
+    if ($.trim(newQueryName) === '') {
+        $msgContainer.removeClass('alert-success').addClass('alert-danger').text('Query name cannot be empty.').show();
+        return;
+    }
+
+    $thisButton.prop('disabled', true).find('i').removeClass('fa-save').addClass('fa-spinner fa-spin');
+
+    var ajaxData = {
+        query_id: queryId,
+        query_name: newQueryName
+        // No sql_query or visual_params are sent, as we are only renaming.
+    };
+
+    $.ajax({
+        url: base + '/ajax/saveQuery', // Use the existing endpoint
+        type: 'POST',
+        data: ajaxData,
+        dataType: 'json',
+        success: function(response) {
+            if (response.status === 'success') {
+                $msgContainer.removeClass('alert-danger').addClass('alert-success').text(response.message || 'Query renamed successfully!').show();
+
+                // Update cache
+                if (typeof savedQueriesCache !== 'undefined') {
+                    var itemInCache = savedQueriesCache.find(function(q) { return q.id == queryId; });
+                    if (itemInCache) {
+                        itemInCache.query_name = newQueryName;
+                    }
+                }
+
+                // Update dashboard list item text and data attribute
+                var $listItem = $('li[data-query-list-id="' + queryId + '"]');
+                if ($listItem.length) {
+                    // Update the text node directly
+                    $listItem.contents().filter(function() {
+                        return this.nodeType === 3; // Node.TEXT_NODE
+                    }).first().replaceWith(escapeHtml(newQueryName));
+
+                    // Update data-query-name on relevant buttons within this list item
+                    $listItem.find('.btn-edit-saved-query, .btn-delete-saved-query, .btn-rename-query').data('query-name', newQueryName);
+                }
+
+                setTimeout(function() {
+                    $msgContainer.fadeOut(function() { $(this).hide().text(''); });
+                    $('#modal-rename-query').modal('hide');
+                }, 1500);
+            } else {
+                $msgContainer.removeClass('alert-success').addClass('alert-danger').text(response.message || 'An unknown error occurred while renaming.').show();
+            }
+        },
+        error: function(jqXHR, textStatus, errorThrown) {
+            $msgContainer.removeClass('alert-success').addClass('alert-danger').text('AJAX Error: ' + textStatus + ' - ' + errorThrown).show();
+        },
+        complete: function() {
+            $thisButton.prop('disabled', false).find('i').removeClass('fa-spinner fa-spin').addClass('fa-save');
+        }
+    });
 });
 
 
