@@ -7,28 +7,35 @@ class Ajax
      */
     public static function gettablefields()
     {
-        $table = $_POST['table'];
+        header('Content-Type: application/json');
+        $table = $_POST['table'] ?? null;
+        $response = ['status' => 'error', 'message' => 'Table name not provided.', 'fields' => []];
 
         if ($table) {
-            // table columns
-            $stmt = Flight::get('db')->query("DESCRIBE $table");
-            $columns = $stmt->fetchAll(PDO::FETCH_ASSOC);
-            //pretty_print($columns);
+            try {
+                // table columns
+                // Ensure table name is quoted to prevent SQL injection, though it comes from client-side VQB selections
+                $stmt = Flight::get('db')->query("DESCRIBE `$table`");
+                $columns = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-            $fields = array();
-            foreach ($columns as $values) {
-                if (isset($values['Field'])) {
-                    $fields[] = $values['Field'];
-                }
+                $fields = array_column($columns, 'Field');
+
+                $response['status'] = 'success';
+                $response['message'] = 'Fields retrieved successfully.';
+                $response['fields'] = $fields;
+
+            } catch (PDOException $e) {
+                error_log("Error fetching fields for table $table: " . $e->getMessage());
+                $response['message'] = "Database error fetching fields for table: " . htmlspecialchars($table);
             }
-            //pretty_print($fields);
-
-            echo getOptions($fields, true);
         }
+
+        echo json_encode($response);
     }
 
     /**
      * Gets fields/columns from specified tables and generates dropdown options
+     * This method is used for populating the main VQB field selectors and still returns HTML.
      */
     public static function getselectfields() {
         $tablesJSON = $_POST['tables'] ?? '[]';

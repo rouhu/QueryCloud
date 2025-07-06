@@ -290,23 +290,97 @@ $('body').on('click', '.btn-edit-saved-query', function() {
 
         // Call addTablesToDropdown and then select fields in its callback
         addTablesToDropdown(function(success) {
-            if (success && fieldsToSelect.length > 0) {
-                var $fieldsSelect = $('#modal-visual-query').find('select.fields');
-                if ($fieldsSelect.length) {
-                    $fieldsSelect.val(fieldsToSelect).trigger('change'); // Set value and update Select2
-                    $.jGrowl('Fields pre-selected from saved query.', { header: 'Info', theme: 'info', life: 3000 });
-                } else {
-                    console.warn('Could not find fields selector in VQB to pre-populate after table context update.');
+            if (success) {
+                // Pre-select main fields
+                if (fieldsToSelect.length > 0) {
+                    var $fieldsSelect = $('#modal-visual-query').find('select.fields');
+                    if ($fieldsSelect.length) {
+                        $fieldsSelect.val(fieldsToSelect).trigger('change');
+                        $.jGrowl('Fields pre-selected.', { header: 'Info', life: 2000 });
+                    } else {
+                        console.warn('Could not find main fields selector in VQB.');
+                    }
                 }
-            } else if (success && fieldsToSelect.length === 0) {
-                 $.jGrowl('No fields found in saved visual parameters to pre-select.', { header: 'Info', theme: 'info', life: 3000 });
+
+                // Clear existing join rows before adding new ones
+                $('#modal-visual-query .parent.cloned-join-row').remove(); // Add a class to cloned join rows for easy removal
+
+                // Populate Join Rows
+                if (parsedParams && parsedParams.jointype && Array.isArray(parsedParams.jointype)) {
+                    var joinIndex = 0;
+                    var processNextJoin = function() {
+                        if (joinIndex >= parsedParams.jointype.length) {
+                            // All joins processed, now call addTablesToDropdown one last time to ensure all field selectors are updated
+                            // This is important if a joinfieldp in a later join depends on a table from an earlier join.
+                            addTablesToDropdown(function() {
+                                $.jGrowl('Visual editor ready.', { header: 'Info', life: 3000 });
+                                $('#modal-visual-query').modal('show');
+                            });
+                            return;
+                        }
+
+                        var joinDefinition = {
+                            type: parsedParams.jointype[joinIndex],
+                            table: parsedParams.jointable[joinIndex],
+                            field: parsedParams.joinfield[joinIndex],
+                            primaryField: parsedParams.joinfieldp[joinIndex]
+                        };
+
+                        var $clone = $('#fieldCloneTable').clone().removeAttr('id').addClass('cloned-join-row');
+                        $clone.find('select[name=\"jointype[]\"]').val(joinDefinition.type);
+                        $clone.find('select.jointable').val(joinDefinition.table);
+                        // Primary field can be set now as addTablesToDropdown (for primary table) has already run
+                        $clone.find('select.joinfieldmain').val(joinDefinition.primaryField);
+
+                        // Append clone before populating async field dropdown
+                        $('#btnJoinTable').after($clone); // Or a dedicated join container
+                        $clone.find('select').select2(); // Initialize select2 for non-fieldspecific selects
+                        $clone.slideDown('fast');
+
+
+                        populateJoinFieldDropdown(
+                            $clone.find('select.joinfieldselected'),
+                            joinDefinition.table,
+                            joinDefinition.field,
+                            function(populateSuccess) {
+                                if (!populateSuccess) {
+                                    console.warn("Failed to populate join field for table: " + joinDefinition.table);
+                                }
+                                // After attempting to populate and set the joinfieldselected,
+                                // we need to ensure that addTablesToDropdown is called so that
+                                // the *next* join's joinfieldp can see fields from *this* join.
+                                // This creates a cascade.
+                                addTablesToDropdown(function(dropdownUpdateSuccess){
+                                     if (!dropdownUpdateSuccess) {
+                                        console.warn("Failed to update general dropdowns after adding join for: " + joinDefinition.table);
+                                     }
+                                     joinIndex++;
+                                     processNextJoin(); // Process the next join
+                                });
+                            }
+                        );
+                    };
+                    processNextJoin(); // Start processing the first join
+                } else {
+                    // No joins to process, just show the modal
+                    $.jGrowl('Visual editor ready. No joins to pre-populate.', { header: 'Info', life: 3000 });
+                    $('#modal-visual-query').modal('show');
+                }
+            } else {
+                // addTablesToDropdown failed for the primary table context
+                $.jGrowl('Failed to initialize VQB for the selected query. Opening SQL editor.', {header: 'Error', theme: 'error'});
+                // Fallback to SQL editor
+                if (typeof editor !== 'undefined' && editor !== null) { editor.setValue(sqlQuery, -1); }
+                else { $('#cquery').val(sqlQuery); }
+                $('#custom_query_id_edit').val(queryId);
+                $('#updateCustomQueryMsg').hide().removeClass('alert-success alert-danger').text('');
+                var $customQueryFormSql = $('#modal-custom-query form');
+                // (Re-add form action logic for custom query modal if needed here, similar to original else block)
+                $('#modal-custom-query').modal('show');
             }
-            // TODO: Full VQB state restoration (joins, where, etc.) from parsedParams would go here or in a dedicated function.
-            $.jGrowl('Visual editor ready. Other query parts (joins, conditions) may need manual setup if not yet implemented for pre-population.', { header: 'Info', theme: 'info', life: 5000});
-            $('#modal-visual-query').modal('show');
         });
 
-    } else { // Fallback to Custom SQL Editor for non-visual queries without visual_params
+    } else { // Fallback to Custom SQL Editor
         if (typeof editor !== 'undefined' && editor !== null) {
             editor.setValue(sqlQuery, -1);
         } else {
@@ -972,6 +1046,55 @@ function addTablesToDropdown(callback) {
         }
     }
 }
+
+/**
+ * Populates a given select dropdown with fields from a specified table.
+ * @param {jQuery} $selectElement - The jQuery object for the select dropdown.
+ * @param {string} tableName - The name of the table to fetch fields for.
+ * @param {string} [selectedValue] - Optional. The value to pre-select in the dropdown.
+ * @param {function} [callback] - Optional. Callback function executed after population (receives true for success, false for failure).
+ */
+function populateJoinFieldDropdown($selectElement, tableName, selectedValue, callback) {
+    if (!tableName) {
+        console.error("populateJoinFieldDropdown: tableName is required.");
+        if (typeof callback === 'function') callback(false);
+        return;
+    }
+
+    // console.log("Populating join field dropdown for table:", tableName, "Target select:", $selectElement);
+
+    $.post(base + '/ajax/gettablefields', { "table": tableName }, function (response) {
+        if (response && response.status === 'success' && response.fields) {
+            var optionsHtml = '<option value="">Choose Field</option>'; // Add a default empty option
+            response.fields.forEach(function(field) {
+                optionsHtml += '<option value="' + escapeHtml(field) + '">' + escapeHtml(field) + '</option>';
+            });
+
+            try {
+                $selectElement.select2('destroy'); // Destroy existing Select2 if any
+            } catch(e) { /* ignore if not initialized */ }
+
+            $selectElement.html(optionsHtml);
+
+            if (selectedValue) {
+                $selectElement.val(selectedValue);
+            }
+
+            $selectElement.select2({ placeholder: 'Choose Field', allowClear: true });
+            if (typeof callback === 'function') callback(true);
+
+        } else {
+            console.error("Error fetching fields for table " + tableName + ":", response.message);
+            $.jGrowl('Error loading fields for ' + tableName + ': ' + (response.message || 'Unknown error'), { sticky: false, header: 'Error' });
+            if (typeof callback === 'function') callback(false);
+        }
+    }, 'json').fail(function() {
+        console.error("AJAX call failed for gettablefields, table: " + tableName);
+        $.jGrowl('AJAX Error: Could not load fields for ' + tableName + '.', { sticky: false, header: 'Error' });
+        if (typeof callback === 'function') callback(false);
+    });
+}
+
 
 // change database
 $('#database').change(function () {
