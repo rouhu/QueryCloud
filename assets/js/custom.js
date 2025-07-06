@@ -211,64 +211,98 @@ $('body').on('click', '.btn-edit-saved-query', function() {
     // Clear any old data from the save modal (as it's not used in this new flow)
     $('#modal-save-query').removeData('editing-query-id').removeData('editing-query-name');
 
-    if (isVisual && visualParams && visualParams !== '') {
-        // Populate and show Visual Query Modal
+    // This handler now decides whether to open VQB or SQL Editor.
+    // If opening VQB, it attempts to set context and pre-populate fields.
+    if (isVisual || (visualParams && visualParams !== '')) { // Try to open in VQB if it is_visual OR if visualParams exist
         $('#visual_query_id_edit').val(queryId);
-        // Name is no longer edited in this modal
+        console.log("Preparing to open Visual Query Builder for query ID:", queryId);
 
-        console.log("Attempting to open visual editor for query ID:", queryId, "Params:", visualParams);
+        var inferredPrimaryTable = null;
+        var fieldsToSelect = [];
 
-        // Attempt to populate fields from visualParams
-        try {
-            var parsedParams = JSON.parse(visualParams);
-            if (parsedParams && parsedParams.fields && Array.isArray(parsedParams.fields)) {
-                // Ensure the VQB's fields dropdown is populated for the current table context.
-                // This relies on the VQB modal already being set up for a specific table,
-                // or addTablesToDropdown() having been called appropriately.
-                var $fieldsSelect = $('#modal-visual-query').find('select.fields');
-                if ($fieldsSelect.length) {
-                    // It's crucial that $fieldsSelect options are already populated.
-                    // We assume they are, matching the context of the query being edited.
-                    $fieldsSelect.val(parsedParams.fields);
-                    $fieldsSelect.trigger('change'); // Update Select2 display
-                    $.jGrowl('Fields pre-selected from saved visual parameters.', { header: 'Info', theme: 'info', life: 3000 });
-                } else {
-                    console.warn('Could not find fields selector in VQB to pre-populate.');
+        if (visualParams && visualParams !== '') {
+            try {
+                var parsedParams = JSON.parse(visualParams);
+                if (parsedParams && parsedParams.fields && Array.isArray(parsedParams.fields) && parsedParams.fields.length > 0) {
+                    fieldsToSelect = parsedParams.fields;
+                    // Infer primary table from the first qualified field name
+                    var firstField = parsedParams.fields[0];
+                    if (typeof firstField === 'string' && firstField.includes('.')) {
+                        inferredPrimaryTable = firstField.split('.')[0];
+                    }
                 }
+            } catch (e) {
+                console.error("Error parsing visualParams: ", e);
+                $.jGrowl('Could not parse visual parameters.', { header: 'Warning', theme: 'warning', life: 3000 });
             }
-        } catch (e) {
-            console.error("Error parsing visualParams: ", e);
-            $.jGrowl('Could not parse visual parameters to pre-select fields.', { header: 'Warning', theme: 'warning', life: 3000 });
         }
 
-        // TODO: Implement full populateVisualQueryModal(parsedParams) for other VQB elements (joins, where, etc.) in future phases.
-        // For now, the jGrowl message about partial implementation remains relevant for overall VQB state.
-        $.jGrowl('Populating visual editor from saved params is partially implemented (fields only). Other elements may need manual setup.', { header: 'Info', theme: 'info', life: 5000});
+        // If we couldn't infer a primary table from visual_params.fields,
+        // we might need another way (e.g. parse FROM clause of sqlQuery - backend task for future)
+        // For now, if not inferred, VQB will open with the current page's table context (`lastSegment` or `__table` if already set).
+        // If `inferredPrimaryTable` is null, `addTablesToDropdown` will use the existing `__table`.
 
-        // Set form action for the visual query modal's run button (if it submits directly)
-        // The visual query modal's form also needs its action set correctly.
+        var tableContextToUse = inferredPrimaryTable || __table || lastSegment; // __table is the VQB's current context, lastSegment is page context
+
+        if (!tableContextToUse) {
+            $.jGrowl('Cannot determine table context for Visual Query Builder.', { header: 'Error', theme: 'error' });
+            // Optionally, fall back to SQL editor here if context is crucial and cannot be determined
+            // For now, let VQB try to open, it might have a default or show an empty state.
+        }
+
+        // Update VQB Title and global __table variable
+        __table = tableContextToUse; // Set global for addTablesToDropdown
+        $('#modal-visual-query .vqb-table-name').text('Table: ' + (tableContextToUse ? tableContextToUse.toUpperCase() : 'UNKNOWN'));
+
+        // Set form action based on the determined table context
         var $visualQueryForm = $('#modal-visual-query form');
+        // Check if on dashboard or a specific table page to set form action for "Run Query"
         var onDashboardCtx = (!lastSegment || lastSegment === 'home' || lastSegment === 'dashboard');
         if (onDashboardCtx) {
-            var firstTableLinkCtx = $('.sidebar-nav a[href*="/table/"]').first();
-            if (firstTableLinkCtx.length > 0) {
-                var hrefPartsCtx = firstTableLinkCtx.attr('href').split('/');
-                var firstTableNameCtx = hrefPartsCtx[hrefPartsCtx.length -1];
-                if (firstTableNameCtx) {
-                    $visualQueryForm.attr('action', base + '/table/' + firstTableNameCtx);
-                } else {
-                    $.jGrowl('Could not determine default table context for visual editor.', { header: 'Error', theme: 'error' }); return;
-                }
+            // If on dashboard, and we have a tableContextToUse, use it for the form action.
+            // Otherwise, it might need to pick the first available table or disable run.
+            if (tableContextToUse) {
+                 $visualQueryForm.attr('action', base + '/table/' + tableContextToUse);
             } else {
-                $.jGrowl('No tables available for visual editor context.', { header: 'Error', theme: 'error' }); return;
+                // Fallback: if no table context, try to get first from sidebar or disable run?
+                var firstTableInSidebar = $('.sidebar-nav a[href*="/table/"]').first();
+                 if (firstTableInSidebar.length > 0) {
+                    var hrefParts = firstTableInSidebar.attr('href').split('/');
+                    $visualQueryForm.attr('action', base + '/table/' + hrefParts[hrefParts.length -1]);
+                 } else {
+                    $visualQueryForm.attr('action', ''); // Or disable run button
+                    $.jGrowl('No table context for VQB Run button.', {header: 'Warning'});
+                 }
             }
         } else {
-            $visualQueryForm.attr('action', ''); // Current table context
+            // If on a table page already, the form action is usually empty to post to current URL.
+            // However, if tableContextToUse is different from lastSegment, we need to adjust.
+            if (tableContextToUse && tableContextToUse !== lastSegment) {
+                 $visualQueryForm.attr('action', base + '/table/' + tableContextToUse);
+            } else {
+                 $visualQueryForm.attr('action', ''); // Post to current page context (which should be tableContextToUse)
+            }
         }
-        $('#modal-visual-query').modal('show');
 
-    } else {
-        // Fallback to Custom SQL Editor
+        // Call addTablesToDropdown and then select fields in its callback
+        addTablesToDropdown(function(success) {
+            if (success && fieldsToSelect.length > 0) {
+                var $fieldsSelect = $('#modal-visual-query').find('select.fields');
+                if ($fieldsSelect.length) {
+                    $fieldsSelect.val(fieldsToSelect).trigger('change'); // Set value and update Select2
+                    $.jGrowl('Fields pre-selected from saved query.', { header: 'Info', theme: 'info', life: 3000 });
+                } else {
+                    console.warn('Could not find fields selector in VQB to pre-populate after table context update.');
+                }
+            } else if (success && fieldsToSelect.length === 0) {
+                 $.jGrowl('No fields found in saved visual parameters to pre-select.', { header: 'Info', theme: 'info', life: 3000 });
+            }
+            // TODO: Full VQB state restoration (joins, where, etc.) from parsedParams would go here or in a dedicated function.
+            $.jGrowl('Visual editor ready. Other query parts (joins, conditions) may need manual setup if not yet implemented for pre-population.', { header: 'Info', theme: 'info', life: 5000});
+            $('#modal-visual-query').modal('show');
+        });
+
+    } else { // Fallback to Custom SQL Editor for non-visual queries without visual_params
         if (typeof editor !== 'undefined' && editor !== null) {
             editor.setValue(sqlQuery, -1);
         } else {
@@ -829,56 +863,67 @@ $('body').on('click', '#btnRefreshSavedQueries', function() {
 });
 */
 
-$('#addjoinedtablefields').click(addTablesToDropdown);
+$('#addjoinedtablefields').click(function(event) {
+    event.preventDefault(); // Prevent default anchor action if it's a link
+    addTablesToDropdown(); // Call with no callback for default behavior
+});
 
 // dynamically populate dropdowns for selected tables for visual query
-function addTablesToDropdown() {
-    const selectedTables = [__table]; 
-   // console.log('Selected Tables:', selectedTables);
+// Takes an optional callback function to execute after dropdowns are populated and initialized
+function addTablesToDropdown(callback) {
+    // __table should be the primary table for the VQB context.
+    // Ensure __table is defined and not empty. If not, we can't proceed.
+    if (typeof __table === 'undefined' || !__table) {
+        console.error("__table (primary table context) is not defined for addTablesToDropdown.");
+        $.jGrowl('Primary table context not set. Cannot load fields.', {header: 'Error', theme: 'error'});
+        if (typeof callback === 'function') {
+            callback(false); // Indicate failure
+        }
+        return;
+    }
 
-    $('.jointable').each(function() {
+    const selectedTables = [__table]; 
+    // console.log('Initial Table for Dropdowns:', __table);
+
+    // Collect any currently joined tables in the VQB
+    $('#modal-visual-query .jointable').each(function() { // Scope to VQB modal
         const table = $(this).val();
         if (table && !selectedTables.includes(table)) {
             selectedTables.push(table);
         }
     });
 
-    //console.log('Final Tables Sent:', selectedTables);
+    // console.log('Final Tables Sent for getselectfields:', selectedTables);
 
     if (selectedTables.length > 0) {
         const postData = {"tables": JSON.stringify(selectedTables)};
-        //console.log('POST Data:', postData);
 
         $.post(base + '/ajax/getselectfields', postData, function(response) {
-            // console.log('Server Response for getselectfields:', response); // For debugging the raw response
+            // console.log('Server Response for getselectfields:', response);
             
-            // More robust way to update Select2 elements
             var selectorsToUpdate = [
-                'select.fields',          // For general field selection
-                'select.fname',           // For WHERE clause field names
-                'select.orderfields',     // For ORDER BY field names
-                'select.groupfields',     // For GROUP BY field names
-                'select.joinfieldmain',   // For JOIN clause primary table fields (part of fieldCloneTable)
-                'select.agg_field'        // For Aggregate function field names (part of fieldCloneAggregate)
-                                          // Note: .hfname is handled by updateHavingFieldNameOptions separately
+                '#modal-visual-query select.fields', // VQB main fields
+                '#modal-visual-query select.fname', // WHERE clause fields
+                '#modal-visual-query select.orderfields', // ORDER BY fields
+                '#modal-visual-query select.groupfields', // GROUP BY fields
+                '#modal-visual-query select.joinfieldmain', // JOIN clause primary table fields
+                '#modal-visual-query select.agg_field' // Aggregate function fields
+                // Note: .hfname (HAVING) is handled by updateHavingFieldNameOptions separately,
+                // but updateHavingFieldNameOptions itself relies on select.fields being populated.
             ];
 
             $(selectorsToUpdate.join(', ')).each(function() {
                 var $select = $(this);
-                var currentValues = $select.val(); // Store current value(s)
+                var currentValues = $select.val();
 
-                // Try to destroy existing Select2 instance.
-                // If it wasn't initialized, this might throw a benign error or do nothing, depending on Select2 version.
-                // It's generally safer to try.
                 try {
                     $select.select2('destroy');
                 } catch (e) {
                     // console.warn('Could not destroy select2 instance on an element:', $select, e);
                 }
 
-                $select.html(response); // Populate with new options from AJAX
+                $select.html(response);
 
-                // Attempt to re-select previous value(s)
                 if (currentValues) {
                     if (Array.isArray(currentValues)) {
                         var newValues = [];
@@ -895,19 +940,32 @@ function addTablesToDropdown() {
                     }
                 }
 
-                // Re-initialize Select2 with appropriate placeholder
-                var placeholderText = $select.data('placeholder') || 'Choose'; // Use data-placeholder if available
+                var placeholderText = $select.data('placeholder') || 'Choose';
                 $select.select2({ placeholder: placeholderText, allowClear: true });
             });
             
-            // The global $('.select2').select2(); is removed to avoid conflicts.
-            // Specific initializations are handled above or in their respective cloning functions.
+            // After updating general field dropdowns, also update the HAVING clause options
+            // as it depends on the main fields list.
+            updateHavingFieldNameOptions();
 
-            $.jGrowl('Fields updated with joined tables!');
+
+            $.jGrowl('Fields updated for selected tables!');
+            if (typeof callback === 'function') {
+                callback(true); // Indicate success
+            }
         }).fail(function(jqXHR, textStatus, errorThrown) {
-           // console.error('AJAX Error:', textStatus, errorThrown);
+            // console.error('AJAX Error in addTablesToDropdown:', textStatus, errorThrown);
             $.jGrowl('Error loading fields: ' + textStatus, {header: 'Error', theme: 'error'});
+            if (typeof callback === 'function') {
+                callback(false); // Indicate failure
+            }
         });
+    } else {
+        // Should not happen if __table is always present
+        console.warn("No tables selected for addTablesToDropdown, including primary __table.");
+        if (typeof callback === 'function') {
+            callback(false); // Indicate failure or no action
+        }
     }
 }
 

@@ -113,7 +113,7 @@ $fields = $fields ?? [];
                      <hr>
 
                     <div class="form-group">
-                    <h4> Table: <?php echo strtoupper(Flight::get('lastSegment')); ?></h4>
+                    <h4 class="vqb-table-name"> Table: <?php echo strtoupper(Flight::get('lastSegment')); ?></h4>
                         <button style="margin-bottom: 10px !important;" type="button" id="btnJoinTable" class="btn btn-primary" rel="hover_popover" data-content="Join a table">
                             <i class="glyphicon glyphicon-plus-sign"></i> Join Table
                         </button>
