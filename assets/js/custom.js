@@ -312,8 +312,22 @@ $('body').on('click', '.btn-edit-saved-query', function() {
                         if (joinIndex >= parsedParams.jointype.length) {
                             // All joins processed, now call addTablesToDropdown one last time to ensure all field selectors are updated
                             // This is important if a joinfieldp in a later join depends on a table from an earlier join.
-                            addTablesToDropdown(function() {
-                                $.jGrowl('Visual editor ready.', { header: 'Info', life: 3000 });
+                            addTablesToDropdown(function(finalAtdSuccess) { // Final general dropdown update
+                                if (finalAtdSuccess) {
+                                    // Explicitly trigger change on all select2 elements in cloned rows to refresh their display
+                                    $('#modal-visual-query .cloned-join-row').each(function() {
+                                        $(this).find('select.jointype, select.jointable, select.joinfieldselected, select.joinfieldmain').each(function() {
+                                            // Check if the element has Select2 initialized before triggering change
+                                            if ($(this).data('select2')) {
+                                                $(this).trigger('change.select2'); // More specific for Select2
+                                            }
+                                        });
+                                    });
+                                    // console.log("All joins processed, final Select2 updates triggered on join rows.");
+                                    $.jGrowl('Visual editor ready.', { header: 'Info', life: 3000 });
+                                } else {
+                                    $.jGrowl('Error finalizing VQB display after joins.', { header: 'Warning', theme: 'warning' });
+                                }
                                 $('#modal-visual-query').modal('show');
                             });
                             return;
@@ -325,8 +339,10 @@ $('body').on('click', '.btn-edit-saved-query', function() {
                             field: parsedParams.joinfield[joinIndex],
                             primaryField: parsedParams.joinfieldp[joinIndex]
                         };
+                        // console.log("processNextJoin - Join Index:", joinIndex, "Def:", JSON.stringify(joinDefinition)); // DEBUG
 
                         var $clone = $('#fieldCloneTable').clone().removeAttr('id').addClass('cloned-join-row');
+                        // console.log("processNextJoin - Target Select for joinfieldselected:", $clone.find('select.joinfieldselected')); // DEBUG
                         $clone.find('select[name=\"jointype[]\"]').val(joinDefinition.type);
                         $clone.find('select.jointable').val(joinDefinition.table);
                         // Primary field can be set now as addTablesToDropdown (for primary table) has already run
@@ -1062,6 +1078,7 @@ function addTablesToDropdown(callback) {
  * @param {function} [callback] - Optional. Callback function executed after population (receives true for success, false for failure).
  */
 function populateJoinFieldDropdown($selectElement, tableName, selectedValue, callback) {
+    // console.log("populateJFD - Called. Table:", tableName, "SelectedVal:", selectedValue, "Element:", $selectElement.length ? $selectElement[0] : 'not found'); // DEBUG
     if (!tableName) {
         console.error("populateJoinFieldDropdown: tableName is required.");
         if (typeof callback === 'function') callback(false);
@@ -1071,11 +1088,13 @@ function populateJoinFieldDropdown($selectElement, tableName, selectedValue, cal
     // console.log("Populating join field dropdown for table:", tableName, "Target select:", $selectElement);
 
     $.post(base + '/ajax/gettablefields', { "table": tableName }, function (response) {
+        // console.log("populateJFD - AJAX Success. Table:", tableName, "Resp:", JSON.stringify(response)); // DEBUG
         if (response && response.status === 'success' && response.fields) {
             var optionsHtml = '<option value="">Choose Field</option>'; // Add a default empty option
             response.fields.forEach(function(field) {
                 optionsHtml += '<option value="' + escapeHtml(field) + '">' + escapeHtml(field) + '</option>';
             });
+            // console.log("populateJFD - Options HTML for " + tableName + ":", optionsHtml.substring(0, 200)); // DEBUG
 
             try {
                 $selectElement.select2('destroy'); // Destroy existing Select2 if any
@@ -1084,7 +1103,9 @@ function populateJoinFieldDropdown($selectElement, tableName, selectedValue, cal
             $selectElement.html(optionsHtml);
 
             if (selectedValue) {
+                // console.log("populateJFD - Attempting to select value for " + tableName + ":", selectedValue); // DEBUG
                 $selectElement.val(selectedValue);
+                // console.log("populateJFD - Value after setting for " + tableName + ":", $selectElement.val()); // DEBUG
             }
 
             $selectElement.select2({ placeholder: 'Choose Field', allowClear: true });
@@ -1095,8 +1116,8 @@ function populateJoinFieldDropdown($selectElement, tableName, selectedValue, cal
             $.jGrowl('Error loading fields for ' + tableName + ': ' + (response.message || 'Unknown error'), { sticky: false, header: 'Error' });
             if (typeof callback === 'function') callback(false);
         }
-    }, 'json').fail(function() {
-        console.error("AJAX call failed for gettablefields, table: " + tableName);
+    }, 'json').fail(function(jqXHR, textStatus, errorThrown) {
+        // console.error("populateJFD - AJAX FAIL. Table: " + tableName, jqXHR, textStatus, errorThrown); // DEBUG
         $.jGrowl('AJAX Error: Could not load fields for ' + tableName + '.', { sticky: false, header: 'Error' });
         if (typeof callback === 'function') callback(false);
     });
