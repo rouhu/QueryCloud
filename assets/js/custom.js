@@ -215,10 +215,35 @@ $('body').on('click', '.btn-edit-saved-query', function() {
         // Populate and show Visual Query Modal
         $('#visual_query_id_edit').val(queryId);
         // Name is no longer edited in this modal
-        // TODO: Implement populateVisualQueryModal(JSON.parse(visualParams));
-        // For now, just opening it with name and ID. User has to rebuild.
+
         console.log("Attempting to open visual editor for query ID:", queryId, "Params:", visualParams);
-        $.jGrowl('Populating visual editor from saved params is not yet fully implemented. Opening with name/ID.', { header: 'Info', theme: 'info', life: 5000});
+
+        // Attempt to populate fields from visualParams
+        try {
+            var parsedParams = JSON.parse(visualParams);
+            if (parsedParams && parsedParams.fields && Array.isArray(parsedParams.fields)) {
+                // Ensure the VQB's fields dropdown is populated for the current table context.
+                // This relies on the VQB modal already being set up for a specific table,
+                // or addTablesToDropdown() having been called appropriately.
+                var $fieldsSelect = $('#modal-visual-query').find('select.fields');
+                if ($fieldsSelect.length) {
+                    // It's crucial that $fieldsSelect options are already populated.
+                    // We assume they are, matching the context of the query being edited.
+                    $fieldsSelect.val(parsedParams.fields);
+                    $fieldsSelect.trigger('change'); // Update Select2 display
+                    $.jGrowl('Fields pre-selected from saved visual parameters.', { header: 'Info', theme: 'info', life: 3000 });
+                } else {
+                    console.warn('Could not find fields selector in VQB to pre-populate.');
+                }
+            }
+        } catch (e) {
+            console.error("Error parsing visualParams: ", e);
+            $.jGrowl('Could not parse visual parameters to pre-select fields.', { header: 'Warning', theme: 'warning', life: 3000 });
+        }
+
+        // TODO: Implement full populateVisualQueryModal(parsedParams) for other VQB elements (joins, where, etc.) in future phases.
+        // For now, the jGrowl message about partial implementation remains relevant for overall VQB state.
+        $.jGrowl('Populating visual editor from saved params is partially implemented (fields only). Other elements may need manual setup.', { header: 'Info', theme: 'info', life: 5000});
 
         // Set form action for the visual query modal's run button (if it submits directly)
         // The visual query modal's form also needs its action set correctly.
