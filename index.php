@@ -98,6 +98,11 @@ $stmt = $db->query("SHOW TABLES FROM " . Flight::get('dbname'));
 $data = $stmt->fetchAll(PDO::FETCH_NUM);
 $data = arrayFlatten($data);
 
+// Generate HTML options for all tables to be used globally, especially in modals
+// The `true` for getOptions prepends a "Choose Table" or similar default option.
+$masterTableOptionsHTML = getOptions($data, true);
+Flight::set('masterTableOptionsHTML', $masterTableOptionsHTML);
+
 // create table names json file
 $json = array();
 foreach ($data as $datakey => $datavalue) {
