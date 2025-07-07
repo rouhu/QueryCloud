@@ -265,10 +265,12 @@ $fields = $fields ?? [];
     // Store the PHP-generated table options HTML in a JS variable
     // This should be done once, preferably in a place that's always loaded with modals.php,
     // or directly here if modals.php is always loaded when VQB is used.
-    var allTablesOptionsHTML = <?php echo json_encode(Flight::get('tablesOptions')); ?>;
-    if (typeof allTablesOptionsHTML === 'undefined' || allTablesOptionsHTML === null) {
-        console.error("PHP 'tablesOptions' not available to JavaScript. Fallback needed or check Flight setup.");
-        allTablesOptionsHTML = '<option value=\"\">Error loading tables</option>'; // Fallback
+    var allTablesOptionsHTML = <?php echo json_encode(Flight::get('tablesOptions') ?? '<option value=\"\">No tables found</option>'); ?>;
+    // Check if json_encode resulted in an empty string literal "''" (if Flight::get returned empty string)
+    // or if it's the explicit "null" string from json_encode(null)
+    if (allTablesOptionsHTML === '""' || allTablesOptionsHTML === 'null' || allTablesOptionsHTML.indexOf('<option') === -1) {
+        allTablesOptionsHTML = '<option value=\"\">No tables available</option>';
+        console.warn("PHP 'tablesOptions' was empty or invalid. Using fallback for allTablesOptionsHTML.", <?php echo json_encode(Flight::get('tablesOptions')); ?>);
     }
 </script>
 

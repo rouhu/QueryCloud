@@ -374,6 +374,30 @@ class Table
         $exec_time_row = array();
         $records = '';
 
+        // Ensure tablesOptions is available for the view context
+        // This is the same logic as in index.php for initial setup
+        // Consider refactoring this into a helper or a Flight before-render hook if used more broadly
+        if (!Flight::get('tablesOptions') || Flight::get('tablesOptions') === '') {
+            $_db = Flight::get('db');
+            try {
+                $allTablesStmt = $_db->query('SHOW TABLES');
+                $allTablesResult = $allTablesStmt->fetchAll(PDO::FETCH_NUM);
+                $tableNamesForOptions = [];
+                foreach ($allTablesResult as $row) {
+                    $tableNamesForOptions[] = $row[0];
+                }
+                // The 'true' for $prependEmptyOption in getOptions adds a default empty option.
+                // The text for this is "Joining Key Field" by default in getOptions.
+                // If "Joining Table" is preferred, getOptions would need modification or a new param.
+                $tablesOptionsHtmlString = getOptions($tableNamesForOptions, true);
+                Flight::set('tablesOptions', $tablesOptionsHtmlString ? $tablesOptionsHtmlString : '');
+            } catch (PDOException $e) {
+                error_log("Error fetching table list for tablesOptions in runQueryWithView: " . $e->getMessage());
+                Flight::set('tablesOptions', '<option value="">Error loading tables</option>');
+            }
+        }
+
+
         try {
             // turn on query profiling
             Flight::get('db')->query('SET profiling = 1;');
