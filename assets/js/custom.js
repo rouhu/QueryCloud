@@ -211,81 +211,122 @@ $('body').on('click', '.btn-edit-saved-query', function() {
             // Clear existing joins
             $('#modal-visual-query .cloned-join-row').remove();
             
-            // Get tables list from template
-            if (!allTablesOptionsHTML || allTablesOptionsHTML.indexOf('<option') === -1) {
-                // Try to get from the template element
+            // Helper function to check if HTML options are valid (more than just a placeholder)
+            function hasValidTableOptions(htmlString) {
+                if (!htmlString || typeof htmlString !== 'string' || htmlString.indexOf('<option') === -1) {
+                    return false;
+                }
+                // Create a temporary select to count actual options vs placeholders
+                var $tempSelect = $('<select>').html(htmlString);
+                var totalOptions = $tempSelect.find('option').length;
+                var placeholderOptions = $tempSelect.find('option[value=""]').length;
+                // Valid if there's more than one option, or one option that isn't a placeholder
+                return totalOptions > 1 || (totalOptions === 1 && placeholderOptions === 0);
+            }
+
+            var currentTableOptions = '';
+
+            // 1. Try global allTablesOptionsHTML (populated from PHP $view_tables_options_html)
+            if (hasValidTableOptions(allTablesOptionsHTML)) {
+                currentTableOptions = allTablesOptionsHTML;
+                console.log("Using allTablesOptionsHTML (from view variable)");
+            } else {
+                // 2. Fallback: Try to get from the #fieldCloneTable template itself
+                console.log("allTablesOptionsHTML is invalid, trying #fieldCloneTable template.");
                 var templateTableOptions = $('#fieldCloneTable select.jointable').html();
-                if (templateTableOptions && templateTableOptions.indexOf('<option') !== -1) {
-                    allTablesOptionsHTML = templateTableOptions;
+                if (hasValidTableOptions(templateTableOptions)) {
+                    currentTableOptions = templateTableOptions;
+                    console.log("Using #fieldCloneTable select.jointable HTML.");
                 } else {
-                    $.jGrowl('Error: Could not find table list. Please refresh the page.', { header: 'Error' });
-                    return;
+                    console.error("Fallback #fieldCloneTable also has invalid options:", templateTableOptions);
+                    $.jGrowl('Error: Could not find a valid table list. Please refresh the page or ensure tables are loaded.', { header: 'Error', theme: 'error', life: 7000 });
+                    return; // Critical error, cannot proceed
                 }
             }
 
+            // Ensure allTablesOptionsHTML is updated globally if we found a valid source from the template
+            // This helps if btnJoinTable is clicked later without re-running this specific edit logic.
+            if (allTablesOptionsHTML !== currentTableOptions && hasValidTableOptions(currentTableOptions)) {
+                allTablesOptionsHTML = currentTableOptions;
+            }
+
+
             // Initialize joins if present
             if (parsedParams.jointype && Array.isArray(parsedParams.jointype)) {
-                var $template = $('#fieldCloneTable');
+                var $template = $('#fieldCloneTable'); // This is the template div
                 
                 parsedParams.jointype.forEach((type, idx) => {
-                    var $clone = $template.clone()
+                    var $clone = $template.clone() // Clone the template
                                        .removeAttr('id')
-                                       .addClass('cloned-join-row');
+                                       .addClass('cloned-join-row'); // Make it a live row
                     
                     // Set up join type
                     $clone.find('select.jointype').val(type);
                     
-                    // Set up table selection
+                    // Set up table selection using the determined currentTableOptions
                     var $tableSelect = $clone.find('select.jointable');
-                    $tableSelect.html(allTablesOptionsHTML);
+                    $tableSelect.html(currentTableOptions); // Populate with the valid options
                     $tableSelect.val(parsedParams.jointable[idx]);
                     
-                    // Add to form
-                    $('#btnJoinTable').after($clone);
+                    // Add to form (before #btnJoinTable is good for UI)
+                    $('#btnJoinTable').before($clone); // Changed from .after() to .before() for better UI flow.
+                                                      // Or append to a specific container for joins if one exists.
+                                                      // For now, placing before the button is fine.
                     
-                    // Initialize select2 on all selects
+                    // Initialize select2 on all selects within the new clone
                     $clone.find('select').each(function() {
                         if ($(this).data('select2')) {
                             $(this).select2('destroy');
                         }
+                        var placeholder = $(this).find('option[value=""]').text() || $(this).data('placeholder') || 'Choose';
                         $(this).select2({
-                            placeholder: $(this).find('option:first').text(),
+                            placeholder: placeholder,
                             allowClear: true
                         });
                     });
                     
-                    $clone.slideDown('fast');
+                    $clone.slideDown('fast'); // Show the new row
                     
-                    // Populate join fields
+                    // Populate join fields for this specific join
                     populateJoinFieldDropdown(
-                        $clone.find('select.joinfieldselected'),
-                        parsedParams.jointable[idx],
-                        parsedParams.joinfield[idx],
+                        $clone.find('select.joinfieldselected'), // The target dropdown for fields of the joined table
+                        parsedParams.jointable[idx], // The table that was joined
+                        parsedParams.joinfield[idx], // The field in the joined table to select
                         function(success) {
                             if (success) {
-                                // Set the primary field after fields are populated
+                                // Set the primary table's joining field after the other dropdown is populated
                                 $clone.find('select.joinfieldmain').val(parsedParams.joinfieldp[idx]);
+                                // Trigger change for select2 to update display
                                 $clone.find('select').trigger('change.select2');
                             }
                         }
                     );
                 });
                 
-                // Update all dropdowns after joins are initialized
+                // After all joins are processed and added, update all general dropdowns in the VQB
                 addTablesToDropdown(function(success) {
                     if (success) {
                         $('#modal-visual-query').modal('show');
                     } else {
-                        $.jGrowl('Warning: Some fields may not be properly loaded.', { header: 'Warning' });
+                        // If addTablesToDropdown failed, the modal will still show, but fields might be incomplete.
+                        // A warning might have already been shown by addTablesToDropdown.
+                        $('#modal-visual-query').modal('show');
+                        $.jGrowl('Warning: Some fields in the query builder may not be fully loaded due to an issue updating dropdowns.', { header: 'Warning', theme: 'warning', life: 6000 });
                     }
                 });
             } else {
-                $('#modal-visual-query').modal('show');
+                // No joins to initialize, but still need to ensure field dropdowns are correct for the primary table.
+                 addTablesToDropdown(function(success) { // Ensure fields for primary table are loaded
+                    $('#modal-visual-query').modal('show');
+                    if (!success) {
+                         $.jGrowl('Warning: Fields for the primary table might not be fully loaded.', { header: 'Warning', theme: 'warning', life: 6000 });
+                    }
+                });
             }
             
         } catch (e) {
-            console.error("Error parsing visual parameters:", e);
-            $.jGrowl('Error loading visual query. Opening as SQL.', { header: 'Warning' });
+            console.error("Error processing visual query parameters:", e);
+            $.jGrowl('Error loading visual query. Opening as SQL instead.', { header: 'Warning', theme: 'warning', life: 5000 });
             $('#sql').val(sqlQuery);
             $('#modal-custom-query').modal('show');
         }
