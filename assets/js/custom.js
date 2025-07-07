@@ -177,315 +177,287 @@ $('body').on('click', '.btn-run-saved-query', function(e) {
     }
 });
 
-// --- Edit Saved Query Functionality ---
-// Find the .btn-edit-saved-query click handler (around line 180) and modify it:
+// --- Reusable function to open and populate VQB Modal ---
+function openVisualQueryBuilderModal(visualParamsObj, queryId, queryName, isEditingSaved) {
+    var $modal = $('#modal-visual-query');
+    
+    // Clear/Reset VQB form elements (important before populating)
+    // Non-aggregated fields
+    $modal.find('select.fields').val(null).trigger('change.select2');
+    // Aggregated fields
+    $('#aggregateFieldsContainer').empty();
+    // WHERE conditions
+    $('#modal-visual-query form .parent').not('#fieldClone, #fieldCloneTable, #fieldCloneAggregate, #fieldCloneHaving, #orderby, #group, #limit').remove(); // remove only cloned condition rows
+    // ORDER BY
+    $modal.find('select.orderfields').val(null).trigger('change.select2');
+    $modal.find('input[name="chkDescending"]').prop('checked', false);
+    $('#orderby').hide(); // Hide the section if it was shown
+    // GROUP BY
+    $modal.find('select.groupfields').val(null).trigger('change.select2');
+    $('#group').hide();
+    // LIMIT
+    $modal.find('input[name="limitStart"]').val('');
+    $modal.find('input[name="limitNumRows"]').val('');
+    $('#limit').hide();
+    // HAVING Conditions
+    $('#havingConditionsContainer').empty();
+    // Clear existing join rows
+    $modal.find('.cloned-join-row').remove();
 
+
+    // Set primary table context
+    __table = visualParamsObj.primaryTable || '';
+    $modal.find('.vqb-table-name').text('Table: ' + (__table ? __table.toUpperCase() : 'UNKNOWN'));
+    // TODO: Update modal title if queryName is provided: $modal.find('.modal-title').text('Editing: ' + queryName);
+
+    // Store queryId if editing a saved query
+    if (isEditingSaved && queryId) {
+        $modal.find('#visual_query_id_edit').val(queryId);
+    } else {
+        $modal.find('#visual_query_id_edit').val(''); // Clear if not editing a saved one
+    }
+
+    // Set VQB form action
+    if (__table) {
+        var formActionUrl = base + '/table/' + __table;
+        $modal.find('form').attr('action', formActionUrl);
+        console.log("VQB form action set to:", formActionUrl);
+    } else {
+        console.error("VQB: __table is not defined, cannot set form action. Submitting to current page.");
+        $modal.find('form').attr('action', '');
+    }
+
+    // Determine currentTableOptions for join dropdowns
+    var currentTableOptions = '';
+    // Helper function (defined within .btn-edit-saved-query previously, needs to be accessible or redefined)
+    // For simplicity, assuming hasValidTableOptions is globally available or we inline a simplified check
+    function _hasValidTableOptions(htmlString) { // Simplified local version
+        return htmlString && typeof htmlString === 'string' && htmlString.indexOf('<option') !== -1 && $(htmlString).length > 1;
+    }
+
+    if (_hasValidTableOptions(allTablesOptionsHTML)) {
+        currentTableOptions = allTablesOptionsHTML;
+    } else {
+        var templateTableOptions = $('#fieldCloneTable select.jointable').html();
+        if (_hasValidTableOptions(templateTableOptions)) {
+            currentTableOptions = templateTableOptions;
+        } else {
+            $.jGrowl('Error: Could not find a valid table list for VQB.', { header: 'Error', theme: 'error' });
+            // Do not show modal if table options are missing
+            return;
+        }
+    }
+    if (allTablesOptionsHTML !== currentTableOptions && _hasValidTableOptions(currentTableOptions)) {
+        allTablesOptionsHTML = currentTableOptions; // Ensure global one is updated if template was better
+    }
+
+    // Populate Joins
+    if (visualParamsObj.jointype && Array.isArray(visualParamsObj.jointype)) {
+        var $joinTemplate = $('#fieldCloneTable');
+        visualParamsObj.jointype.forEach(function(type, idx) {
+            var $clone = $joinTemplate.clone().removeAttr('id').addClass('cloned-join-row');
+            $clone.find('select.jointype').val(type);
+            var $tableSelect = $clone.find('select.jointable');
+            $tableSelect.html(currentTableOptions).val(visualParamsObj.jointable[idx]);
+
+            $('#btnJoinTable').before($clone); // Insert before the button
+            
+            $clone.find('select').each(function() {
+                if ($(this).data('select2')) $(this).select2('destroy');
+                $(this).select2({ placeholder: 'Choose', allowClear: true });
+            });
+            $clone.show(); // Ensure it's visible
+
+            populateJoinFieldDropdown(
+                $clone.find('select.joinfieldselected'),
+                visualParamsObj.jointable[idx],
+                visualParamsObj.joinfield[idx],
+                function(success) {
+                    if (success) {
+                        $clone.find('select.joinfieldmain').val(visualParamsObj.joinfieldp[idx]);
+                        $clone.find('select').trigger('change.select2');
+                    }
+                }
+            );
+        });
+    }
+
+    // Load options for all field dropdowns and then populate other VQB elements
+    addTablesToDropdown(function(success) {
+        if (success) {
+            // Non-aggregated fields
+            if (visualParamsObj.fields && Array.isArray(visualParamsObj.fields)) {
+                $modal.find('select.fields').val(visualParamsObj.fields).trigger('change.select2');
+            }
+
+            // TODO: Populate WHERE conditions (dynamic rows)
+            // Iterate visualParamsObj.fname, fvalue, ftype. For each, clone #fieldClone, set values, append.
+            if (visualParamsObj.fname && Array.isArray(visualParamsObj.fname)) {
+                visualParamsObj.fname.forEach(function(name, idx){
+                    if(name && visualParamsObj.fvalue[idx]){ // Ensure field and value exist
+                        var $c = $('#fieldClone').clone().removeAttr('id').show();
+                        $c.find('select.fname').val(name);
+                        $c.find('input[name="fvalue[]"]').val(visualParamsObj.fvalue[idx]);
+                        if(idx > 0 && visualParamsObj.ftype[idx]) { // ftype links current to previous
+                             $c.find('select[name="ftype[]"]').val(visualParamsObj.ftype[idx]);
+                        } else if (idx === 0 && visualParamsObj.ftype && visualParamsObj.ftype[0]) {
+                            // If ftype[0] is set (e.g. from older save), handle it for the first actual condition
+                            // This might be redundant if ftype is always for linking *between* conditions
+                        }
+                        $('#btnAddWhere').after($c); // Add new condition row
+                        $c.find('select').select2(); // Initialize select2 on new row
+                    }
+                });
+            }
+
+
+            // TODO: Populate Aggregated Fields (dynamic rows)
+             if (visualParamsObj.agg_field && Array.isArray(visualParamsObj.agg_field)) {
+                visualParamsObj.agg_field.forEach(function(field, idx) {
+                    if (field && visualParamsObj.agg_func[idx]) {
+                        var $aggClone = $('#fieldCloneAggregate').clone().removeAttr('id').show();
+                        $aggClone.find('.agg_field').val(field);
+                        $aggClone.find('.agg_func').val(visualParamsObj.agg_func[idx]);
+                        $aggClone.find('.agg_alias').val(visualParamsObj.agg_alias[idx] || '');
+                        $('#aggregateFieldsContainer').append($aggClone);
+                        $aggClone.find('select').select2();
+                    }
+                });
+            }
+
+
+            // TODO: Populate GROUP BY fields
+            if (visualParamsObj.groupfields && Array.isArray(visualParamsObj.groupfields) && visualParamsObj.groupfields.length > 0) {
+                $modal.find('select.groupfields').val(visualParamsObj.groupfields).trigger('change.select2');
+                $('#group').show();
+            }
+
+            // TODO: Populate ORDER BY fields
+             if (visualParamsObj.orderfields && Array.isArray(visualParamsObj.orderfields) && visualParamsObj.orderfields.length > 0) {
+                $modal.find('select.orderfields').val(visualParamsObj.orderfields).trigger('change.select2');
+                if (visualParamsObj.chkDescending === 'on' || visualParamsObj.chkDescending === true) {
+                    $modal.find('input[name="chkDescending"]').prop('checked', true);
+                } else {
+                    $modal.find('input[name="chkDescending"]').prop('checked', false);
+                }
+                $('#orderby').show();
+            }
+
+            // TODO: Populate LIMIT
+            if (visualParamsObj.limitStart || visualParamsObj.limitNumRows) {
+                 $modal.find('input[name="limitStart"]').val(visualParamsObj.limitStart || '');
+                 $modal.find('input[name="limitNumRows"]').val(visualParamsObj.limitNumRows || '');
+                 $('#limit').show();
+            }
+
+            // TODO: Populate HAVING conditions (dynamic rows)
+            if (visualParamsObj.hfname && Array.isArray(visualParamsObj.hfname)) {
+                visualParamsObj.hfname.forEach(function(name, idx){
+                     if(name && visualParamsObj.hfvalue[idx]){
+                        var $hClone = $('#fieldCloneHaving').clone().removeAttr('id').show();
+                        $hClone.find('select.hfname').val(name); // Options for hfname are updated by updateHavingFieldNameOptions
+                        $hClone.find('input[name="hfvalue[]"]').val(visualParamsObj.hfvalue[idx]);
+                         if(idx > 0 && visualParamsObj.htype[idx]) {
+                             $hClone.find('select[name="htype[]"]').val(visualParamsObj.htype[idx]);
+                         }
+                        $('#havingConditionsContainer').append($hClone);
+                        $hClone.find('select.hfname').select2(); //Initialize select2 for hfname
+                    }
+                });
+            }
+            updateHavingFieldNameOptions(); // Call this after aggregates and groups are potentially populated
+
+        } else {
+            $.jGrowl('Warning: VQB fields may not be fully loaded.', { header: 'Warning' });
+        }
+        $modal.modal('show');
+    });
+}
+
+
+// --- Edit Saved Query Functionality ---
 $('body').on('click', '.btn-edit-saved-query', function() {
     var queryId = $(this).data('query-id');
     var queryName = $(this).data('query-name');
-    
-    // Find the query in the cache
+
     var queryData = savedQueriesCache?.find(q => q.id == queryId);
     if (!queryData) {
         $.jGrowl('Could not retrieve query details. Please refresh.', { header: 'Error' });
         return;
     }
 
-    var sqlQuery = queryData.sql_query;
-    var isVisual = queryData.is_visual_query == '1' || queryData.is_visual_query === true;
-    var visualParams = queryData.visual_params;
-
-    // Clear old data
-    $('#modal-save-query').removeData('editing-query-id').removeData('editing-query-name');
-
-    // Initialize visual query builder
-    if (isVisual && visualParams) {
-        try {
-            var parsedParams = JSON.parse(visualParams);
-            console.log("Preparing to open Visual Query Builder for query ID:", queryId);
-            
-            // Set the primary table
-            __table = parsedParams.primaryTable || '';
-            $('#modal-visual-query .vqb-table-name').text('Table: ' + (__table ? __table.toUpperCase() : 'UNKNOWN'));
-
-            // Store the queryId in the hidden field within the VQB modal for the update operation
-            $('#visual_query_id_edit').val(queryId);
-
-            // Dynamically set the form action for the VQB modal
-            if (__table) {
-                var formActionUrl = base + '/table/' + __table;
-                $('#modal-visual-query form').attr('action', formActionUrl);
-                console.log("VQB form action set to:", formActionUrl);
-            } else {
-                // This case should ideally not happen if primaryTable is always saved and present
-                console.error("VQB: __table is not defined, cannot set form action accurately. Form will submit to current page.");
-                // Fallback to current page if __table is missing, which is the default for action=""
-                $('#modal-visual-query form').attr('action', '');
+    if (queryData.is_visual_query == '1' || queryData.is_visual_query === true) {
+        if (queryData.visual_params) {
+            try {
+                var parsedParams = JSON.parse(queryData.visual_params);
+                openVisualQueryBuilderModal(parsedParams, queryId, queryName, true);
+            } catch (e) {
+                console.error("Error parsing visual_params for saved query:", e);
+                $.jGrowl('Error loading visual query data. Opening as SQL.', { header: 'Error' });
+                $('#sql').val(queryData.sql_query); // Fallback to SQL editor
+                $('#modal-custom-query').modal('show');
             }
-
-            // Clear existing joins
-            $('#modal-visual-query .cloned-join-row').remove();
-            
-            // Helper function to check if HTML options are valid (more than just a placeholder)
-            function hasValidTableOptions(htmlString) {
-                if (!htmlString || typeof htmlString !== 'string' || htmlString.indexOf('<option') === -1) {
-                    return false;
-                }
-                // Create a temporary select to count actual options vs placeholders
-                var $tempSelect = $('<select>').html(htmlString);
-                var totalOptions = $tempSelect.find('option').length;
-                var placeholderOptions = $tempSelect.find('option[value=""]').length;
-                // Valid if there's more than one option, or one option that isn't a placeholder
-                return totalOptions > 1 || (totalOptions === 1 && placeholderOptions === 0);
-            }
-
-            var currentTableOptions = '';
-
-            // 1. Try global allTablesOptionsHTML (populated from PHP $view_tables_options_html)
-            if (hasValidTableOptions(allTablesOptionsHTML)) {
-                currentTableOptions = allTablesOptionsHTML;
-                console.log("Using allTablesOptionsHTML (from view variable)");
-            } else {
-                // 2. Fallback: Try to get from the #fieldCloneTable template itself
-                console.log("allTablesOptionsHTML is invalid, trying #fieldCloneTable template.");
-                var templateTableOptions = $('#fieldCloneTable select.jointable').html();
-                if (hasValidTableOptions(templateTableOptions)) {
-                    currentTableOptions = templateTableOptions;
-                    console.log("Using #fieldCloneTable select.jointable HTML.");
-                } else {
-                    console.error("Fallback #fieldCloneTable also has invalid options:", templateTableOptions);
-                    $.jGrowl('Error: Could not find a valid table list. Please refresh the page or ensure tables are loaded.', { header: 'Error', theme: 'error', life: 7000 });
-                    return; // Critical error, cannot proceed
-                }
-            }
-
-            // Ensure allTablesOptionsHTML is updated globally if we found a valid source from the template
-            // This helps if btnJoinTable is clicked later without re-running this specific edit logic.
-            if (allTablesOptionsHTML !== currentTableOptions && hasValidTableOptions(currentTableOptions)) {
-                allTablesOptionsHTML = currentTableOptions;
-            }
-
-
-            // Initialize joins if present
-            if (parsedParams.jointype && Array.isArray(parsedParams.jointype)) {
-                var $template = $('#fieldCloneTable'); // This is the template div
-                
-                parsedParams.jointype.forEach((type, idx) => {
-                    var $clone = $template.clone() // Clone the template
-                                       .removeAttr('id')
-                                       .addClass('cloned-join-row'); // Make it a live row
-                    
-                    // Set up join type
-                    $clone.find('select.jointype').val(type);
-                    
-                    // Set up table selection using the determined currentTableOptions
-                    var $tableSelect = $clone.find('select.jointable');
-                    $tableSelect.html(currentTableOptions); // Populate with the valid options
-                    $tableSelect.val(parsedParams.jointable[idx]);
-                    
-                    // Add to form (before #btnJoinTable is good for UI)
-                    $('#btnJoinTable').before($clone); // Changed from .after() to .before() for better UI flow.
-                                                      // Or append to a specific container for joins if one exists.
-                                                      // For now, placing before the button is fine.
-                    
-                    // Initialize select2 on all selects within the new clone
-                    $clone.find('select').each(function() {
-                        if ($(this).data('select2')) {
-                            $(this).select2('destroy');
-                        }
-                        var placeholder = $(this).find('option[value=""]').text() || $(this).data('placeholder') || 'Choose';
-                        $(this).select2({
-                            placeholder: placeholder,
-                            allowClear: true
-                        });
-                    });
-                    
-                    $clone.slideDown('fast'); // Show the new row
-                    
-                    // Populate join fields for this specific join
-                    populateJoinFieldDropdown(
-                        $clone.find('select.joinfieldselected'), // The target dropdown for fields of the joined table
-                        parsedParams.jointable[idx], // The table that was joined
-                        parsedParams.joinfield[idx], // The field in the joined table to select
-                        function(success) {
-                            if (success) {
-                                // Set the primary table's joining field after the other dropdown is populated
-                                $clone.find('select.joinfieldmain').val(parsedParams.joinfieldp[idx]);
-                                // Trigger change for select2 to update display
-                                $clone.find('select').trigger('change.select2');
-                            }
-                        }
-                    );
-                });
-                
-                // After all joins are processed and added, update all general dropdowns in the VQB
-                addTablesToDropdown(function(success) {
-                    if (success) {
-                        // Now that options are loaded by addTablesToDropdown, set the saved fields.
-                        if (parsedParams.fields && Array.isArray(parsedParams.fields)) {
-                            $('#modal-visual-query select.fields').val(parsedParams.fields).trigger('change.select2');
-                            console.log("Applied saved fields:", parsedParams.fields);
-                        } else {
-                            console.log("No saved fields found in parsedParams or not an array:", parsedParams.fields);
-                        }
-                        // Also re-apply other field types if they depend on options from addTablesToDropdown
-                        // (e.g., orderfields, groupfields if they were not fully set up before this callback)
-                        // For now, focusing on select.fields as per the issue.
-                        // TODO: Review if other VQB elements like order by, group by need similar delayed population if their options are from addTablesToDropdown
-                    } else {
-                        // If addTablesToDropdown failed, fields might be incomplete.
-                        $.jGrowl('Warning: Some fields in the query builder may not be fully loaded due to an issue updating dropdowns.', { header: 'Warning', theme: 'warning', life: 6000 });
-                    }
-                    // Show the modal regardless of partial success of addTablesToDropdown, but after attempting to set values
-                    $('#modal-visual-query').modal('show');
-                });
-            } else {
-                // No joins to initialize, but still need to ensure field dropdowns are correct for the primary table.
-                 addTablesToDropdown(function(success) { // Ensure fields for primary table are loaded
-                    if (success) {
-                        // Now that options are loaded by addTablesToDropdown, set the saved fields.
-                        if (parsedParams.fields && Array.isArray(parsedParams.fields)) {
-                            $('#modal-visual-query select.fields').val(parsedParams.fields).trigger('change.select2');
-                             console.log("Applied saved fields (no joins case):", parsedParams.fields);
-                        } else {
-                            console.log("No saved fields found in parsedParams (no joins case) or not an array:", parsedParams.fields);
-                        }
-                    } else {
-                         $.jGrowl('Warning: Fields for the primary table might not be fully loaded.', { header: 'Warning', theme: 'warning', life: 6000 });
-                    }
-                    // Show the modal regardless
-                    $('#modal-visual-query').modal('show');
-                });
-            }
-            
-        } catch (e) {
-            console.error("Error processing visual query parameters:", e);
-            $.jGrowl('Error loading visual query. Opening as SQL instead.', { header: 'Warning', theme: 'warning', life: 5000 });
-            $('#sql').val(sqlQuery);
+        } else {
+            $.jGrowl('Saved visual query has no parameters. Opening as SQL.', { header: 'Warning' });
+            $('#sql').val(queryData.sql_query); // Fallback to SQL editor
             $('#modal-custom-query').modal('show');
         }
-    } else {
-        // Open as SQL query
-        $('#sql').val(sqlQuery);
+    } else { // Not a visual query, open in SQL editor
+        $('#sql').val(queryData.sql_query);
+        // Populate fields for custom query modal if needed (e.g. queryId for update)
+        $('#custom_query_id_edit').val(queryId);
+        // Potentially clear name edit field if it exists: $('#custom_query_name_edit').val(queryName);
         $('#modal-custom-query').modal('show');
     }
 });
 
-// Add these helper functions after the click handler:
 
-function initializeVisualQueryBuilder(parsedParams, sqlQuery, queryName) {
-    // Clear existing query builder state
-    $('#modal-visual-query .parent.cloned-join-row').remove();
-    
-    // Store the query being edited
-    $('#modal-visual-query').data({
-        'editing-query-name': queryName,
-        'original-sql': sqlQuery
-    });
+// --- Edit Executed Query Button ---
+$('body').on('click', '#btnEditExecutedQuery', function() {
+    var visualParamsJsonString = $('#current_visual_params').val();
+    var executedQueryId = $('#executed_query_id').val(); // Might be empty if not a saved query
+    var executedQueryName = $('#executed_query_name').val(); // Might be empty
+    var wasSavedVisual = $('#executed_query_was_saved_visual').val() === 'true';
 
-    // Set up initial table context
-    var inferredPrimaryTable = parsedParams.primaryTable || '';
-    var tableContextToUse = inferredPrimaryTable || __table;
-    
-    if (!tableContextToUse) {
-        $.jGrowl('Cannot determine table context for Visual Query Builder.', { header: 'Warning' });
-    }
-
-    // Update global table context
-    __table = tableContextToUse;
-    $('#modal-visual-query .vqb-table-name').text('Table: ' + (tableContextToUse ? tableContextToUse.toUpperCase() : 'UNKNOWN'));
-
-    // Initialize the form with stored parameters
-    initializeVisualQueryForm(parsedParams);
-
-    // Show the modal after initialization
-    $('#modal-visual-query').modal('show');
-}
-
-function initializeVisualQueryForm(params) {
-    // Set form values from params
-    if (params.fields) {
-        $('#modal-visual-query select.fields').val(params.fields);
-    }
-    
-    // Initialize joins after the base form is set up
-    if (params.jointype && Array.isArray(params.jointype)) {
-        var joinIndex = 0;
-        var processNextJoin = function() {
-            if (joinIndex >= params.jointype.length) {
-                // Final update of all dropdowns
-                addTablesToDropdown(function(finalAtdSuccess) {
-                    if (finalAtdSuccess) {
-                        // Update all select2 elements
-                        $('#modal-visual-query select').trigger('change.select2');
-                        $.jGrowl('Visual editor ready.', { header: 'Info', life: 3000 });
-                    }
-                });
-                return;
-            }
-
-            var joinDefinition = {
-                type: params.jointype[joinIndex],
-                table: params.jointable[joinIndex],
-                field: params.joinfield[joinIndex],
-                primaryField: params.joinfieldp[joinIndex]
-            };
-
-            // Clone and setup join row
-            setupJoinRow(joinDefinition, function() {
-                joinIndex++;
-                processNextJoin();
-            });
-        };
-
-        // Start processing joins
-        processNextJoin();
-    }
-}
-
-function setupJoinRow(joinDef, callback) {
-    var $clone = $('#fieldCloneTable').clone().removeAttr('id').addClass('cloned-join-row');
-    
-    // Set values for the new join row
-    $clone.find('select.jointype').val(joinDef.type);
-    $clone.find('select.jointable').html(allTablesOptionsHTML).val(joinDef.table);
-    
-    // Initialize select2 for the new elements
-    $clone.find('select').select2();
-    
-    // Add the new row to the form
-    $('#btnJoinTable').after($clone);
-    $clone.slideDown('fast');
-
-    // Populate the join fields
-    populateJoinFieldDropdown(
-        $clone.find('select.joinfieldselected'),
-        joinDef.table,
-        joinDef.field,
-        function(success) {
-            if (success) {
-                $clone.find('select.joinfieldmain').val(joinDef.primaryField);
-                // Update general dropdowns
-                addTablesToDropdown(function() {
-                    if (typeof callback === 'function') callback();
-                });
-            } else {
-                console.warn("Failed to populate join field for table:", joinDef.table);
-                if (typeof callback === 'function') callback();
-            }
+    if (visualParamsJsonString && visualParamsJsonString !== '{}' && visualParamsJsonString !== '[]') {
+        try {
+            var parsedParams = JSON.parse(visualParamsJsonString);
+            // If it was a saved visual query, its ID and name are used.
+            // Otherwise, queryId and queryName will be empty, VQB opens for a new/adhoc query state.
+            openVisualQueryBuilderModal(parsedParams, executedQueryId, executedQueryName, wasSavedVisual);
+        } catch (e) {
+            console.error("Error parsing #current_visual_params for editing:", e);
+            $.jGrowl('Could not parse visual parameters to edit this query.', { header: 'Error' });
         }
-    );
-}
+    } else {
+        $.jGrowl('This query was not run from the VQB or is not visually editable.', { header: 'Info' });
+    }
+});
 
-function openAsSQLQuery(sqlQuery, queryName) {
-    // Open in SQL editor mode
-    $('#sql').val(sqlQuery);
-    $('#modal-custom-query').modal('show');
-    $('#modal-save-query').data({
-        'editing-query-name': queryName,
-        'original-sql': sqlQuery
-    });
-}
+
+// --- Helper functions (initializeVisualQueryBuilder, initializeVisualQueryForm, setupJoinRow, openAsSQLQuery) ---
+// These were part of the older structure and are now largely replaced or integrated into openVisualQueryBuilderModal
+// For cleanup, these can be removed if openVisualQueryBuilderModal covers all their previous uses.
+// For now, keeping them commented out or to be removed in a later cleanup step.
+/*
+function initializeVisualQueryBuilder(parsedParams, sqlQuery, queryName) {
+//function initializeVisualQueryBuilder(parsedParams, sqlQuery, queryName) {
+//    // ... old code ...
+//}
+
+//function initializeVisualQueryForm(params) {
+//    // ... old code ...
+//}
+
+//function setupJoinRow(joinDef, callback) {
+//    // ... old code ...
+//}
+
+//function openAsSQLQuery(sqlQuery, queryName) {
+//    // ... old code ...
+//}
+*/
+
 
 // --- Update Visual Query (from VQB Modal) ---
 $('body').on('click', '#btnUpdateVisualQuery', function() {

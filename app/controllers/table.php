@@ -451,21 +451,60 @@ class Table
             }
         }
 
-        Flight::render(
-           'table',
-           array(
-              'title' => Flight::get('lastSegment'),
-              'icon' => self::$icon,
-              'table_data' => $records,
-              'fields' => getOptions($fields, false, Flight::get('lastSegment')), // Pass table name
-              'query' => SqlFormatter::format($query),
-              'printArray' => $printArray,
-              'timetaken' => $exec_time_row[0][1],
-              'visual_params_json' => $visual_query_params ? json_encode($visual_query_params) : '',
-              'executed_query_name' => $running_saved_query_name, // Pass the saved query name to the view
-              'view_tables_options_html' => Flight::get('tablesOptions') // Ensure this is passed too
-           )
+        $view_data = array(
+            'title' => Flight::get('lastSegment'),
+            'icon' => self::$icon,
+            'table_data' => $records,
+            'fields' => getOptions($fields, false, Flight::get('lastSegment')), // Pass table name for field dropdowns
+            'query' => SqlFormatter::format($query),
+            'printArray' => $printArray,
+            'timetaken' => $exec_time_row[0][1] ?? '0.00', // Ensure timetaken has a default
+            'view_tables_options_html' => $tablesOptionsHtmlForView // Use the locally generated one
         );
+
+        // If a saved query was run, fetch its details to pass to the view for the "Edit Query" button
+        if ($running_saved_query_name) {
+            $saved_query_details = ORM::for_table('saved_queries')
+                                    ->where('query_name', $running_saved_query_name)
+                                    // ->where('user_id', $_SESSION['user_id']) // If multi-user, scope by user
+                                    ->find_one();
+
+            if ($saved_query_details) {
+                $view_data['executed_query_id'] = $saved_query_details->id;
+                $view_data['executed_query_name'] = $saved_query_details->query_name;
+                $view_data['executed_query_was_saved_visual'] = (bool)$saved_query_details->is_visual_query;
+                // If it was a saved visual query, its visual_params should be used for editing,
+                // overriding any ad-hoc VQB params that might have been used to run it (though less likely for "Run Saved Query")
+                if ($saved_query_details->is_visual_query && $saved_query_details->visual_params) {
+                    $view_data['visual_params_json'] = $saved_query_details->visual_params;
+                } else if ($visual_query_params){ // Ad-hoc VQB query was run (not a saved one)
+                     $view_data['visual_params_json'] = json_encode($visual_query_params);
+                } else {
+                     $view_data['visual_params_json'] = ''; // No visual params
+                }
+            } else {
+                 // If running_saved_query_name was set but not found (edge case), clear related fields
+                $view_data['executed_query_id'] = '';
+                $view_data['executed_query_name'] = $running_saved_query_name; // Keep name for display
+                $view_data['executed_query_was_saved_visual'] = false;
+                $view_data['visual_params_json'] = $visual_query_params ? json_encode($visual_query_params) : ''; // Fallback to current VQB params
+            }
+        } else if ($visual_query_params) { // An ad-hoc VQB query (not saved yet)
+            $view_data['visual_params_json'] = json_encode($visual_query_params);
+            $view_data['executed_query_id'] = '';
+            $view_data['executed_query_name'] = ''; // No name for ad-hoc query yet
+            $view_data['executed_query_was_saved_visual'] = true; // It's visual by nature of being from VQB
+        } else { // A custom SQL query (not VQB, not saved)
+            $view_data['visual_params_json'] = '';
+            $view_data['executed_query_id'] = '';
+            $view_data['executed_query_name'] = '';
+            $view_data['executed_query_was_saved_visual'] = false;
+        }
+
+        // This was for the main list of tables for join table dropdowns, now handled by masterTableOptionsHTML
+        // $view_data['view_tables_options_html'] = Flight::get('tablesOptions'); // This might be stale or incorrect context
+
+        Flight::render('table', $view_data);
     }
 
     /**
