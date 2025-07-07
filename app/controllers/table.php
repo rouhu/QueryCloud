@@ -76,23 +76,25 @@ class Table
 
         $records = Presenter::listTableData($records, $fieldTypes);
 
-        // Ensure tablesOptions is available for the view context, similar to runQueryWithView
-        // This is for direct table views (not after a query run)
-        if (!Flight::get('tablesOptions') || Flight::get('tablesOptions') === '') {
-            $_db = Flight::get('db');
-            try {
-                $allTablesStmt = $_db->query('SHOW TABLES');
-                $allTablesResult = $allTablesStmt->fetchAll(PDO::FETCH_NUM);
-                $tableNamesForOptions = [];
-                foreach ($allTablesResult as $row) {
-                    $tableNamesForOptions[] = $row[0];
-                }
-                $tablesOptionsHtmlString = getOptions($tableNamesForOptions, true);
-                Flight::set('tablesOptions', $tablesOptionsHtmlString ? $tablesOptionsHtmlString : '');
-            } catch (PDOException $e) {
-                error_log("Error fetching table list for tablesOptions in Table::index: " . $e->getMessage());
-                Flight::set('tablesOptions', '<option value="">Error loading tables</option>');
+        // Generate tablesOptionsHTML directly for this view rendering
+        $_db = Flight::get('db');
+        $tablesOptionsHtmlForView = '<option value="">Error loading tables (Controller Default)</option>'; // Default
+        try {
+            $allTablesStmt = $_db->query('SHOW TABLES');
+            $allTablesResult = $allTablesStmt->fetchAll(PDO::FETCH_NUM);
+            $tableNamesForOptions = [];
+            foreach ($allTablesResult as $row) {
+                $tableNamesForOptions[] = $row[0];
             }
+            $currentTablesOptions = getOptions($tableNamesForOptions, true); // true for "Choose Table"
+            if (!empty(trim($currentTablesOptions)) && strpos($currentTablesOptions, '<option') !== false) {
+                $tablesOptionsHtmlForView = $currentTablesOptions;
+            } else { // Handles case where getOptions might return only the default or empty
+                $tablesOptionsHtmlForView = '<option value="">No tables found in DB</option>';
+            }
+        } catch (PDOException $e) {
+            error_log("Error fetching table list for view_tables_options_html in Table::index: " . $e->getMessage());
+            // $tablesOptionsHtmlForView remains as "Error loading tables..."
         }
 
         Flight::render(
@@ -104,9 +106,7 @@ class Table
               'table_data' => $records,
               'query' => SqlFormatter::format(ORM::get_last_query(ORM::DEFAULT_CONNECTION)),
               'timetaken' => $exec_time_row[0][1],
-              // Pass the globally set tablesOptions to the view, so modals.php can access it
-              // This ensures it's available even when table.php is rendered by Table::index()
-              'view_tables_options_html' => Flight::get('tablesOptions')
+              'view_tables_options_html' => $tablesOptionsHtmlForView
            )
         );
     }
@@ -394,29 +394,26 @@ class Table
         $exec_time_row = array();
         $records = '';
 
-        // Ensure tablesOptions is available for the view context
-        // This is the same logic as in index.php for initial setup
-        // Consider refactoring this into a helper or a Flight before-render hook if used more broadly
-        if (!Flight::get('tablesOptions') || Flight::get('tablesOptions') === '') {
-            $_db = Flight::get('db');
-            try {
-                $allTablesStmt = $_db->query('SHOW TABLES');
-                $allTablesResult = $allTablesStmt->fetchAll(PDO::FETCH_NUM);
-                $tableNamesForOptions = [];
-                foreach ($allTablesResult as $row) {
-                    $tableNamesForOptions[] = $row[0];
-                }
-                // The 'true' for $prependEmptyOption in getOptions adds a default empty option.
-                // The text for this is "Joining Key Field" by default in getOptions.
-                // If "Joining Table" is preferred, getOptions would need modification or a new param.
-                $tablesOptionsHtmlString = getOptions($tableNamesForOptions, true);
-                Flight::set('tablesOptions', $tablesOptionsHtmlString ? $tablesOptionsHtmlString : '');
-            } catch (PDOException $e) {
-                error_log("Error fetching table list for tablesOptions in runQueryWithView: " . $e->getMessage());
-                Flight::set('tablesOptions', '<option value="">Error loading tables</option>');
+        // Ensure tablesOptions is available for the view context by generating it directly
+        $_db = Flight::get('db');
+        $tablesOptionsHtmlForView = '<option value="">Error loading tables (Controller Default)</option>'; // Default
+        try {
+            $allTablesStmt = $_db->query('SHOW TABLES');
+            $allTablesResult = $allTablesStmt->fetchAll(PDO::FETCH_NUM);
+            $tableNamesForOptions = [];
+            foreach ($allTablesResult as $row) {
+                $tableNamesForOptions[] = $row[0];
             }
+            $currentTablesOptions = getOptions($tableNamesForOptions, true); // true for "Choose Table"
+            if (!empty(trim($currentTablesOptions)) && strpos($currentTablesOptions, '<option') !== false) {
+                $tablesOptionsHtmlForView = $currentTablesOptions;
+            } else { // Handles case where getOptions might return only the default or empty
+                $tablesOptionsHtmlForView = '<option value="">No tables found in DB</option>';
+            }
+        } catch (PDOException $e) {
+            error_log("Error fetching table list for view_tables_options_html in runQueryWithView: " . $e->getMessage());
+            // $tablesOptionsHtmlForView remains as "Error loading tables..."
         }
-
 
         try {
             // turn on query profiling
