@@ -218,6 +218,10 @@ $('body').on('click', '.btn-edit-saved-query', function() {
     // This handler now decides whether to open VQB or SQL Editor.
     // If opening VQB, it attempts to set context and pre-populate fields.
     if (isVisual || (visualParams && visualParams !== '')) { // Try to open in VQB if it is_visual OR if visualParams exist
+        // DEBUG: Log state of #fieldCloneTable's select.jointable
+        console.log("DEBUG: Entering VQB edit path. HTML of #fieldCloneTable select.jointable BEFORE any VQB setup:", $('#fieldCloneTable').find('select.jointable').html());
+        console.log("DEBUG: Options count in #fieldCloneTable select.jointable:", $('#fieldCloneTable').find('select.jointable option').length);
+
         $('#visual_query_id_edit').val(queryId);
         console.log("Preparing to open Visual Query Builder for query ID:", queryId);
 
