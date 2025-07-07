@@ -207,6 +207,18 @@ $('body').on('click', '.btn-edit-saved-query', function() {
             // Set the primary table
             __table = parsedParams.primaryTable || '';
             $('#modal-visual-query .vqb-table-name').text('Table: ' + (__table ? __table.toUpperCase() : 'UNKNOWN'));
+
+            // Dynamically set the form action for the VQB modal
+            if (__table) {
+                var formActionUrl = base + '/table/' + __table;
+                $('#modal-visual-query form').attr('action', formActionUrl);
+                console.log("VQB form action set to:", formActionUrl);
+            } else {
+                // This case should ideally not happen if primaryTable is always saved and present
+                console.error("VQB: __table is not defined, cannot set form action accurately. Form will submit to current page.");
+                // Fallback to current page if __table is missing, which is the default for action=""
+                $('#modal-visual-query form').attr('action', '');
+            }
             
             // Clear existing joins
             $('#modal-visual-query .cloned-join-row').remove();
