@@ -144,10 +144,12 @@ $fields = $fields ?? [];
     <div class="row">
         <div class="col-xs-5">
             <strong class="selected-field-name-display"></strong>
-            <input type="hidden" class="selected-field-name-hidden" /> <!-- To store original field name -->
+            <!-- Name attribute will be dynamically indexed by JavaScript e.g., fields[0][field] -->
+            <input type="hidden" class="selected-field-name-hidden" name="fields[0][field]" />
         </div>
         <div class="col-xs-5">
-            <input type="text" class="form-control input-sm field-alias-input" placeholder="Optional Alias">
+            <!-- Name attribute will be dynamically indexed by JavaScript e.g., fields[0][alias] -->
+            <input type="text" class="form-control input-sm field-alias-input" name="fields[0][alias]" placeholder="Optional Alias">
         </div>
         <div class="col-xs-2 text-right">
             <button type="button" class="btn btn-xs btn-danger remove-field-alias-row" title="Remove Field">
