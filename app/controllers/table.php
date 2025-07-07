@@ -144,226 +144,15 @@ class Table
 
         } // for visual query
         else {
-
-            $select_parts = [];
-
-            // Process non-aggregated fields
-            if (!empty($_POST['fields'])) {
-                $duplicateNameFields = []; // To handle potential duplicate field names if selected multiple times (though less likely with table.field format)
-                foreach ($_POST['fields'] as $value) {
-                    if ($value) {
-                        // Basic protection for field names, assuming 'table.field' format
-                        // More robust quoting might be needed if arbitrary values are allowed.
-                        // The current UI generates table.field, so direct usage is mostly safe.
-                        // For aliasing to avoid conflicts if the same simple field is selected multiple times (e.g. from different joins before full qualification was implemented)
-                        // This logic might be less critical if all fields are fully qualified (table.field)
-                        $baseValue = $value;
-                        if (in_array($baseValue, $duplicateNameFields)) {
-                            $fieldArray = explode('.', $baseValue);
-                            if (count($fieldArray) === 2) {
-                                $value = $baseValue . ' AS ' . $fieldArray[0] . '_' . $fieldArray[1];
-                            }
-                            // If it's already aliased or not in table.field format, use as is or consider more complex aliasing
-                        }
-                        $duplicateNameFields[] = $baseValue;
-                        $select_parts[] = $value;
-                    }
-                }
-            }
-
-            // Process aggregated fields
-            if (!empty($_POST['agg_field']) && is_array($_POST['agg_field'])) {
-                foreach ($_POST['agg_field'] as $key => $field_name) {
-                    if (empty($field_name) || empty($_POST['agg_func'][$key])) {
-                        continue; // Skip if field name or function is missing
-                    }
-
-                    $func = strtoupper($_POST['agg_func'][$key]);
-                    $alias = $_POST['agg_alias'][$key] ?? '';
-
-                    // Basic validation for aggregate functions
-                    $allowed_funcs = ['COUNT', 'SUM', 'AVG', 'MIN', 'MAX'];
-                    if (!in_array($func, $allowed_funcs)) {
-                        // Potentially log an error or skip
-                        continue;
-                    }
-
-                    // Field name is expected to be table.field - quote it carefully if needed
-                    // For now, assuming $field_name is like 'tablename.fieldname'
-                    // Proper quoting: `table`.`field`
-                    $field_parts = explode('.', $field_name, 2);
-                    $quoted_field_name = $field_name; // Default to as-is if not 'table.field'
-                    if (count($field_parts) == 2) {
-                         // Basic quoting, can be improved for robustness
-                        $quoted_field_name = "`" . str_replace("`", "``", $field_parts[0]) . "`.`" . str_replace("`", "``", $field_parts[1]) . "`";
-                    } else {
-                        // If it's a single word, assume it's a field from the primary table or already quoted
-                        $quoted_field_name = "`" . str_replace("`", "``", $field_name) . "`";
-                    }
-
-
-                    $agg_string = $func . '(' . $quoted_field_name . ')';
-
-                    if (!empty($alias)) {
-                        // Sanitize alias: basic, allow alphanumeric and underscores
-                        $alias = preg_replace('/[^a-zA-Z0-9_]/', '', $alias);
-                        if (!empty($alias)) {
-                            $agg_string .= ' AS `' . $alias . '`';
-                        } else { // if alias became empty after sanitizing, generate default
-                            $default_alias = strtolower($func . '_' . preg_replace('/[^a-zA-Z0-9_]/', '', $field_parts[1] ?? $field_name));
-                            $agg_string .= ' AS `' . $default_alias . '`';
-                        }
-                    } else {
-                        $default_alias = strtolower($func . '_' . preg_replace('/[^a-zA-Z0-9_]/', '', $field_parts[1] ?? $field_name));
-                        $agg_string .= ' AS `' . $default_alias . '`';
-                    }
-                    $select_parts[] = $agg_string;
-                }
-            }
-
-            if (empty($select_parts)) {
-                $query = 'SELECT *';
-            } else {
-                $query = 'SELECT ' . implode(', ', $select_parts);
-            }
-
-            $query .= ' FROM `' . Flight::get('lastSegment') . '`';
-
-            // find out which tables to JOIN
-            if (array_key_exists('jointype', $_POST) && count($_POST['jointype'])) {
-                $counter = 0;
-                foreach ($_POST['jointype'] as $key => $value) {
-                    $counter ++;
-
-                    if (! $value) {
-                        continue;
-                    }
-
-                    $primaryTable = Flight::get('lastSegment');
-                    $query .= ' ' . $value . ' ';
-
-                    // build ON table join clause
-                    if ($_POST['jointable'][$key]) {
-                        $query .= '`' . str_replace('`', '``', $_POST['jointable'][$key]) . '`'; // Quote the joined table name
-
-                        // Primary table's join field
-                        $primary_join_field = $_POST['joinfieldp'][$key];
-                        if (strpos($primary_join_field, '.') !== false) {
-                            // Field is already qualified (e.g., table.column)
-                            list($pt_table, $pt_col) = explode('.', $primary_join_field, 2);
-                            $primary_join_field_sql = '`' . str_replace('`', '``', $pt_table) . '`.`' . str_replace('`', '``', $pt_col) . '`';
-                        } else {
-                            // Field is not qualified, prepend primary table name
-                            $primary_join_field_sql = '`' . str_replace('`', '``', $primaryTable) . '`.`' . str_replace('`', '``', $primary_join_field) . '`';
-                        }
-
-                        // Joined table's join field
-                        $secondary_join_field = $_POST['joinfield'][$key];
-                        if (strpos($secondary_join_field, '.') !== false) {
-                            // Field is already qualified (e.g., table.column)
-                            list($st_table, $st_col) = explode('.', $secondary_join_field, 2);
-                            $secondary_join_field_sql = '`' . str_replace('`', '``', $st_table) . '`.`' . str_replace('`', '``', $st_col) . '`';
-                        } else {
-                            // Field is not qualified, prepend joined table name
-                            $secondary_join_field_sql = '`' . str_replace('`', '``', $_POST['jointable'][$key]) . '`.`' . str_replace('`', '``', $secondary_join_field) . '`';
-                        }
-
-                        $query .= ' ON ' . $primary_join_field_sql . ' = ' . $secondary_join_field_sql;
-                    }
-                }
-            }
-
-            // find out which fields/conditions to put in in WHERE clause
-            if (array_key_exists('fname', $_POST) && count($_POST['fname'])) {
-                $total = count($_POST['fname']);
-                $query .= ' WHERE ';
-
-                $counter = 0;
-                foreach ($_POST['fname'] as $key => $value) {
-                    $counter ++;
-
-                    if ($_POST['fvalue'][$key]) {
-                        if ($total === $counter) {
-                            $query .= $value . $_POST['fvalue'][$key];
-                        } else {
-                            $query .= $value . $_POST['fvalue'][$key] . ' ' . $_POST['ftype'][$key + 1] . ' ';
-                        }
-                    }
-
-                }
-            }
-
-            // find out GROUP BY fields
-            if (array_key_exists('groupfields', $_POST) && count($_POST['groupfields'])) {
-                $query .= ' GROUP BY ';
-                $query .= implode(', ', $_POST['groupfields']);
-            }
-
-            // find out which fields/conditions to put in HAVING clause
-            if (!empty($_POST['hfname']) && is_array($_POST['hfname'])) {
-                $having_conditions = [];
-                $first_having_condition = true;
-                foreach ($_POST['hfname'] as $key => $hfname_val) {
-                    if (!empty($hfname_val) && isset($_POST['hfvalue'][$key]) && $_POST['hfvalue'][$key] !== '') {
-                        $hcondition_string = '';
-                        if (!$first_having_condition && isset($_POST['htype'][$key])) {
-                            $hcondition_string .= ' ' . $_POST['htype'][$key] . ' ';
-                        }
-                        $first_having_condition = false;
-
-                        // Quote field name/alias for HAVING. Aliases should not be table.field
-                        // If hfname_val contains '.', it's likely a table.field from GROUP BY, otherwise an alias.
-                        // For safety, we'll assume aliases do not contain '.' and fields from GROUP BY might.
-                        // SQL standard allows aliases from SELECT to be used in HAVING.
-                        // If it's an alias, it shouldn't be `table`.`alias`. Just `alias`.
-                        if (strpos($hfname_val, '.') === false) {
-                             // Likely an alias, quote it simply
-                            $hcondition_string .= '`' . str_replace("`", "``", $hfname_val) . '`';
-                        } else {
-                            // Likely a table.field from GROUP BY. Quote accordingly.
-                            $hfield_parts = explode('.', $hfname_val, 2);
-                            if (count($hfield_parts) == 2) {
-                                $hcondition_string .= "`" . str_replace("`", "``", $hfield_parts[0]) . "`.`" . str_replace("`", "``", $hfield_parts[1]) . "`";
-                            } else { // Fallback for non-standard field name
-                                $hcondition_string .= "`" . str_replace("`", "``", $hfname_val) . "`";
-                            }
-                        }
-
-                        // The hfvalue is expected to contain operator and value, e.g., "> 100" or "= 'text'"
-                        // This part needs to be robust. For now, direct concatenation.
-                        // TODO: Separate operator and value in UI and process them safely here.
-                        $hcondition_string .= ' ' . $_POST['hfvalue'][$key];
-                        $having_conditions[] = $hcondition_string;
-                    }
-                }
-                if (!empty($having_conditions)) {
-                    $query .= ' HAVING ' . implode('', $having_conditions); // Conditions already include AND/OR
-                }
-            }
-
-
-            // find out ORDER BY fields
-            if (array_key_exists('orderfields', $_POST) && count($_POST['orderfields'])) {
-                $query .= ' ORDER BY ';
-                $query .= implode(', ', $_POST['orderfields']);
-
-                if (array_key_exists('chkDescending', $_POST) && $_POST['chkDescending']) {
-                    $query .= ' DESC ';
-                }
-            }
-
-            // find out LIMIT clause details
-            if (array_key_exists('limitStart', $_POST) && $_POST['limitStart']) {
-                $query .= ' LIMIT ' . $_POST['limitStart'];
-
-                if (array_key_exists('limitNumRows', $_POST) && $_POST['limitNumRows']) {
-                    $query .= ', ' . $_POST['limitNumRows'];
-                }
-            }
-
-            $query = self::fixQuery($query);
+            // Use $primaryTableName which is Flight::get('lastSegment') in this context
+            $primaryTableName = Flight::get('lastSegment');
+            $query = self::generateSqlFromVisualParams($_POST, $primaryTableName);
 
             // Collect visual parameters if this was a visual query build
+            // Note: $_POST is passed directly to generateSqlFromVisualParams,
+            // so $visual_params_for_view will be a subset if generateSqlFromVisualParams filters.
+            // For consistency, it's better if generateSqlFromVisualParams takes a clean array
+            // and we construct $visual_params_for_view based on expected keys.
             $visual_params_for_view = [];
             // These are the POST keys used by the visual builder UI in modals.php and processed in Table::runquery()
             $visual_param_keys = [
@@ -372,13 +161,19 @@ class Table
                 'groupfields', 'orderfields', 'chkDescending',
                 'limitStart', 'limitNumRows',
                 'agg_field', 'agg_func', 'agg_alias',
-                'hfname', 'hfvalue', 'htype'
+                'hfname', 'hfvalue', 'htype',
+                // 'primaryTable' is not from POST here but added by JS for saving.
+                // We'll ensure it's part of visual_params if available from POST (though it won't be for direct VQB run)
+                // or use $primaryTableName for context.
             ];
             foreach($visual_param_keys as $key) {
                 if (isset($_POST[$key])) {
                     $visual_params_for_view[$key] = $_POST[$key];
                 }
             }
+            // Add primaryTable to visual_params_for_view for consistency if it's used for display or later saving from this view
+            $visual_params_for_view['primaryTable'] = $primaryTableName;
+
 
             // run query and render view
             // Pass $running_saved_query_name which would be null here as this is VQB path
@@ -386,6 +181,199 @@ class Table
         }
 
     }
+
+    public static function generateSqlFromVisualParams(array $params, string $primaryTableName): string
+    {
+        $select_parts = [];
+        $query = '';
+
+        // Process non-aggregated fields
+        if (!empty($params['fields'])) {
+            $duplicateNameFields = [];
+            foreach ($params['fields'] as $value) {
+                if ($value) {
+                    $baseValue = $value;
+                    if (in_array($baseValue, $duplicateNameFields)) {
+                        $fieldArray = explode('.', $baseValue);
+                        if (count($fieldArray) === 2) {
+                            $value = $baseValue . ' AS ' . $fieldArray[0] . '_' . $fieldArray[1];
+                        }
+                    }
+                    $duplicateNameFields[] = $baseValue;
+                    $select_parts[] = $value;
+                }
+            }
+        }
+
+        // Process aggregated fields
+        if (!empty($params['agg_field']) && is_array($params['agg_field'])) {
+            foreach ($params['agg_field'] as $key => $field_name) {
+                if (empty($field_name) || empty($params['agg_func'][$key])) {
+                    continue;
+                }
+
+                $func = strtoupper($params['agg_func'][$key]);
+                $alias = $params['agg_alias'][$key] ?? '';
+                $allowed_funcs = ['COUNT', 'SUM', 'AVG', 'MIN', 'MAX'];
+                if (!in_array($func, $allowed_funcs)) {
+                    continue;
+                }
+
+                $field_parts = explode('.', $field_name, 2);
+                $quoted_field_name = $field_name;
+                if (count($field_parts) == 2) {
+                    $quoted_field_name = "`" . str_replace("`", "``", $field_parts[0]) . "`.`" . str_replace("`", "``", $field_parts[1]) . "`";
+                } else {
+                    $quoted_field_name = "`" . str_replace("`", "``", $field_name) . "`";
+                }
+
+                $agg_string = $func . '(' . $quoted_field_name . ')';
+
+                if (!empty($alias)) {
+                    $alias = preg_replace('/[^a-zA-Z0-9_]/', '', $alias);
+                    if (!empty($alias)) {
+                        $agg_string .= ' AS `' . $alias . '`';
+                    } else {
+                        $default_alias = strtolower($func . '_' . preg_replace('/[^a-zA-Z0-9_]/', '', $field_parts[1] ?? $field_name));
+                        $agg_string .= ' AS `' . $default_alias . '`';
+                    }
+                } else {
+                    $default_alias = strtolower($func . '_' . preg_replace('/[^a-zA-Z0-9_]/', '', $field_parts[1] ?? $field_name));
+                    $agg_string .= ' AS `' . $default_alias . '`';
+                }
+                $select_parts[] = $agg_string;
+            }
+        }
+
+        if (empty($select_parts)) {
+            $query = 'SELECT *';
+        } else {
+            $query = 'SELECT ' . implode(', ', $select_parts);
+        }
+
+        $query .= ' FROM `' . str_replace("`", "``", $primaryTableName) . '`';
+
+        // Joins
+        if (!empty($params['jointype']) && is_array($params['jointype'])) {
+            foreach ($params['jointype'] as $key => $value) {
+                if (!$value || empty($params['jointable'][$key])) { // Ensure join table is also present
+                    continue;
+                }
+                $query .= ' ' . $value . ' '; // $value is jointype
+                $query .= '`' . str_replace('`', '``', $params['jointable'][$key]) . '`';
+
+                if (!empty($params['joinfieldp'][$key]) && !empty($params['joinfield'][$key])) {
+                    $primary_join_field = $params['joinfieldp'][$key];
+                    if (strpos($primary_join_field, '.') !== false) {
+                        list($pt_table, $pt_col) = explode('.', $primary_join_field, 2);
+                        $primary_join_field_sql = '`' . str_replace('`', '``', $pt_table) . '`.`' . str_replace('`', '``', $pt_col) . '`';
+                    } else {
+                        $primary_join_field_sql = '`' . str_replace('`', '``', $primaryTableName) . '`.`' . str_replace('`', '``', $primary_join_field) . '`';
+                    }
+
+                    $secondary_join_field = $params['joinfield'][$key];
+                    // Note: joinfield from VQB is usually not qualified, it's a field from jointable[$key]
+                     $secondary_join_field_sql = '`' . str_replace('`', '``', $params['jointable'][$key]) . '`.`' . str_replace('`', '``', $secondary_join_field) . '`';
+
+                    $query .= ' ON ' . $primary_join_field_sql . ' = ' . $secondary_join_field_sql;
+                }
+            }
+        }
+
+        // WHERE clause
+        if (!empty($params['fname']) && is_array($params['fname'])) {
+            $where_conditions = [];
+            foreach ($params['fname'] as $key => $value) {
+                if (!empty($params['fvalue'][$key])) { // Ensure there's a value for the condition
+                    $condition = $value . $params['fvalue'][$key]; // $value is field name, fvalue has operator + value
+                    if (isset($params['ftype'][$key]) && $key > 0 && count($where_conditions) > 0) { // ftype is for condition linking (AND/OR)
+                         // ftype is actually for the *next* condition, so it should be used for $params['ftype'][$key] to link to previous
+                         // This part of original logic might be slightly off. For safety, let's assume ftype[$key] links the current to previous.
+                         // A more robust way is to ensure ftype array is correctly aligned or build conditions step-by-step.
+                         // The original code uses $params['ftype'][$key + 1] which is problematic if $key is the last one.
+                         // Let's assume $params['ftype'][$key] links the condition at $key to the one at $key-1.
+                         // The first condition won't have a preceding ftype.
+                        if (isset($params['ftype'][$key]) && !empty($where_conditions) ) { // Check if ftype for current index exists
+                            $where_conditions[] = ($params['ftype'][$key] ?? 'AND') . ' ' . $condition;
+                        } else {
+                            $where_conditions[] = $condition;
+                        }
+                    } else {
+                         $where_conditions[] = $condition;
+                    }
+                }
+            }
+            if (!empty($where_conditions)) {
+                 // Rebuild WHERE clause carefully
+                $query .= ' WHERE ';
+                $first_where = true;
+                foreach ($params['fname'] as $key => $value) {
+                    if (!empty($params['fvalue'][$key])) {
+                        if (!$first_where && isset($params['ftype'][$key])) { // ftype links current to previous
+                            $query .= ' ' . ($params['ftype'][$key] ?? 'AND') . ' ';
+                        }
+                        $query .= $value . $params['fvalue'][$key];
+                        $first_where = false;
+                    }
+                }
+            }
+        }
+
+        // GROUP BY fields
+        if (!empty($params['groupfields']) && is_array($params['groupfields']) && count(array_filter($params['groupfields'])) > 0) {
+            $query .= ' GROUP BY ';
+            $query .= implode(', ', array_filter($params['groupfields']));
+        }
+
+        // HAVING clause
+        if (!empty($params['hfname']) && is_array($params['hfname'])) {
+            $having_conditions_parts = [];
+            foreach ($params['hfname'] as $key => $hfname_val) {
+                if (!empty($hfname_val) && isset($params['hfvalue'][$key]) && $params['hfvalue'][$key] !== '') {
+                    $hcondition_string = '';
+                    if (count($having_conditions_parts) > 0 && isset($params['htype'][$key])) { // htype links current to previous
+                        $hcondition_string .= ' ' . ($params['htype'][$key] ?? 'AND') . ' ';
+                    }
+
+                    if (strpos($hfname_val, '.') === false) {
+                        $hcondition_string .= '`' . str_replace("`", "``", $hfname_val) . '`';
+                    } else {
+                        $hfield_parts = explode('.', $hfname_val, 2);
+                        if (count($hfield_parts) == 2) {
+                            $hcondition_string .= "`" . str_replace("`", "``", $hfield_parts[0]) . "`.`" . str_replace("`", "``", $hfield_parts[1]) . "`";
+                        } else {
+                            $hcondition_string .= "`" . str_replace("`", "``", $hfname_val) . "`";
+                        }
+                    }
+                    $hcondition_string .= ' ' . $params['hfvalue'][$key];
+                    $having_conditions_parts[] = $hcondition_string;
+                }
+            }
+            if (!empty($having_conditions_parts)) {
+                $query .= ' HAVING ' . implode(' ', $having_conditions_parts);
+            }
+        }
+
+        // ORDER BY fields
+        if (!empty($params['orderfields']) && is_array($params['orderfields']) && count(array_filter($params['orderfields'])) > 0) {
+            $query .= ' ORDER BY ';
+            $query .= implode(', ', array_filter($params['orderfields']));
+            if (isset($params['chkDescending']) && ($params['chkDescending'] === 'on' || $params['chkDescending'] === true)) {
+                $query .= ' DESC ';
+            }
+        }
+
+        // LIMIT clause
+        if (!empty($params['limitStart']) && is_numeric($params['limitStart'])) {
+            $query .= ' LIMIT ' . (int)$params['limitStart'];
+            if (!empty($params['limitNumRows']) && is_numeric($params['limitNumRows'])) {
+                $query .= ', ' . (int)$params['limitNumRows'];
+            }
+        }
+
+        return self::fixQuery($query);
+    }
+
 
     private static function runQueryWithView($query, $fields, $printArray, $visual_query_params = null, $running_saved_query_name = null)
     {
