@@ -805,9 +805,28 @@ $('body').on('click', '#btnShowSaveQueryModal', function() {
     $('#query_name_save').val(''); // Always clear name for a new save
 
     // For saving visual query params
-    var visualParamsJson = $('#current_visual_params').val();
-    if (visualParamsJson && visualParamsJson !== '') {
-        $('#modal-save-query').data('visual-params', visualParamsJson);
+    var visualParamsJsonString = $('#current_visual_params').val();
+    if (visualParamsJsonString && visualParamsJsonString !== '') {
+        try {
+            var visualParamsObject = JSON.parse(visualParamsJsonString);
+            // Add the primaryTable information using the global __table variable
+            // __table is set in app/views/table.php
+            if (typeof __table !== 'undefined' && __table) {
+                visualParamsObject.primaryTable = __table;
+            } else {
+                console.warn('__table variable is not defined. Cannot add primaryTable to visual_params for saving.');
+                // Potentially, you could prevent saving here or notify the user,
+                // but for now, we'll allow saving without it if __table is missing,
+                // though editing might fail later as per the original issue.
+            }
+            // Store the modified object (as a string) in the modal's data
+            $('#modal-save-query').data('visual-params', JSON.stringify(visualParamsObject));
+            console.log('Visual params for save:', JSON.stringify(visualParamsObject));
+        } catch (e) {
+            console.error('Error parsing visual_params_json or adding primaryTable:', e);
+            // If parsing fails, store the original string, though it's likely an issue.
+            $('#modal-save-query').data('visual-params', visualParamsJsonString);
+        }
     } else {
         $('#modal-save-query').removeData('visual-params'); // Ensure it's clear if no params
     }
