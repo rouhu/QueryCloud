@@ -180,7 +180,6 @@ $('body').on('click', '.btn-run-saved-query', function(e) {
 // --- Edit Saved Query Functionality ---
 // Find the .btn-edit-saved-query click handler (around line 180) and modify it:
 
-// Replace the AJAX call in the .btn-edit-saved-query click handler with:
 $('body').on('click', '.btn-edit-saved-query', function() {
     var queryId = $(this).data('query-id');
     var queryName = $(this).data('query-name');
@@ -199,63 +198,101 @@ $('body').on('click', '.btn-edit-saved-query', function() {
     // Clear old data
     $('#modal-save-query').removeData('editing-query-id').removeData('editing-query-name');
 
-    // Get tables HTML from existing element on the page instead of AJAX call
-    var tablesHtml = $('#modal-visual-query select.jointable').first().html();
-    if (tablesHtml) {
-        allTablesOptionsHTML = tablesHtml;
-        
-        // Now proceed with visual query builder
-        if (isVisual && visualParams) {
-            try {
-                var parsedParams = JSON.parse(visualParams);
-                console.log("Preparing to open Visual Query Builder for query ID:", queryId);
-                __table = parsedParams.primaryTable || '';
+    // Initialize visual query builder
+    if (isVisual && visualParams) {
+        try {
+            var parsedParams = JSON.parse(visualParams);
+            console.log("Preparing to open Visual Query Builder for query ID:", queryId);
+            
+            // Set the primary table
+            __table = parsedParams.primaryTable || '';
+            $('#modal-visual-query .vqb-table-name').text('Table: ' + (__table ? __table.toUpperCase() : 'UNKNOWN'));
+            
+            // Clear existing joins
+            $('#modal-visual-query .cloned-join-row').remove();
+            
+            // Get tables list from template
+            if (!allTablesOptionsHTML || allTablesOptionsHTML.indexOf('<option') === -1) {
+                // Try to get from the template element
+                var templateTableOptions = $('#fieldCloneTable select.jointable').html();
+                if (templateTableOptions && templateTableOptions.indexOf('<option') !== -1) {
+                    allTablesOptionsHTML = templateTableOptions;
+                } else {
+                    $.jGrowl('Error: Could not find table list. Please refresh the page.', { header: 'Error' });
+                    return;
+                }
+            }
+
+            // Initialize joins if present
+            if (parsedParams.jointype && Array.isArray(parsedParams.jointype)) {
+                var $template = $('#fieldCloneTable');
                 
-                // Initialize the visual query builder with parsed parameters
-                if (parsedParams.jointype && Array.isArray(parsedParams.jointype)) {
-                    var $template = $('#fieldCloneTable');
-                    $('#modal-visual-query .cloned-join-row').remove(); // Clear existing joins
+                parsedParams.jointype.forEach((type, idx) => {
+                    var $clone = $template.clone()
+                                       .removeAttr('id')
+                                       .addClass('cloned-join-row');
                     
-                    parsedParams.jointype.forEach((type, idx) => {
-                        var $clone = $template.clone()
-                                           .removeAttr('id')
-                                           .addClass('cloned-join-row');
-                        
-                        $clone.find('select.jointable')
-                             .html(allTablesOptionsHTML)
-                             .val(parsedParams.jointable[idx]);
-                             
-                        $clone.find('select.jointype')
-                             .val(type);
-                             
-                        $('#btnJoinTable').after($clone);
-                        $clone.find('select').select2();
-                        $clone.slideDown('fast');
-                        
-                        populateJoinFieldDropdown(
-                            $clone.find('select.joinfieldselected'),
-                            parsedParams.jointable[idx],
-                            parsedParams.joinfield[idx]
-                        );
+                    // Set up join type
+                    $clone.find('select.jointype').val(type);
+                    
+                    // Set up table selection
+                    var $tableSelect = $clone.find('select.jointable');
+                    $tableSelect.html(allTablesOptionsHTML);
+                    $tableSelect.val(parsedParams.jointable[idx]);
+                    
+                    // Add to form
+                    $('#btnJoinTable').after($clone);
+                    
+                    // Initialize select2 on all selects
+                    $clone.find('select').each(function() {
+                        if ($(this).data('select2')) {
+                            $(this).select2('destroy');
+                        }
+                        $(this).select2({
+                            placeholder: $(this).find('option:first').text(),
+                            allowClear: true
+                        });
                     });
                     
-                    addTablesToDropdown();
-                }
+                    $clone.slideDown('fast');
+                    
+                    // Populate join fields
+                    populateJoinFieldDropdown(
+                        $clone.find('select.joinfieldselected'),
+                        parsedParams.jointable[idx],
+                        parsedParams.joinfield[idx],
+                        function(success) {
+                            if (success) {
+                                // Set the primary field after fields are populated
+                                $clone.find('select.joinfieldmain').val(parsedParams.joinfieldp[idx]);
+                                $clone.find('select').trigger('change.select2');
+                            }
+                        }
+                    );
+                });
                 
+                // Update all dropdowns after joins are initialized
+                addTablesToDropdown(function(success) {
+                    if (success) {
+                        $('#modal-visual-query').modal('show');
+                    } else {
+                        $.jGrowl('Warning: Some fields may not be properly loaded.', { header: 'Warning' });
+                    }
+                });
+            } else {
                 $('#modal-visual-query').modal('show');
-            } catch (e) {
-                console.error("Error parsing visual parameters:", e);
-                $.jGrowl('Error loading visual query. Opening as SQL.', { header: 'Warning' });
-                $('#sql').val(sqlQuery);
-                $('#modal-custom-query').modal('show');
             }
-        } else {
-            // Open as SQL query
+            
+        } catch (e) {
+            console.error("Error parsing visual parameters:", e);
+            $.jGrowl('Error loading visual query. Opening as SQL.', { header: 'Warning' });
             $('#sql').val(sqlQuery);
             $('#modal-custom-query').modal('show');
         }
     } else {
-        $.jGrowl('Error: Could not find table list template.', { header: 'Error' });
+        // Open as SQL query
+        $('#sql').val(sqlQuery);
+        $('#modal-custom-query').modal('show');
     }
 });
 
