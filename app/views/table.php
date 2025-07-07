@@ -14,6 +14,21 @@
     <div style="margin-bottom: 10px;">
         <h3 style="display: inline-block; margin-right: 10px;">Generated Query</h3>
         <button type="button" class="btn btn-success" id="btnShowSaveQueryModal"><i class="fa fa-save"></i> Save Current Query</button>
+        <?php
+            // Determine if the "Edit Query" button should be shown.
+            // Option 1: Query was just built with VQB (visual_params_json is set from current VQB run)
+            $can_edit_visually = !empty($visual_params_json);
+            // Option 2: Executed query was a saved visual query
+            // (controller needs to pass $executed_query_was_saved_visual and set $visual_params_json to its stored params)
+            if (isset($executed_query_was_saved_visual) && $executed_query_was_saved_visual) {
+                $can_edit_visually = true;
+                // Ensure $visual_params_json for editing refers to the *saved* state if different from an ad-hoc run
+                // This logic is mainly handled by how controller populates $visual_params_json and other related hidden fields
+            }
+        ?>
+        <?php if ($can_edit_visually): ?>
+            <button type="button" class="btn btn-info" id="btnEditExecutedQuery" style="margin-left: 10px;"><i class="fa fa-pencil"></i> Edit Query in VQB</button>
+        <?php endif; ?>
     </div>
     <div class="footer" id="generatedQueryDisplay">
         <?php echo $query; ?>
@@ -25,7 +40,15 @@
         <?php echo $printArray; ?>
     </div>
 
+    <!-- Holds visual params from an ad-hoc VQB run, or potentially the params of a saved visual query if it was just run -->
     <input type="hidden" id="current_visual_params" value="<?php echo isset($visual_params_json) ? htmlspecialchars($visual_params_json, ENT_QUOTES, 'UTF-8') : ''; ?>">
+
+    <!-- Holds info about the executed query IF it was a saved query that was run -->
+    <input type="hidden" id="executed_query_id" value="<?php echo isset($executed_query_id) ? htmlspecialchars($executed_query_id, ENT_QUOTES, 'UTF-8') : ''; ?>">
+    <input type="hidden" id="executed_query_name" value="<?php echo isset($executed_query_name) ? htmlspecialchars($executed_query_name, ENT_QUOTES, 'UTF-8') : ''; ?>">
+    <!-- This flag helps JS determine if the #current_visual_params are from a saved visual query context vs an ad-hoc VQB run -->
+    <input type="hidden" id="executed_query_was_saved_visual" value="<?php echo (isset($executed_query_was_saved_visual) && $executed_query_was_saved_visual) ? 'true' : 'false'; ?>">
+
 
     <script>
         var __table = '<?php echo Flight::get('lastSegment');?>';
