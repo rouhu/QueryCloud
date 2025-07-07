@@ -122,44 +122,16 @@ $fields = $fields ?? [];
                     </div>
 
                     <div class="form-group">
-    <label class="control-label" for="fields_multiselect">Available Non-Aggregated Fields</label>
+    <label class="control-label" for="fields">Select Non-Aggregated Fields</label>
     <div class="controls">
-        <select id="fields_multiselect" multiple="multiple" class="form-control fields" style="width: 100%;" data-placeholder="Choose fields to add...">
+        <select name="fields[]" multiple="multiple" class="form-control fields" style="width: 100%;">
             <?php echo $fields; ?>
         </select>
-        <button type="button" class="btn btn-sm btn-default" id="btnAddFieldsToQueryList" style="margin-top: 5px;">
-            <i class="glyphicon glyphicon-plus-sign"></i> Add Selected to Query with Aliases
-        </button>
-    </div>
-    <hr>
-    <label class="control-label">Fields in Query (with Aliases):</label>
-    <div id="selectedFieldsContainer" style="margin-top: 10px;">
-        <!-- Selected fields with alias inputs will be dynamically added here by JavaScript -->
-        <p class="text-muted" id="noSelectedFieldsMsg">No fields selected for the query yet. Choose from above and click "Add".</p>
     </div>
 </div>
-
-<!-- Template for a single selected field row with alias input -->
-<div id="fieldAliasRowTemplate" class="form-group parent" style="display: none; margin-bottom: 5px; padding: 5px; border: 1px solid #eee; border-radius: 4px;">
-    <div class="row">
-        <div class="col-xs-5">
-            <strong class="selected-field-name-display"></strong>
-            <input type="hidden" class="selected-field-name-hidden" /> <!-- To store original field name -->
-        </div>
-        <div class="col-xs-5">
-            <input type="text" class="form-control input-sm field-alias-input" placeholder="Optional Alias">
-        </div>
-        <div class="col-xs-2 text-right">
-            <button type="button" class="btn btn-xs btn-danger remove-field-alias-row" title="Remove Field">
-                <i class="glyphicon glyphicon-trash"></i>
-            </button>
-        </div>
-    </div>
-</div>
-
 
                     <div class="form-group">
-                        <hr style="margin-top: 15px; margin-bottom: 15px;"/>
+                        <hr/>
                         <label class="control-label">Aggregated Fields</label>
                         <button style="margin-bottom: 10px !important;" type="button" id="btnAddAggregateField" class="btn btn-info" rel="hover_popover" data-content="Add SUM, COUNT, AVG etc.">
                             <i class="glyphicon glyphicon-plus-sign"></i> Add Aggregate Field
