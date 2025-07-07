@@ -180,74 +180,83 @@ $('body').on('click', '.btn-run-saved-query', function(e) {
 // --- Edit Saved Query Functionality ---
 // Find the .btn-edit-saved-query click handler (around line 180) and modify it:
 
+// Replace the AJAX call in the .btn-edit-saved-query click handler with:
 $('body').on('click', '.btn-edit-saved-query', function() {
     var queryId = $(this).data('query-id');
     var queryName = $(this).data('query-name');
-    var sqlQuery = null;
-
-    // Find the query in the cache to get its SQL
-    if (typeof savedQueriesCache !== 'undefined') {
-        for (var i = 0; i < savedQueriesCache.length; i++) {
-            if (savedQueriesCache[i].id == queryId) {
-                sqlQuery = savedQueriesCache[i].sql_query;
-                break;
-            }
-        }
-    }
-
-    if (sqlQuery === null) {
-        $.jGrowl('Could not retrieve SQL for editing. Please refresh.', { header: 'Error', theme: 'error' });
-        return;
-    }
-
-    var queryData = null;
-    if (typeof savedQueriesCache !== 'undefined') {
-        queryData = savedQueriesCache.find(function(q) { return q.id == queryId; });
-    }
-
+    
+    // Find the query in the cache
+    var queryData = savedQueriesCache?.find(q => q.id == queryId);
     if (!queryData) {
-        $.jGrowl('Could not retrieve query details for editing. Please refresh.', { header: 'Error', theme: 'error' });
+        $.jGrowl('Could not retrieve query details. Please refresh.', { header: 'Error' });
         return;
     }
 
-    sqlQuery = queryData.sql_query;
+    var sqlQuery = queryData.sql_query;
     var isVisual = queryData.is_visual_query == '1' || queryData.is_visual_query === true;
     var visualParams = queryData.visual_params;
 
-    // Clear any old data from the save modal
+    // Clear old data
     $('#modal-save-query').removeData('editing-query-id').removeData('editing-query-name');
 
-    // NEW CODE: First fetch the available tables before proceeding with visual query builder
-    $.post(base + '/ajax/gettables', function(response) {
-        if (response && response.status === 'success' && response.tables_html) {
-            // Store the tables HTML globally for use in the visual query builder
-            allTablesOptionsHTML = response.tables_html;
-            
-            // Now proceed with opening the visual query builder
-            console.log("DEBUG: .btn-edit-saved-query - allTablesOptionsHTML populated:", allTablesOptionsHTML.substring(0,200));
-            
-            // Set up visual query builder
-            if (isVisual && visualParams) {
-                try {
-                    var parsedParams = JSON.parse(visualParams);
-                    console.log("Preparing to open Visual Query Builder for query ID:", queryId);
+    // Get tables HTML from existing element on the page instead of AJAX call
+    var tablesHtml = $('#modal-visual-query select.jointable').first().html();
+    if (tablesHtml) {
+        allTablesOptionsHTML = tablesHtml;
+        
+        // Now proceed with visual query builder
+        if (isVisual && visualParams) {
+            try {
+                var parsedParams = JSON.parse(visualParams);
+                console.log("Preparing to open Visual Query Builder for query ID:", queryId);
+                __table = parsedParams.primaryTable || '';
+                
+                // Initialize the visual query builder with parsed parameters
+                if (parsedParams.jointype && Array.isArray(parsedParams.jointype)) {
+                    var $template = $('#fieldCloneTable');
+                    $('#modal-visual-query .cloned-join-row').remove(); // Clear existing joins
                     
-                    // Initialize the visual query builder with the parsed parameters
-                    initializeVisualQueryBuilder(parsedParams, sqlQuery, queryName);
-                } catch (e) {
-                    console.error("Error parsing visual parameters:", e);
-                    $.jGrowl('Error loading visual query parameters. Opening as SQL query.', { header: 'Warning' });
-                    openAsSQLQuery(sqlQuery, queryName);
+                    parsedParams.jointype.forEach((type, idx) => {
+                        var $clone = $template.clone()
+                                           .removeAttr('id')
+                                           .addClass('cloned-join-row');
+                        
+                        $clone.find('select.jointable')
+                             .html(allTablesOptionsHTML)
+                             .val(parsedParams.jointable[idx]);
+                             
+                        $clone.find('select.jointype')
+                             .val(type);
+                             
+                        $('#btnJoinTable').after($clone);
+                        $clone.find('select').select2();
+                        $clone.slideDown('fast');
+                        
+                        populateJoinFieldDropdown(
+                            $clone.find('select.joinfieldselected'),
+                            parsedParams.jointable[idx],
+                            parsedParams.joinfield[idx]
+                        );
+                    });
+                    
+                    addTablesToDropdown();
                 }
-            } else {
-                openAsSQLQuery(sqlQuery, queryName);
+                
+                $('#modal-visual-query').modal('show');
+            } catch (e) {
+                console.error("Error parsing visual parameters:", e);
+                $.jGrowl('Error loading visual query. Opening as SQL.', { header: 'Warning' });
+                $('#sql').val(sqlQuery);
+                $('#modal-custom-query').modal('show');
             }
         } else {
-            $.jGrowl('Error loading available tables. Please try again.', { header: 'Error', theme: 'error' });
+            // Open as SQL query
+            $('#sql').val(sqlQuery);
+            $('#modal-custom-query').modal('show');
         }
-    }, 'json').fail(function(jqXHR, textStatus, errorThrown) {
-        $.jGrowl('Failed to load available tables: ' + textStatus, { header: 'Error', theme: 'error' });
-    });
+    } else {
+        $.jGrowl('Error: Could not find table list template.', { header: 'Error' });
+    }
 });
 
 // Add these helper functions after the click handler:
