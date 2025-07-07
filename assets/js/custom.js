@@ -179,6 +179,7 @@ $('body').on('click', '.btn-run-saved-query', function(e) {
 
 // --- Edit Saved Query Functionality ---
 $('body').on('click', '.btn-edit-saved-query', function() {
+    console.log("DEBUG: .btn-edit-saved-query - allTablesOptionsHTML content (first 200 chars):", typeof allTablesOptionsHTML !== 'undefined' ? allTablesOptionsHTML.substring(0,200) : 'NOT DEFINED');
     var queryId = $(this).data('query-id');
     var queryName = $(this).data('query-name');
     var sqlQuery = null;
@@ -219,8 +220,8 @@ $('body').on('click', '.btn-edit-saved-query', function() {
     // If opening VQB, it attempts to set context and pre-populate fields.
     if (isVisual || (visualParams && visualParams !== '')) { // Try to open in VQB if it is_visual OR if visualParams exist
         // DEBUG: Log state of #fieldCloneTable's select.jointable
-        console.log("DEBUG: Entering VQB edit path. HTML of #fieldCloneTable select.jointable BEFORE any VQB setup:", $('#fieldCloneTable').find('select.jointable').html());
-        console.log("DEBUG: Options count in #fieldCloneTable select.jointable:", $('#fieldCloneTable').find('select.jointable option').length);
+        // console.log("DEBUG: Entering VQB edit path. HTML of #fieldCloneTable select.jointable BEFORE any VQB setup:", $('#fieldCloneTable').find('select.jointable').html());
+        // console.log("DEBUG: Options count in #fieldCloneTable select.jointable:", $('#fieldCloneTable').find('select.jointable option').length);
 
         $('#visual_query_id_edit').val(queryId);
         console.log("Preparing to open Visual Query Builder for query ID:", queryId);
@@ -345,7 +346,21 @@ $('body').on('click', '.btn-edit-saved-query', function() {
                         };
                         // console.log("processNextJoin - Join Index:", joinIndex, "Def:", JSON.stringify(joinDefinition)); // DEBUG
 
+                        // Ensure the template's jointable select has fresh options before cloning for edit mode
+                        console.log("DEBUG: processNextJoin - BEFORE REPOP TEMPLATE (Join Index: " + joinIndex + ") - allTablesOptionsHTML (first 200):", typeof allTablesOptionsHTML !== 'undefined' ? allTablesOptionsHTML.substring(0,200) : 'NOT DEFINED');
+                        if (typeof allTablesOptionsHTML !== 'undefined') {
+                            $('#fieldCloneTable').find('select.jointable').html(allTablesOptionsHTML);
+                        } else {
+                            console.error("allTablesOptionsHTML is not defined. Cannot populate join table template for editing join.");
+                        }
+                        console.log("DEBUG: processNextJoin - BEFORE CLONE (Join Index: " + joinIndex + ") - HTML of #fieldCloneTable select.jointable:", $('#fieldCloneTable').find('select.jointable').html());
+                        console.log("DEBUG: processNextJoin - BEFORE CLONE (Join Index: " + joinIndex + ") - Options count for #fieldCloneTable select.jointable:", $('#fieldCloneTable').find('select.jointable option').length);
+
                         var $clone = $('#fieldCloneTable').clone().removeAttr('id').addClass('cloned-join-row');
+
+                        console.log("DEBUG: processNextJoin - AFTER CLONE - HTML of CLONED select.jointable:", $clone.find('select.jointable').html()); // DEBUG
+                        console.log("DEBUG: processNextJoin - AFTER CLONE - Options count in CLONED select.jointable:", $clone.find('select.jointable option').length); // DEBUG
+
                         // console.log("processNextJoin - Target Select for joinfieldselected:", $clone.find('select.joinfieldselected')); // DEBUG
                         $clone.find('select[name=\"jointype[]\"]').val(joinDefinition.type);
                         $clone.find('select.jointable').val(joinDefinition.table);
@@ -355,6 +370,10 @@ $('body').on('click', '.btn-edit-saved-query', function() {
                         // Append clone before populating async field dropdown
                         $('#btnJoinTable').after($clone); // Or a dedicated join container
                         $clone.find('select').select2(); // Initialize select2 for non-fieldspecific selects
+
+                        console.log("DEBUG: processNextJoin - AFTER CLONE & S2 INIT - Cloned select.jointable S2 data:", $clone.find('select.jointable').data('select2')); // DEBUG
+                        console.log("DEBUG: processNextJoin - AFTER CLONE & S2 INIT - HTML of CLONED s.jointable post-S2:", $clone.find('select.jointable').html()); // DEBUG
+
                         $clone.slideDown('fast');
 
 
@@ -720,13 +739,29 @@ $('body').on('click', '.remove', function () {
 
 // join table for visual query
 $('#btnJoinTable').click(function () {
+    console.log("DEBUG: #btnJoinTable click - allTablesOptionsHTML content (first 200 chars):", typeof allTablesOptionsHTML !== 'undefined' ? allTablesOptionsHTML.substring(0,200) : 'NOT DEFINED');
+    // Ensure the template's jointable select has fresh options before cloning
+    if (typeof allTablesOptionsHTML !== 'undefined') {
+        $('#fieldCloneTable').find('select.jointable').html(allTablesOptionsHTML);
+    } else {
+        console.error("allTablesOptionsHTML is not defined. Cannot populate join table template for new join.");
+    }
+    console.log("DEBUG: btnJoinTable Click - BEFORE CLONE - HTML of #fieldCloneTable select.jointable:", $('#fieldCloneTable').find('select.jointable').html());
+    console.log("DEBUG: btnJoinTable Click - BEFORE CLONE - Options count for #fieldCloneTable select.jointable:", $('#fieldCloneTable').find('select.jointable option').length);
+
     var $clone = $('#fieldCloneTable').clone();
+    console.log("DEBUG: btnJoinTable Click - AFTER CLONE - HTML of CLONED select.jointable:", $clone.find('select.jointable').html());
+    console.log("DEBUG: btnJoinTable Click - AFTER CLONE - Options count in CLONED select.jointable:", $clone.find('select.jointable option').length);
+
     $(this).after($clone);
     $clone.slideDown('fast');
 
     $clone.find('.select2-container').remove();
     $clone.find('.joinfieldselected').empty();
     $clone.find('select').select2();
+
+    console.log("DEBUG: btnJoinTable Click - AFTER CLONE & S2 INIT - Cloned select.jointable S2 data:", $clone.find('select.jointable').data('select2'));
+    console.log("DEBUG: btnJoinTable Click - AFTER CLONE & S2 INIT - HTML of CLONED s.jointable post-S2:", $clone.find('select.jointable').html());
 
     $('#addjoinedtablefields').slideDown('fast');
 });

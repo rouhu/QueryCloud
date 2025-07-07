@@ -261,6 +261,17 @@ $fields = $fields ?? [];
     <!-- /.modal-dialog -->
 </div>
 
+<script type="text/javascript">
+    // Store the PHP-generated table options HTML in a JS variable
+    // This should be done once, preferably in a place that's always loaded with modals.php,
+    // or directly here if modals.php is always loaded when VQB is used.
+    var allTablesOptionsHTML = <?php echo json_encode(Flight::get('tablesOptions')); ?>;
+    if (typeof allTablesOptionsHTML === 'undefined' || allTablesOptionsHTML === null) {
+        console.error("PHP 'tablesOptions' not available to JavaScript. Fallback needed or check Flight setup.");
+        allTablesOptionsHTML = '<option value=\"\">Error loading tables</option>'; // Fallback
+    }
+</script>
+
 <div id="fieldClone" class="parent" style="display: none; margin: 3px;">
     <div class="pull-left">
         <a href="#" class="remove"><i class="glyphicon glyphicon-trash glyphicon-2x" style="margin-top: 5px;"></i></a>
