@@ -262,12 +262,12 @@ $fields = $fields ?? [];
 </div>
 
 <script type="text/javascript">
-    // Store the PHP-generated table options HTML in a JS variable
-    // This uses the $view_tables_options_html variable passed directly from the controller
-    var allTablesOptionsHTML = <?php echo json_encode($view_tables_options_html ?? '<option value=\"\">No tables found (PHP Fallback)</option>'); ?>;
+    // Store the globally generated table options HTML (from Flight::get('masterTableOptionsHTML')) in a JS variable
+    var allTablesOptionsHTML = <?php echo json_encode(Flight::get('masterTableOptionsHTML') ?? '<option value=\"\">No tables available (Global Fallback)</option>'); ?>;
     if (typeof allTablesOptionsHTML !== 'string' || allTablesOptionsHTML.trim() === '' || allTablesOptionsHTML.indexOf('<option') === -1) {
+        // This JS fallback should ideally not be hit if masterTableOptionsHTML is always populated in index.php
         allTablesOptionsHTML = '<option value=\"\">No tables available (JS Fallback)</option>';
-        // console.warn("View variable 'view_tables_options_html' was empty or invalid. Using JS fallback.", <?php echo json_encode($view_tables_options_html ?? 'PHP var $view_tables_options_html not set for modals.php'); ?>);
+        console.warn("masterTableOptionsHTML was empty or invalid from Flight::get. Using JS fallback.");
     }
 </script>
 
@@ -398,8 +398,7 @@ $fields = $fields ?? [];
     </div>
     <div class="pull-left">
         <select name="jointable[]" class="jointable form-control" style="width: 160px;">
-            <option value="">Joining Table</option>
-            <?php echo Flight::get('tablesOptions'); ?>
+            <?php echo Flight::get('masterTableOptionsHTML') ?? '<option value="">No tables available</option>'; ?>
         </select>
     </div>
     <div class="pull-left" style="margin: 3px;">
