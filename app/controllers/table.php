@@ -76,17 +76,37 @@ class Table
 
         $records = Presenter::listTableData($records, $fieldTypes);
 
+        // Ensure tablesOptions is available for the view context, similar to runQueryWithView
+        // This is for direct table views (not after a query run)
+        if (!Flight::get('tablesOptions') || Flight::get('tablesOptions') === '') {
+            $_db = Flight::get('db');
+            try {
+                $allTablesStmt = $_db->query('SHOW TABLES');
+                $allTablesResult = $allTablesStmt->fetchAll(PDO::FETCH_NUM);
+                $tableNamesForOptions = [];
+                foreach ($allTablesResult as $row) {
+                    $tableNamesForOptions[] = $row[0];
+                }
+                $tablesOptionsHtmlString = getOptions($tableNamesForOptions, true);
+                Flight::set('tablesOptions', $tablesOptionsHtmlString ? $tablesOptionsHtmlString : '');
+            } catch (PDOException $e) {
+                error_log("Error fetching table list for tablesOptions in Table::index: " . $e->getMessage());
+                Flight::set('tablesOptions', '<option value="">Error loading tables</option>');
+            }
+        }
+
         Flight::render(
            'table',
            array(
-            'fields' => $fieldOptions,
-              'title' => Flight::get('lastSegment'),
+            'fields' => $fieldOptions, // These are qualified field names for the current $table
+              'title' => Flight::get('lastSegment'), // This is $table
               'icon' => self::$icon,
               'table_data' => $records,
-              //'fields' => $fields,
-              //'fields' => getOptions($fields),
               'query' => SqlFormatter::format(ORM::get_last_query(ORM::DEFAULT_CONNECTION)),
-              'timetaken' => $exec_time_row[0][1]
+              'timetaken' => $exec_time_row[0][1],
+              // Pass the globally set tablesOptions to the view, so modals.php can access it
+              // This ensures it's available even when table.php is rendered by Table::index()
+              'view_tables_options_html' => Flight::get('tablesOptions')
            )
         );
     }
@@ -443,7 +463,8 @@ foreach ($data as $row) {
               'printArray' => $printArray,
               'timetaken' => $exec_time_row[0][1],
               'visual_params_json' => $visual_query_params ? json_encode($visual_query_params) : '',
-              'executed_query_name' => $running_saved_query_name // Pass the saved query name to the view
+              'executed_query_name' => $running_saved_query_name, // Pass the saved query name to the view
+              'view_tables_options_html' => Flight::get('tablesOptions') // Ensure this is passed too
            )
         );
     }

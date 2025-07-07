@@ -361,7 +361,8 @@ function getOptions($array, $prependEmptyOption = false, $tableNameAppend = '', 
     $html = '';
 
     if ($prependEmptyOption) {
-        $html = '<option value="">Joining Key Field</option>' . "\n";
+        // Changed text to be more generic for table selection context
+        $html = '<option value="">Choose Table</option>' . "\n";
     }
 
     foreach ($array as $arrayItem) {
