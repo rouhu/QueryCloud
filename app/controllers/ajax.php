@@ -141,12 +141,43 @@ class Ajax
                         $saved_query->is_visual_query = $is_visual_query;
                         $saved_query->visual_params = $is_visual_query ? $visual_params : null;
                         $updated_fields_count++;
+
+                        // If visual_params were updated for a visual query, regenerate the SQL
+                        if ($is_visual_query && $visual_params) {
+                            $paramsArray = json_decode($visual_params, true);
+                            if (is_array($paramsArray) && isset($paramsArray['primaryTable'])) {
+                                $primaryTableName = $paramsArray['primaryTable'];
+                                // Ensure Table class is available (it should be due to autoloading)
+                                if (class_exists('Table')) {
+                                    $new_sql_query = Table::generateSqlFromVisualParams($paramsArray, $primaryTableName);
+                                    $saved_query->sql_query = $new_sql_query;
+                                    // $updated_fields_count++; // sql_query is implicitly updated if visual params are.
+                                                             // Or, if sql_query was also sent, this overwrites it.
+                                                             // If sql_query was NOT sent, this adds it to the update.
+                                    if (!isset($_POST['sql_query'])) { // If sql_query was not part of original POST, this counts as a new field to update.
+                                        // This ensures the $updated_fields_count logic still works if only visual_params was sent.
+                                        // However, the outer $updated_fields_count for $is_visual_query_provided already covers this.
+                                        // No need to increment again unless we want to be very specific about sql_query being a *separate* update.
+                                    }
+                                } else {
+                                    error_log("Ajax::saveQuery - Table class not found for SQL regeneration.");
+                                    // Decide: fail, or save visual params but not SQL? For now, visual params save, SQL doesn't update.
+                                }
+                            } else {
+                                error_log("Ajax::saveQuery - Failed to decode visual_params or primaryTable missing for SQL regeneration.");
+                                // Decide behavior: fail, or save visual params but not SQL?
+                            }
+                        }
                     }
 
                     if ($updated_fields_count > 0) {
                         if ($saved_query->save()) {
                             $response['status'] = 'success';
                             $response['message'] = 'Query "' . htmlspecialchars($saved_query->query_name) . '" updated successfully!';
+                            // Optionally, return the new SQL if it was regenerated
+                            // if (isset($new_sql_query)) {
+                            //    $response['new_sql_query'] = $new_sql_query;
+                            // }
                         } else {
                             $response['message'] = 'Failed to update query in the database.';
                         }
