@@ -180,15 +180,10 @@ $('body').on('click', '.btn-run-saved-query', function(e) {
 // --- Reusable function to open and populate VQB Modal ---
 function openVisualQueryBuilderModal(visualParamsObj, queryId, queryName, isEditingSaved) {
     var $modal = $('#modal-visual-query');
-    var $selectedFieldsContainer = $modal.find('#selectedFieldsContainer');
-    var $noSelectedMsg = $modal.find('#noSelectedFieldsMsg');
     
     // Clear/Reset VQB form elements (important before populating)
-    // Non-aggregated fields - source select and the container for selected fields with aliases
-    $modal.find('#fields_multiselect').val(null).trigger('change.select2'); // Clear the source selector
-    $selectedFieldsContainer.empty(); // Clear previously added field/alias rows
-    $noSelectedMsg.show(); // Show 'no fields' message initially
-
+    // Non-aggregated fields
+    $modal.find('select.fields').val(null).trigger('change.select2');
     // Aggregated fields
     $('#aggregateFieldsContainer').empty();
     // WHERE conditions
@@ -278,70 +273,22 @@ function openVisualQueryBuilderModal(visualParamsObj, queryId, queryName, isEdit
                 visualParamsObj.jointable[idx],
                 visualParamsObj.joinfield[idx],
                 function(success) {
-                    // if (success) {
-                    //     // Value for joinfieldmain will be set after addTablesToDropdown completes for all fields
-                    // }
-                    // Still trigger change for the joinfieldselected that was just populated
-                    $clone.find('select.joinfieldselected').trigger('change.select2');
+                    if (success) {
+                        $clone.find('select.joinfieldmain').val(visualParamsObj.joinfieldp[idx]);
+                        $clone.find('select').trigger('change.select2');
+                    }
                 }
             );
-            // Store the target value for joinfieldp (primary table's field) on the element itself
-            // It will be applied after addTablesToDropdown finishes loading all options.
-            if (visualParamsObj.joinfieldp && visualParamsObj.joinfieldp[idx]) {
-                $clone.find('select.joinfieldmain').data('saved-value', visualParamsObj.joinfieldp[idx]);
-            }
         });
     }
 
     // Load options for all field dropdowns and then populate other VQB elements
     addTablesToDropdown(function(success) {
         if (success) {
-            // Non-aggregated fields: Populate the list of selected fields with aliases
-            // This replaces the direct setting of $modal.find('select[name="fields[]"]')
+            // Non-aggregated fields
             if (visualParamsObj.fields && Array.isArray(visualParamsObj.fields)) {
-                var $fieldAliasTemplate = $('#fieldAliasRowTemplate');
-                if (visualParamsObj.fields.length > 0) {
-                    $noSelectedMsg.hide();
-                }
-                visualParamsObj.fields.forEach(function(fieldObj) {
-                    // Ensure fieldObj is an object and has 'field' property
-                    if (fieldObj && typeof fieldObj.field === 'string') {
-                        var $clone = $fieldAliasTemplate.clone().removeAttr('id').show();
-                        // Attempt to find the display text from the source multiselect options
-                        // Note: #fields_multiselect options are populated by addTablesToDropdown itself.
-                        var fieldDisplayText = $modal.find('#fields_multiselect option[value="' + fieldObj.field + '"]').text();
-                        $clone.find('.selected-field-name-display').text(fieldDisplayText || fieldObj.field);
-                        $clone.find('.selected-field-name-hidden').val(fieldObj.field);
-                        $clone.find('.field-alias-input').val(fieldObj.alias || '');
-                        $selectedFieldsContainer.append($clone);
-                    } else {
-                        // Handle legacy string array for fields if necessary, or log warning
-                        console.warn("Legacy or malformed 'fields' data found in visualParamsObj:", fieldObj);
-                         // If it's a string (legacy format), create a row without an alias
-                        if (typeof fieldObj === 'string') {
-                            var $clone = $fieldAliasTemplate.clone().removeAttr('id').show();
-                            var fieldDisplayText = $modal.find('#fields_multiselect option[value="' + fieldObj + '"]').text();
-                            $clone.find('.selected-field-name-display').text(fieldDisplayText || fieldObj);
-                            $clone.find('.selected-field-name-hidden').val(fieldObj);
-                            $clone.find('.field-alias-input').val(''); // No alias for legacy string format
-                            $selectedFieldsContainer.append($clone);
-                            if(visualParamsObj.fields.length > 0) $noSelectedMsg.hide(); // Hide msg if we add anything
-                        }
-                    }
-                });
+                $modal.find('select.fields').val(visualParamsObj.fields).trigger('change.select2');
             }
-
-
-            // After all options are loaded by addTablesToDropdown,
-            // now set the saved values for joinfieldmain in each cloned join row.
-            $modal.find('.cloned-join-row').each(function() {
-                var $clonedJoinRow = $(this);
-                var $joinfieldmainSelect = $clonedJoinRow.find('select.joinfieldmain');
-                var savedValue = $joinfieldmainSelect.data('saved-value');
-                if (savedValue) {
-                    $joinfieldmainSelect.val(savedValue).trigger('change.select2');
-                }
-            });
 
             // TODO: Populate WHERE conditions (dynamic rows)
             // Iterate visualParamsObj.fname, fvalue, ftype. For each, clone #fieldClone, set values, append.
@@ -426,55 +373,6 @@ function openVisualQueryBuilderModal(visualParamsObj, queryId, queryName, isEdit
         $modal.modal('show');
     });
 }
-
-// --- Non-Aggregated Field Alias UI Handlers ---
-// Add selected fields from multiselect to the aliasing list
-$('body').on('click', '#btnAddFieldsToQueryList', function() {
-    var $modal = $('#modal-visual-query');
-    var $sourceSelect = $modal.find('#fields_multiselect');
-    var $container = $modal.find('#selectedFieldsContainer');
-    var $noSelectedMsg = $modal.find('#noSelectedFieldsMsg');
-    var $template = $('#fieldAliasRowTemplate');
-
-    var selectedOptions = $sourceSelect.val();
-
-    if (selectedOptions && selectedOptions.length > 0) {
-        selectedOptions.forEach(function(fieldValue) {
-            // Check if this field is already added to avoid duplicates
-            var isAlreadyAdded = false;
-            $container.find('.selected-field-name-hidden').each(function() {
-                if ($(this).val() === fieldValue) {
-                    isAlreadyAdded = true;
-                    return false; // break loop
-                }
-            });
-
-            if (!isAlreadyAdded) {
-                var $clone = $template.clone().removeAttr('id').show();
-                var fieldText = $sourceSelect.find('option[value="' + fieldValue + '"]').text(); // Get text for display
-                $clone.find('.selected-field-name-display').text(fieldText || fieldValue);
-                $clone.find('.selected-field-name-hidden').val(fieldValue);
-                $clone.find('.field-alias-input').val(''); // Clear any previous alias from template
-                $container.append($clone);
-            }
-        });
-        // $sourceSelect.val(null).trigger('change.select2'); // Optionally clear selection from source
-        $noSelectedMsg.hide();
-    } else {
-        $.jGrowl('No fields selected from the list to add.', { header: 'Info' });
-    }
-});
-
-// Remove a field/alias row
-$('body').on('click', '.remove-field-alias-row', function() {
-    $(this).closest('.parent').remove();
-    var $modal = $('#modal-visual-query');
-    var $container = $modal.find('#selectedFieldsContainer');
-    var $noSelectedMsg = $modal.find('#noSelectedFieldsMsg');
-    if ($container.find('.parent:visible').length === 0) {
-        $noSelectedMsg.show();
-    }
-});
 
 
 // --- Edit Saved Query Functionality ---
@@ -576,63 +474,41 @@ $('body').on('click', '#btnUpdateVisualQuery', function() {
     var visualParamsData = {};
 
     // Process serialized array into a structured object, handling multi-value fields
-    // Note: Non-aggregated fields are NOT collected via serializeArray anymore due to new UI.
-    var traditionalFormData = {}; // For fields other than non-aggregated `fields`
     formData.forEach(function(item) {
-        // The `fields[]` from the main multi-select (now fields_multiselect) should not be part of visualParamsData directly.
-        // It's only a source list. The actual selected fields are in selectedFieldsContainer.
-        if (item.name === 'fields[]') { // This name is from the original <select name="fields[]"> which is now #fields_multiselect
-            console.warn("Skipping fields_multiselect (name='fields[]') during VQB update data collection as it's a source list.");
-            return;
-        }
-
+        // Check if item name ends with [], indicating an array
         if (item.name.endsWith('[]')) {
             var name = item.name.substring(0, item.name.length - 2);
-            if (!traditionalFormData[name]) {
-                traditionalFormData[name] = [];
+            if (!visualParamsData[name]) {
+                visualParamsData[name] = [];
             }
-            if (item.value) {
-                traditionalFormData[name].push(item.value);
+            if (item.value) { // Only push non-empty values for array fields
+                visualParamsData[name].push(item.value);
             }
         } else {
+            // For single value fields, only set if value is not empty,
+            // or if it's a field that can legitimately be empty (like chkDescending if not checked - but serializeArray doesn't include unchecked boxes)
+            // For simplicity here, we take all values. Specific handling for empty optional fields might be needed if they cause issues.
             if (item.value || item.name === 'chkDescending' || item.name === 'limitStart' || item.name === 'limitNumRows') {
+                 // explicitly include chkDescending even if its value might be "on" or undefined
                 if(item.name === 'chkDescending' && !$modal.find('input[name="chkDescending"]').is(':checked')){
-                    // Skip if chkDescending is not checked
+                    // Ensure 'chkDescending' is not added if not checked, or set to a specific false value if required by backend
+                    // For now, we'll let it be absent if not checked. If present, serializeArray gives its value.
                 } else {
-                    traditionalFormData[item.name] = item.value;
+                    visualParamsData[item.name] = item.value;
                 }
             }
         }
     });
 
-    // Collect Non-Aggregated Fields with Aliases from the new UI
-    visualParamsData.fields = []; // Initialize as array of objects
-    $modal.find('#selectedFieldsContainer .parent:visible').each(function() { // Ensure we only process visible rows if any are hidden by other means
-        var $row = $(this);
-        var fieldName = $row.find('.selected-field-name-hidden').val();
-        var fieldAlias = $row.find('.field-alias-input').val().trim();
-        if (fieldName) { // Only add if a field name is present
-            visualParamsData.fields.push({ field: fieldName, alias: fieldAlias });
-        }
-    });
-
-    // Merge traditional form data (excluding 'fields') into visualParamsData
-    for (var key in traditionalFormData) {
-        if (traditionalFormData.hasOwnProperty(key)) {
-            visualParamsData[key] = traditionalFormData[key];
-        }
-    }
-
     // Ensure array fields that might be empty are at least empty arrays
-    // 'fields' is already handled and is an array of objects.
-    var arrayFields = ['agg_field', 'agg_func', 'agg_alias', 'jointype', 'jointable', 'joinfield', 'joinfieldp', 'ftype', 'fname', 'fvalue', 'groupfields', 'orderfields', 'htype', 'hfname', 'hfvalue'];
+    var arrayFields = ['fields', 'agg_field', 'agg_func', 'agg_alias', 'jointype', 'jointable', 'joinfield', 'joinfieldp', 'ftype', 'fname', 'fvalue', 'groupfields', 'orderfields', 'htype', 'hfname', 'hfvalue'];
     arrayFields.forEach(function(fieldName) {
-        if (!visualParamsData[fieldName]) { // Check if it wasn't populated from traditionalFormData
+        if (!visualParamsData[fieldName]) {
             visualParamsData[fieldName] = [];
         }
     });
 
-    // Handle checkbox for chkDescending (already part of traditionalFormData if checked)
+    // Handle checkbox for chkDescending specifically as serializeArray doesn't include it if unchecked
     if ($modal.find('input[name="chkDescending"]').is(':checked')) {
         visualParamsData.chkDescending = 'on'; // Or true, depending on what backend expects
     } else {
