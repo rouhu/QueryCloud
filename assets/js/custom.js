@@ -208,6 +208,9 @@ $('body').on('click', '.btn-edit-saved-query', function() {
             __table = parsedParams.primaryTable || '';
             $('#modal-visual-query .vqb-table-name').text('Table: ' + (__table ? __table.toUpperCase() : 'UNKNOWN'));
 
+            // Store the queryId in the hidden field within the VQB modal for the update operation
+            $('#visual_query_id_edit').val(queryId);
+
             // Dynamically set the form action for the VQB modal
             if (__table) {
                 var formActionUrl = base + '/table/' + __table;
@@ -219,7 +222,7 @@ $('body').on('click', '.btn-edit-saved-query', function() {
                 // Fallback to current page if __table is missing, which is the default for action=""
                 $('#modal-visual-query form').attr('action', '');
             }
-            
+
             // Clear existing joins
             $('#modal-visual-query .cloned-join-row').remove();
             
@@ -483,6 +486,130 @@ function openAsSQLQuery(sqlQuery, queryName) {
         'original-sql': sqlQuery
     });
 }
+
+// --- Update Visual Query (from VQB Modal) ---
+$('body').on('click', '#btnUpdateVisualQuery', function() {
+    var $modal = $('#modal-visual-query');
+    var queryId = $modal.find('#visual_query_id_edit').val();
+
+    if (!queryId) {
+        $.jGrowl('Error: Query ID is missing. Cannot update.', { header: 'Error', theme: 'error' });
+        return;
+    }
+
+    // Collect form data
+    var formData = $modal.find('form').serializeArray();
+    var visualParamsData = {};
+
+    // Process serialized array into a structured object, handling multi-value fields
+    formData.forEach(function(item) {
+        // Check if item name ends with [], indicating an array
+        if (item.name.endsWith('[]')) {
+            var name = item.name.substring(0, item.name.length - 2);
+            if (!visualParamsData[name]) {
+                visualParamsData[name] = [];
+            }
+            if (item.value) { // Only push non-empty values for array fields
+                visualParamsData[name].push(item.value);
+            }
+        } else {
+            // For single value fields, only set if value is not empty,
+            // or if it's a field that can legitimately be empty (like chkDescending if not checked - but serializeArray doesn't include unchecked boxes)
+            // For simplicity here, we take all values. Specific handling for empty optional fields might be needed if they cause issues.
+            if (item.value || item.name === 'chkDescending' || item.name === 'limitStart' || item.name === 'limitNumRows') {
+                 // explicitly include chkDescending even if its value might be "on" or undefined
+                if(item.name === 'chkDescending' && !$modal.find('input[name="chkDescending"]').is(':checked')){
+                    // Ensure 'chkDescending' is not added if not checked, or set to a specific false value if required by backend
+                    // For now, we'll let it be absent if not checked. If present, serializeArray gives its value.
+                } else {
+                    visualParamsData[item.name] = item.value;
+                }
+            }
+        }
+    });
+
+    // Ensure array fields that might be empty are at least empty arrays
+    var arrayFields = ['fields', 'agg_field', 'agg_func', 'agg_alias', 'jointype', 'jointable', 'joinfield', 'joinfieldp', 'ftype', 'fname', 'fvalue', 'groupfields', 'orderfields', 'htype', 'hfname', 'hfvalue'];
+    arrayFields.forEach(function(fieldName) {
+        if (!visualParamsData[fieldName]) {
+            visualParamsData[fieldName] = [];
+        }
+    });
+
+    // Handle checkbox for chkDescending specifically as serializeArray doesn't include it if unchecked
+    if ($modal.find('input[name="chkDescending"]').is(':checked')) {
+        visualParamsData.chkDescending = 'on'; // Or true, depending on what backend expects
+    } else {
+        delete visualParamsData.chkDescending; // Remove if not checked, or set to false/0
+    }
+
+
+    // Add primaryTable
+    if (typeof __table !== 'undefined' && __table) {
+        visualParamsData.primaryTable = __table;
+    } else {
+        console.warn('VQB Update: __table is not defined. primaryTable will not be included in visual_params.');
+    }
+
+    // Remove the hidden input visual_query_id_edit from params sent to server
+    // as it's not part of the actual visual query structure
+    if ('visual_query_id_edit' in visualParamsData){
+        delete visualParamsData.visual_query_id_edit;
+    }
+    if ('visual_query_id_edit_submit' in visualParamsData){ // also remove the other one if present
+        delete visualParamsData.visual_query_id_edit_submit;
+    }
+
+
+    var visualParamsJsonString = JSON.stringify(visualParamsData);
+
+    console.log("Updating Visual Query ID:", queryId);
+    console.log("Visual Params to save:", visualParamsJsonString);
+
+    var $thisButton = $(this);
+    $thisButton.prop('disabled', true).find('i').removeClass('fa-save').addClass('fa-spinner fa-spin');
+
+    // AJAX call to save/update the query
+    $.ajax({
+        url: base + '/ajax/saveQuery',
+        type: 'POST',
+        data: {
+            query_id: queryId,
+            visual_params: visualParamsJsonString,
+            is_visual_query: true
+            // We are not sending sql_query here. The backend should ideally handle
+            // updating/clearing the SQL query if visual_params change, or the SQL could become stale.
+            // query_name is also not updated here; that's handled by a separate modal.
+        },
+        dataType: 'json',
+        success: function(response) {
+            if (response.status === 'success') {
+                $.jGrowl(response.message || 'Visual query updated successfully!', { header: 'Success', theme: 'success', life: 3000 });
+
+                // Update cache if it exists
+                if (typeof savedQueriesCache !== 'undefined' && savedQueriesCache.find) {
+                    var itemInCache = savedQueriesCache.find(function(q) { return q.id == queryId; });
+                    if (itemInCache) {
+                        itemInCache.visual_params = visualParamsJsonString;
+                        itemInCache.is_visual_query = true;
+                        // If sql_query was also updated and returned by server, update it here too.
+                        // itemInCache.sql_query = new_sql_query_from_server;
+                    }
+                }
+                // Optionally close the modal
+                // $modal.modal('hide');
+            } else {
+                $.jGrowl(response.message || 'An error occurred while updating the query.', { header: 'Error', theme: 'error', life: 5000 });
+            }
+        },
+        error: function(jqXHR, textStatus, errorThrown) {
+            $.jGrowl('AJAX Error: ' + textStatus + ' - ' + errorThrown, { header: 'AJAX Error', theme: 'error', life: 5000 });
+        },
+        complete: function() {
+            $thisButton.prop('disabled', false).find('i').removeClass('fa-spinner fa-spin').addClass('fa-save');
+        }
+    });
+});
 
 // --- Update Saved Query (from Custom Query Modal) ---
 // This button is now primarily for updating the SQL of an existing query.
