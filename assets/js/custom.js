@@ -306,21 +306,40 @@ $('body').on('click', '.btn-edit-saved-query', function() {
                 // After all joins are processed and added, update all general dropdowns in the VQB
                 addTablesToDropdown(function(success) {
                     if (success) {
-                        $('#modal-visual-query').modal('show');
+                        // Now that options are loaded by addTablesToDropdown, set the saved fields.
+                        if (parsedParams.fields && Array.isArray(parsedParams.fields)) {
+                            $('#modal-visual-query select.fields').val(parsedParams.fields).trigger('change.select2');
+                            console.log("Applied saved fields:", parsedParams.fields);
+                        } else {
+                            console.log("No saved fields found in parsedParams or not an array:", parsedParams.fields);
+                        }
+                        // Also re-apply other field types if they depend on options from addTablesToDropdown
+                        // (e.g., orderfields, groupfields if they were not fully set up before this callback)
+                        // For now, focusing on select.fields as per the issue.
+                        // TODO: Review if other VQB elements like order by, group by need similar delayed population if their options are from addTablesToDropdown
                     } else {
-                        // If addTablesToDropdown failed, the modal will still show, but fields might be incomplete.
-                        // A warning might have already been shown by addTablesToDropdown.
-                        $('#modal-visual-query').modal('show');
+                        // If addTablesToDropdown failed, fields might be incomplete.
                         $.jGrowl('Warning: Some fields in the query builder may not be fully loaded due to an issue updating dropdowns.', { header: 'Warning', theme: 'warning', life: 6000 });
                     }
+                    // Show the modal regardless of partial success of addTablesToDropdown, but after attempting to set values
+                    $('#modal-visual-query').modal('show');
                 });
             } else {
                 // No joins to initialize, but still need to ensure field dropdowns are correct for the primary table.
                  addTablesToDropdown(function(success) { // Ensure fields for primary table are loaded
-                    $('#modal-visual-query').modal('show');
-                    if (!success) {
+                    if (success) {
+                        // Now that options are loaded by addTablesToDropdown, set the saved fields.
+                        if (parsedParams.fields && Array.isArray(parsedParams.fields)) {
+                            $('#modal-visual-query select.fields').val(parsedParams.fields).trigger('change.select2');
+                             console.log("Applied saved fields (no joins case):", parsedParams.fields);
+                        } else {
+                            console.log("No saved fields found in parsedParams (no joins case) or not an array:", parsedParams.fields);
+                        }
+                    } else {
                          $.jGrowl('Warning: Fields for the primary table might not be fully loaded.', { header: 'Warning', theme: 'warning', life: 6000 });
                     }
+                    // Show the modal regardless
+                    $('#modal-visual-query').modal('show');
                 });
             }
             
