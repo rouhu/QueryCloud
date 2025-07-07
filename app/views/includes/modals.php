@@ -118,7 +118,7 @@ $fields = $fields ?? [];
                             <i class="glyphicon glyphicon-plus-sign"></i> Join Table
                         </button>
                         <br/>
-<a href="#" id="addjoinedtablefields" onclick="addTablesToDropdown(); return false;"><i class="fa fa-refresh"></i> Add Joined Table Fields to Below Pulldowns </a>
+<a href="#" id="addjoinedtablefields" onclick="addTablesToDropdown(); return false;"><i class="fa fa-refresh"></i> Add Table Fields to Below Pulldowns </a>
                     </div>
 
                     <div class="form-group">

@@ -207,7 +207,7 @@ $('body').on('click', '.btn-edit-saved-query', function() {
             // Set the primary table
             __table = parsedParams.primaryTable || '';
             $('#modal-visual-query .vqb-table-name').text('Table: ' + (__table ? __table.toUpperCase() : 'UNKNOWN'));
-            
+
             // Store the queryId in the hidden field within the VQB modal for the update operation
             $('#visual_query_id_edit').val(queryId);
 
