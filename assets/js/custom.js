@@ -450,11 +450,21 @@ $('body').on('click', '#btnAddFieldsToQueryList', function() {
             });
 
             if (!isAlreadyAdded) {
+                var currentIndex = $container.find('.parent:visible').length; // Get current number of rows to use as next index
+
                 var $clone = $template.clone().removeAttr('id').show();
                 var fieldText = $sourceSelect.find('option[value="' + fieldValue + '"]').text(); // Get text for display
+
                 $clone.find('.selected-field-name-display').text(fieldText || fieldValue);
-                $clone.find('.selected-field-name-hidden').val(fieldValue);
-                $clone.find('.field-alias-input').val(''); // Clear any previous alias from template
+
+                $clone.find('.selected-field-name-hidden')
+                      .val(fieldValue)
+                      .attr('name', 'fields[' + currentIndex + '][field]');
+
+                $clone.find('.field-alias-input')
+                      .val('') // Clear any previous alias from template
+                      .attr('name', 'fields[' + currentIndex + '][alias]');
+
                 $container.append($clone);
             }
         });
