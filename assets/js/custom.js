@@ -285,9 +285,9 @@ function openVisualQueryBuilderModal(visualParamsObj, queryId, queryName, isEdit
     // Load options for all field dropdowns and then populate other VQB elements
     addTablesToDropdown(function(success) {
         if (success) {
-            // Non-aggregated fields
+            // Non-aggregated fields - targeting specifically by name to avoid conflict with other selects that might have '.fields' class
             if (visualParamsObj.fields && Array.isArray(visualParamsObj.fields)) {
-                $modal.find('select.fields').val(visualParamsObj.fields).trigger('change.select2');
+                $modal.find('select[name="fields[]"]').val(visualParamsObj.fields).trigger('change.select2');
             }
 
             // TODO: Populate WHERE conditions (dynamic rows)
