@@ -187,20 +187,50 @@ class Table
         $select_parts = [];
         $query = '';
 
-        // Process non-aggregated fields
-        if (!empty($params['fields'])) {
-            $duplicateNameFields = [];
-            foreach ($params['fields'] as $value) {
-                if ($value) {
-                    $baseValue = $value;
-                    if (in_array($baseValue, $duplicateNameFields)) {
-                        $fieldArray = explode('.', $baseValue);
-                        if (count($fieldArray) === 2) {
-                            $value = $baseValue . ' AS ' . $fieldArray[0] . '_' . $fieldArray[1];
+        // Process non-aggregated fields (now expects array of objects: {field: "name", alias: "optional_alias"})
+        if (!empty($params['fields']) && is_array($params['fields'])) {
+            $processedFieldNames = []; // To handle auto-aliasing if the same base field is selected multiple times without manual alias
+
+            foreach ($params['fields'] as $fieldObj) {
+                if (is_array($fieldObj) && !empty($fieldObj['field'])) {
+                    $fieldName = $fieldObj['field'];
+                    $alias = isset($fieldObj['alias']) ? trim($fieldObj['alias']) : '';
+
+                    $finalFieldExpression = $fieldName; // Default to just the field name
+
+                    if (!empty($alias)) {
+                        // User-provided alias (ensure it's safe - basic quoting here)
+                        $finalFieldExpression = $fieldName . ' AS `' . str_replace("`", "``", $alias) . '`';
+                    } else {
+                        // Auto-alias for duplicate field names if no user alias is given
+                        // This might be less common now with the new UI preventing duplicate field additions directly,
+                        // but good as a safeguard or if params are constructed programmatically.
+                        if (in_array($fieldName, $processedFieldNames)) {
+                            $fieldParts = explode('.', $fieldName);
+                            if (count($fieldParts) === 2) {
+                                $finalFieldExpression = $fieldName . ' AS `' . str_replace("`","``",$fieldParts[0]) . '_' . str_replace("`","``",$fieldParts[1]) . '_auto`';
+                            } else {
+                                $finalFieldExpression = $fieldName . ' AS `' . str_replace("`","``",$fieldName) . '_auto`';
+                            }
+                        }
+                        $processedFieldNames[] = $fieldName;
+                    }
+                    $select_parts[] = $finalFieldExpression;
+                } elseif (is_string($fieldObj) && !empty($fieldObj)) { // Handle legacy string array for fields
+                    // This is for backward compatibility if old visual_params (fields as string array) are encountered
+                    $fieldName = $fieldObj;
+                    $finalFieldExpression = $fieldName;
+                     if (in_array($fieldName, $processedFieldNames)) {
+                        $fieldParts = explode('.', $fieldName);
+                        if (count($fieldParts) === 2) {
+                            $finalFieldExpression = $fieldName . ' AS `' . str_replace("`","``",$fieldParts[0]) . '_' . str_replace("`","``",$fieldParts[1]) . '_auto`';
+                        } else {
+                             $finalFieldExpression = $fieldName . ' AS `' . str_replace("`","``",$fieldName) . '_auto`';
                         }
                     }
-                    $duplicateNameFields[] = $baseValue;
-                    $select_parts[] = $value;
+                    $processedFieldNames[] = $fieldName;
+                    $select_parts[] = $finalFieldExpression;
+                    error_log("Legacy string field found in visual params: " . $fieldName);
                 }
             }
         }
