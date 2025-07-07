@@ -273,12 +273,18 @@ function openVisualQueryBuilderModal(visualParamsObj, queryId, queryName, isEdit
                 visualParamsObj.jointable[idx],
                 visualParamsObj.joinfield[idx],
                 function(success) {
-                    if (success) {
-                        $clone.find('select.joinfieldmain').val(visualParamsObj.joinfieldp[idx]);
-                        $clone.find('select').trigger('change.select2');
-                    }
+                    // if (success) {
+                    //     // Value for joinfieldmain will be set after addTablesToDropdown completes for all fields
+                    // }
+                    // Still trigger change for the joinfieldselected that was just populated
+                    $clone.find('select.joinfieldselected').trigger('change.select2');
                 }
             );
+            // Store the target value for joinfieldp (primary table's field) on the element itself
+            // It will be applied after addTablesToDropdown finishes loading all options.
+            if (visualParamsObj.joinfieldp && visualParamsObj.joinfieldp[idx]) {
+                $clone.find('select.joinfieldmain').data('saved-value', visualParamsObj.joinfieldp[idx]);
+            }
         });
     }
 
@@ -289,6 +295,17 @@ function openVisualQueryBuilderModal(visualParamsObj, queryId, queryName, isEdit
             if (visualParamsObj.fields && Array.isArray(visualParamsObj.fields)) {
                 $modal.find('select[name="fields[]"]').val(visualParamsObj.fields).trigger('change.select2');
             }
+
+            // After all options are loaded by addTablesToDropdown,
+            // now set the saved values for joinfieldmain in each cloned join row.
+            $modal.find('.cloned-join-row').each(function() {
+                var $clonedJoinRow = $(this);
+                var $joinfieldmainSelect = $clonedJoinRow.find('select.joinfieldmain');
+                var savedValue = $joinfieldmainSelect.data('saved-value');
+                if (savedValue) {
+                    $joinfieldmainSelect.val(savedValue).trigger('change.select2');
+                }
+            });
 
             // TODO: Populate WHERE conditions (dynamic rows)
             // Iterate visualParamsObj.fname, fvalue, ftype. For each, clone #fieldClone, set values, append.
