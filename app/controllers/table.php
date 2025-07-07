@@ -424,17 +424,31 @@ class Table
 // With proper header + data structure:
 // Extract column names from DESCRIBE result
 //print_r($data);
-$header = array_keys($data[0]);
-$_SESSION['tableData'] = array($header);  // Header row as array
+            if (!empty($data) && isset($data[0])) {
+                $header = array_keys($data[0]);
+                $_SESSION['tableData'] = array($header);  // Header row as array
 
-foreach ($data as $row) {
-    $_SESSION['tableData'][] = array_values($row);  // Data rows as arrays
-}
+                foreach ($data as $row) {
+                    $_SESSION['tableData'][] = array_values($row);  // Data rows as arrays
+                }
+            } else {
+                // Handle empty result set for session data
+                $_SESSION['tableData'] = array(); // Store empty data or a specific format for no results
+                $data = []; // Ensure $data is an empty array if query returned no results
+            }
 
             $records = Presenter::listTableData($data);
 
         } catch (PDOException $e) {
             setFlashMessage('Error: ' . $e->getMessage());
+            // Ensure variables are set for the view in case of an error
+            $data = []; // Set $data to empty array
+            $_SESSION['tableData'] = array(); // Clear or set session data appropriately
+            $records = Presenter::listTableData($data); // Presenter should handle empty data
+            // $exec_time_row might also need a default if error happens before its calculation
+            if (empty($exec_time_row)) { // Check if it was not set due to early error
+                $exec_time_row = [[null, '0.00']]; // Provide a default structure
+            }
         }
 
         Flight::render(
