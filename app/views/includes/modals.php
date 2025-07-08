@@ -301,6 +301,36 @@ $fields = $fields ?? [];
     <div class="clearfix"></div>
 </div>
 
+<!-- Table Formatting Modal -->
+<div class="modal fade" id="modal-table-format">
+    <div class="modal-dialog modal-lg"> <!-- Using modal-lg for potentially many columns -->
+        <div class="modal-content">
+            <div class="modal-header label-info">
+                <button type="button" class="close" data-dismiss="modal">&times;</button>
+                <h4 class="modal-title"><i class="fa fa-paint-brush"></i> Table Display Formatting</h4>
+            </div>
+            <div class="modal-body">
+                <div id="tableFormatMsg" class="alert" style="display:none;"></div>
+                <input type="hidden" id="table_format_query_id" name="table_format_query_id">
+                <p>Define new header titles for your columns. Leave blank to use the default title.</p>
+                <div id="tableFormatFieldsContainer" class="row">
+                    <!-- Dynamic column header input fields will be added here by JavaScript -->
+                    <!-- Example of a single field (will be repeated):
+                    <div class="form-group col-md-4">
+                        <label for="th_original_col_name">Original: original_col_name</label>
+                        <input type="text" class="form-control" id="th_original_col_name" name="header_titles[original_col_name]" placeholder="New Title">
+                    </div>
+                    -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-dismiss="modal"><i class="fa fa-times"></i> Close</button>
+                <button type="button" class="btn btn-primary" id="btnSaveTableFormatting"><i class="fa fa-save"></i> Save Formatting</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Rename Query Modal -->
 <div class="modal fade" id="modal-rename-query">
     <div class="modal-dialog modal-sm"> <!-- Using modal-sm for a smaller modal -->

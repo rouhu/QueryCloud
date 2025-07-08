@@ -20,7 +20,7 @@ HTML;
         return $html;
     }
 
-    public static function listTableData(array $array, $fieldTypes = array())
+    public static function listTableData(array $array, $fieldTypes = array(), $header_row = null)
     {
         //$fieldTypes = convertFieldTypesEditable($fieldTypes);
 
@@ -28,9 +28,21 @@ HTML;
         $html .= '<thead>' . "\n";
 
         // build headings
-        foreach ($array[0] as $head => $value) {
-            $html .= "<th>$head</th>" . "\n";
+        if (!empty($header_row) && is_array($header_row)) {
+            // Use provided header row
+            foreach ($header_row as $head) {
+                $html .= "<th>" . htmlspecialchars($head, ENT_QUOTES, 'UTF-8') . "</th>" . "\n";
+            }
+        } elseif (!empty($array) && isset($array[0]) && is_array($array[0])) {
+            // Fallback to inferring from data keys if no header_row or if data is present
+            foreach (array_keys($array[0]) as $head) {
+                $html .= "<th>" . htmlspecialchars($head, ENT_QUOTES, 'UTF-8') . "</th>" . "\n";
+            }
+        } else {
+            // No data and no header row, perhaps render an empty header or a message
+            // For now, just an empty thead if no headers can be determined.
         }
+
 
         $html .= '</thead>' . "\n";
 

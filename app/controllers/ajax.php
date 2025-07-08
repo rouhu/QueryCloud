@@ -293,4 +293,98 @@ class Ajax
 
         echo json_encode($response);
     }
+
+    public static function saveTableFormatting()
+    {
+        header('Content-Type: application/json');
+        $response = ['status' => 'error', 'message' => 'An unknown error occurred.'];
+
+        $query_id = $_POST['query_id'] ?? null;
+        $table_formatting_json = $_POST['table_formatting'] ?? null;
+
+        if (empty($query_id) || !is_numeric($query_id)) {
+            $response['message'] = 'Invalid Query ID provided.';
+            echo json_encode($response);
+            return;
+        }
+
+        // Validate if table_formatting_json is a valid JSON string or null
+        if (!is_null($table_formatting_json)) {
+            json_decode($table_formatting_json);
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                $response['message'] = 'Invalid JSON string provided for table formatting.';
+                echo json_encode($response);
+                return;
+            }
+        } else {
+            // Allow saving null to clear formatting
+            $table_formatting_json = null;
+        }
+
+        try {
+            $saved_query = ORM::for_table('saved_queries')->find_one($query_id);
+
+            if ($saved_query) {
+                $saved_query->table_formatting = $table_formatting_json;
+                if ($saved_query->save()) {
+                    $response['status'] = 'success';
+                    $response['message'] = 'Table formatting saved successfully!';
+                } else {
+                    $response['message'] = 'Failed to save table formatting to the database.';
+                }
+            } else {
+                $response['message'] = 'Query not found. Cannot save formatting.';
+            }
+        } catch (PDOException $e) {
+            error_log("Error saving table formatting: " . $e->getMessage());
+            $response['message'] = 'Database error: Could not save table formatting. ' . $e->getMessage();
+        } catch (Exception $e) {
+            error_log("General error saving table formatting: " . $e->getMessage());
+            $response['message'] = 'An unexpected error occurred: ' . $e->getMessage();
+        }
+
+        echo json_encode($response);
+    }
+
+    public static function getTableFormatting($query_id)
+    {
+        header('Content-Type: application/json');
+        $response = ['status' => 'error', 'message' => 'An unknown error occurred.', 'table_formatting' => null];
+
+        if (empty($query_id) || !is_numeric($query_id)) {
+            $response['message'] = 'Invalid Query ID provided.';
+            echo json_encode($response);
+            return;
+        }
+
+        try {
+            $saved_query = ORM::for_table('saved_queries')
+                            ->select('table_formatting')
+                            ->find_one($query_id);
+
+            if ($saved_query) {
+                $response['status'] = 'success';
+                $response['message'] = 'Table formatting retrieved successfully.';
+                $response['table_formatting'] = $saved_query->table_formatting ? json_decode($saved_query->table_formatting, true) : null;
+                if (json_last_error() !== JSON_ERROR_NONE && !is_null($saved_query->table_formatting)) {
+                    // If there was an error decoding, but it wasn't null, log it and return null for formatting
+                    error_log("Error decoding table_formatting JSON for query_id: $query_id. JSON: " . $saved_query->table_formatting);
+                    $response['table_formatting'] = null;
+                    $response['message'] = 'Formatting data is corrupted. Please save again.';
+                    // $response['status'] could be set to 'error' or keep 'success' but with null data.
+                }
+            } else {
+                $response['message'] = 'Query not found.';
+                // Status remains 'error' or could be 'success' with null formatting if not finding is not an error for this call
+            }
+        } catch (PDOException $e) {
+            error_log("Error fetching table formatting: " . $e->getMessage());
+            $response['message'] = 'Database error: Could not retrieve table formatting. ' . $e->getMessage();
+        } catch (Exception $e) {
+            error_log("General error fetching table formatting: " . $e->getMessage());
+            $response['message'] = 'An unexpected error occurred: ' . $e->getMessage();
+        }
+
+        echo json_encode($response);
+    }
 }
