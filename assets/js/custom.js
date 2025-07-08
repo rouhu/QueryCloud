@@ -58,9 +58,32 @@ $('body').on('click', '#btnShowTableFormatModal', function() {
     // More robust selector might be needed if structure varies.
     // We need the *original* headers, which are in the `<thead>` of the results table.
     // The Presenter creates <th>OriginalName</th>
-    $('#tabledata table th').each(function() {
-        currentHeaders.push($(this).text());
-    });
+
+    // Adjusted selector to correctly get headers from a DataTables-enhanced table,
+    // especially when scrollX is used (which clones headers).
+    var $tableInScrollHead = $('#tabledata .dataTables_scrollHead table.dataTable');
+    var $thElements;
+
+    if ($tableInScrollHead.length > 0) {
+        // If a scrolling header exists, use its th elements
+        $thElements = $tableInScrollHead.find('thead tr:first-child th');
+    } else {
+        // Otherwise, use the th elements from the main table directly within #tabledata
+        // This targets the first table found that has the class dataTable
+        var $mainTable = $('#tabledata table.dataTable:first');
+        if ($mainTable.length > 0) {
+            $thElements = $mainTable.find('thead tr:first-child th');
+        } else {
+            // Fallback to the original simpler selector if no dataTable class is found (should not happen for styled tables)
+            $thElements = $('#tabledata table:first').find('thead tr:first-child th');
+        }
+    }
+
+    if ($thElements && $thElements.length > 0) {
+        $thElements.each(function() {
+            currentHeaders.push($(this).text());
+        });
+    }
 
     if (currentHeaders.length === 0) {
         $fieldsContainer.empty().append('<p class="text-danger">Could not find table headers on the page.</p>');
