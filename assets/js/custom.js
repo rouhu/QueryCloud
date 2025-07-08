@@ -422,8 +422,8 @@ function openVisualQueryBuilderModal(visualParamsObj, queryId, queryName, isEdit
     }
 
     // Load options for all field dropdowns and then populate other VQB elements
-    addTablesToDropdown(function(success) {
-        if (success) {
+    addTablesToDropdown(function(success, fieldOptionsHtml) { // <-- Accept fieldOptionsHtml here
+        if (success && fieldOptionsHtml) { // <-- Check if fieldOptionsHtml is valid
             // Non-aggregated fields - targeting specifically by name to avoid conflict with other selects that might have '.fields' class
             if (visualParamsObj.fields && Array.isArray(visualParamsObj.fields)) {
                 $modal.find('select[name="fields[]"]').val(visualParamsObj.fields).trigger('change.select2');
@@ -464,7 +464,6 @@ function openVisualQueryBuilderModal(visualParamsObj, queryId, queryName, isEdit
             // TODO: Populate Aggregated Fields (dynamic rows)
              if (visualParamsObj.agg_field && Array.isArray(visualParamsObj.agg_field)) {
                 var $aggContainer = $('#aggregateFieldsContainer');
-                // 'response' from addTablesToDropdown AJAX call is in scope here
                 visualParamsObj.agg_field.forEach(function(fieldValue, idx) {
                     if (fieldValue && visualParamsObj.agg_func[idx]) {
                         var $aggClone = $('#fieldCloneAggregate').clone().removeAttr('id').show();
@@ -475,8 +474,8 @@ function openVisualQueryBuilderModal(visualParamsObj, queryId, queryName, isEdit
                         if ($aggFieldSelect.data('select2')) $aggFieldSelect.select2('destroy');
                         if ($aggFuncSelect.data('select2')) $aggFuncSelect.select2('destroy');
 
-                        // Populate options for the .agg_field select using the 'response' (HTML options string)
-                        $aggFieldSelect.html(response);
+                        // Populate options for the .agg_field select using fieldOptionsHtml
+                        $aggFieldSelect.html(fieldOptionsHtml);
 
                         // Now set the values
                         $aggFieldSelect.val(fieldValue);
@@ -1416,20 +1415,20 @@ function addTablesToDropdown(callback) {
 
             $.jGrowl('Fields updated for selected tables!');
             if (typeof callback === 'function') {
-                callback(true); // Indicate success
+                callback(true, response); // Indicate success and pass the HTML response
             }
         }).fail(function(jqXHR, textStatus, errorThrown) {
             // console.error('AJAX Error in addTablesToDropdown:', textStatus, errorThrown);
             $.jGrowl('Error loading fields: ' + textStatus, {header: 'Error', theme: 'error'});
             if (typeof callback === 'function') {
-                callback(false); // Indicate failure
+                callback(false, null); // Indicate failure, pass null for response
             }
         });
     } else {
         // Should not happen if __table is always present
         console.warn("No tables selected for addTablesToDropdown, including primary __table.");
         if (typeof callback === 'function') {
-            callback(false); // Indicate failure or no action
+            callback(false, null); // Indicate failure or no action, pass null for response
         }
     }
 }
