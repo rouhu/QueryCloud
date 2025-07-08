@@ -176,8 +176,27 @@ class Table
 
 
             // run query and render view
-            // Pass $running_saved_query_name which would be null here as this is VQB path
-            self::runQueryWithView($query, $fields, $printArray, $visual_params_for_view, $running_saved_query_name);
+
+            // If running from VQB after editing a saved query, try to get its name
+            // $running_saved_query_name is already initialized from $_POST['running_saved_query_name']
+            // but that field is not typically part of the VQB form submission.
+            // The VQB form submits 'visual_query_id_edit'.
+            $query_id_from_vqb_edit = $_POST['visual_query_id_edit'] ?? null;
+            $current_running_saved_query_name = $running_saved_query_name; // Preserve if it came from another source
+
+            if (!empty($query_id_from_vqb_edit) && is_numeric($query_id_from_vqb_edit)) {
+                // If VQB was editing a saved query, its ID is visual_query_id_edit.
+                // We need to fetch its name to provide context to runQueryWithView.
+                $saved_query_for_name = ORM::for_table('saved_queries')->find_one($query_id_from_vqb_edit);
+                if ($saved_query_for_name) {
+                    $current_running_saved_query_name = $saved_query_for_name->query_name;
+                    // Note: runQueryWithView will use this name to re-fetch the ID.
+                    // Alternatively, we could pass the ID directly if runQueryWithView is modified,
+                    // but using the name aligns with its current design.
+                }
+            }
+
+            self::runQueryWithView($query, $fields, $printArray, $visual_params_for_view, $current_running_saved_query_name);
         }
 
     }
