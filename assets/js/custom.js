@@ -463,14 +463,39 @@ function openVisualQueryBuilderModal(visualParamsObj, queryId, queryName, isEdit
 
             // TODO: Populate Aggregated Fields (dynamic rows)
              if (visualParamsObj.agg_field && Array.isArray(visualParamsObj.agg_field)) {
-                visualParamsObj.agg_field.forEach(function(field, idx) {
-                    if (field && visualParamsObj.agg_func[idx]) {
+                var $aggContainer = $('#aggregateFieldsContainer');
+                // 'response' from addTablesToDropdown AJAX call is in scope here
+                visualParamsObj.agg_field.forEach(function(fieldValue, idx) {
+                    if (fieldValue && visualParamsObj.agg_func[idx]) {
                         var $aggClone = $('#fieldCloneAggregate').clone().removeAttr('id').show();
-                        $aggClone.find('.agg_field').val(field);
-                        $aggClone.find('.agg_func').val(visualParamsObj.agg_func[idx]);
+                        var $aggFieldSelect = $aggClone.find('.agg_field');
+                        var $aggFuncSelect = $aggClone.find('.agg_func');
+
+                        // Destroy any select2 instance from the template clone
+                        if ($aggFieldSelect.data('select2')) $aggFieldSelect.select2('destroy');
+                        if ($aggFuncSelect.data('select2')) $aggFuncSelect.select2('destroy');
+
+                        // Populate options for the .agg_field select using the 'response' (HTML options string)
+                        $aggFieldSelect.html(response);
+
+                        // Now set the values
+                        $aggFieldSelect.val(fieldValue);
+                        $aggFuncSelect.val(visualParamsObj.agg_func[idx]);
                         $aggClone.find('.agg_alias').val(visualParamsObj.agg_alias[idx] || '');
-                        $('#aggregateFieldsContainer').append($aggClone);
-                        $aggClone.find('select').select2();
+
+                        $aggContainer.append($aggClone);
+
+                        // Initialize Select2 for these specific dropdowns
+                        var aggFieldPlaceholder = $aggFieldSelect.data('placeholder') || 'Select Field';
+                        $aggFieldSelect.select2({ placeholder: aggFieldPlaceholder, allowClear: true });
+
+                        $aggFuncSelect.select2(); // Basic initialization for agg_func
+
+                        // Trigger change for Select2 to correctly render the selection
+                        // and for any dependent logic (like updateHavingFieldNameOptions)
+                        // Important to trigger *after* select2 is initialized
+                        $aggFieldSelect.trigger('change');
+                        $aggFuncSelect.trigger('change');
                     }
                 });
             }
