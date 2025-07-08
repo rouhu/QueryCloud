@@ -312,7 +312,20 @@ class Table
                         if (!$first_where && isset($params['ftype'][$key])) { // ftype links current to previous
                             $query .= ' ' . ($params['ftype'][$key] ?? 'AND') . ' ';
                         }
-                        $query .= $value . $params['fvalue'][$key];
+
+                        // Properly quote the field name ($value is fname)
+                        $quoted_field_name = $value;
+                        if (strpos($value, '.') !== false) {
+                            list($table_part, $column_part) = explode('.', $value, 2);
+                            $quoted_field_name = '`' . str_replace('`', '``', $table_part) . '`.`' . str_replace('`', '``', $column_part) . '`';
+                        } else {
+                            // If no table part, assume it's a column of the primary table or an alias that's already correctly named.
+                            // VQB usually provides qualified names (table.column) for fname.
+                            $quoted_field_name = '`' . str_replace('`', '``', $value) . '`';
+                        }
+
+                        // Append quoted field name, a space, and then the fvalue (which should contain operator + value)
+                        $query .= $quoted_field_name . ' ' . $params['fvalue'][$key];
                         $first_where = false;
                     }
                 }
