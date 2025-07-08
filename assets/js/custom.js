@@ -37,6 +37,139 @@ $('a.editable').editable({
     }
 });
 
+// --- Table Formatting Modal ---
+$('body').on('click', '#btnShowTableFormatModal', function() {
+    var queryId = $(this).data('query-id');
+    if (!queryId) {
+        $.jGrowl('Error: Query ID is missing. Cannot open formatting modal.', { header: 'Error', theme: 'error' });
+        return;
+    }
+
+    $('#table_format_query_id').val(queryId);
+    var $modal = $('#modal-table-format');
+    var $fieldsContainer = $('#tableFormatFieldsContainer');
+    var $msgContainer = $('#tableFormatMsg');
+    $fieldsContainer.empty().append('<p class="text-center"><i class="fa fa-spinner fa-spin"></i> Loading columns...</p>');
+    $msgContainer.hide().removeClass('alert-success alert-danger alert-info').text('');
+
+    // Fetch current column headers from the displayed table
+    var currentHeaders = [];
+    // Assuming the table is the one within div#tabledata and has a class like .dataTable or .table
+    // More robust selector might be needed if structure varies.
+    // We need the *original* headers, which are in the `<thead>` of the results table.
+    // The Presenter creates <th>OriginalName</th>
+    $('#tabledata table th').each(function() {
+        currentHeaders.push($(this).text());
+    });
+
+    if (currentHeaders.length === 0) {
+        $fieldsContainer.empty().append('<p class="text-danger">Could not find table headers on the page.</p>');
+        $modal.modal('show');
+        return;
+    }
+
+    // Fetch existing formatting for this query_id
+    $.ajax({
+        url: base + '/ajax/getTableFormatting/' + queryId,
+        type: 'GET',
+        dataType: 'json',
+        success: function(response) {
+            $fieldsContainer.empty(); // Clear "Loading..."
+            var existingColumnTitles = {};
+            if (response.status === 'success' && response.table_formatting && response.table_formatting.column_titles) {
+                existingColumnTitles = response.table_formatting.column_titles;
+                 $msgContainer.addClass('alert-info').text('Loaded existing formatting.').show().delay(2000).fadeOut();
+            } else if (response.status !== 'success') {
+                 $msgContainer.addClass('alert-warning').text(response.message || 'Could not load existing formatting.').show();
+            }
+            // If no formatting, existingColumnTitles remains empty, so placeholders will be shown.
+
+            currentHeaders.forEach(function(originalHeader, index) {
+                // The 'name' attribute for inputs needs to be the original header to map correctly on save
+                // We need a way to get the *actual* original DB column name if the displayed header is already a custom one.
+                // For phase 1, the `originalHeader` is what `Presenter` used. If formatting was already applied,
+                // this `originalHeader` *is* the custom title. This is a problem.
+                // The `Presenter` needs to store original names if it's displaying custom ones.
+                //
+                // Workaround for Phase 1: We assume `currentHeaders` are the *original* database column names.
+                // This will be true if formatting has NOT YET been applied by a page reload.
+                // If formatting *has* been applied, this modal will show the *custom* titles as "Original".
+                // This is a limitation of Phase 1 based on current presenter.
+                // For now, let's assume `$(this).text()` from `<th>` is the key to use.
+
+                var inputId = 'th_format_' + index; // Use index for unique ID
+                var newTitle = existingColumnTitles[originalHeader] || ''; // Use originalHeader as key
+
+                var fieldHtml = '<div class="form-group col-md-4">' +
+                                '<label for="' + inputId + '">Original: ' + escapeHtml(originalHeader) + '</label>' +
+                                '<input type="text" class="form-control" id="' + inputId + '" name="header_titles[' + escapeHtml(originalHeader) + ']" value="' + escapeHtml(newTitle) + '" placeholder="New Title (default: ' + escapeHtml(originalHeader) + ')">' +
+                                '</div>';
+                $fieldsContainer.append(fieldHtml);
+            });
+            $modal.modal('show');
+        },
+        error: function(jqXHR, textStatus, errorThrown) {
+            $fieldsContainer.empty();
+            $msgContainer.addClass('alert-danger').text('AJAX Error fetching formatting: ' + textStatus + ' - ' + errorThrown).show();
+            $modal.modal('show'); // Still show modal but with error
+        }
+    });
+});
+
+$('body').on('click', '#btnSaveTableFormatting', function() {
+    var queryId = $('#table_format_query_id').val();
+    var $msgContainer = $('#tableFormatMsg');
+    var $thisButton = $(this);
+
+    if (!queryId) {
+        $msgContainer.removeClass('alert-success alert-info').addClass('alert-danger').text('Error: Query ID is missing.').show();
+        return;
+    }
+
+    var columnTitles = {};
+    $('#tableFormatFieldsContainer .form-control').each(function() {
+        var originalHeaderKey = $(this).attr('name').match(/header_titles\[(.*?)\]/)[1];
+        var newTitle = $(this).val();
+        if ($.trim(newTitle) !== '') { // Only save non-empty titles
+            columnTitles[originalHeaderKey] = $.trim(newTitle);
+        }
+    });
+
+    var tableFormattingJson = JSON.stringify({ column_titles: columnTitles });
+
+    $thisButton.prop('disabled', true).find('i').removeClass('fa-save').addClass('fa-spinner fa-spin');
+    $msgContainer.hide().removeClass('alert-success alert-danger alert-info').text('');
+
+    $.ajax({
+        url: base + '/ajax/saveTableFormatting',
+        type: 'POST',
+        data: {
+            query_id: queryId,
+            table_formatting: tableFormattingJson
+        },
+        dataType: 'json',
+        success: function(response) {
+            if (response.status === 'success') {
+                $msgContainer.removeClass('alert-danger alert-info').addClass('alert-success').text(response.message).show();
+                setTimeout(function() {
+                    $('#modal-table-format').modal('hide');
+                    // Optionally, inform user to re-run query to see changes or try to apply dynamically (more complex)
+                    $.jGrowl('Formatting saved. Re-run the query to see changes.', { header: 'Info', theme: 'info', life: 4000 });
+                }, 1500);
+            } else {
+                $msgContainer.removeClass('alert-success alert-info').addClass('alert-danger').text(response.message || 'An unknown error occurred.').show();
+            }
+        },
+        error: function(jqXHR, textStatus, errorThrown) {
+            $msgContainer.removeClass('alert-success alert-info').addClass('alert-danger').text('AJAX Error: ' + textStatus + ' - ' + errorThrown).show();
+        },
+        complete: function() {
+            $thisButton.prop('disabled', false).find('i').removeClass('fa-spinner fa-spin').addClass('fa-save');
+        }
+    });
+});
+
+
 $('a.editable').editable();
 
 // for popover

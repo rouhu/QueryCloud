@@ -29,6 +29,7 @@ CREATE TABLE saved_queries (
     sql_query TEXT NOT NULL,
     is_visual_query TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'Flag to indicate if the query was created/saved via the visual builder',
     visual_params TEXT NULL COMMENT 'JSON string representing the visual builder parameters',
+    table_formatting TEXT NULL COMMENT 'JSON string representing the table display formatting options',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 */
