@@ -467,18 +467,49 @@ function openVisualQueryBuilderModal(visualParamsObj, queryId, queryName, isEdit
             // Iterate visualParamsObj.fname, fvalue, ftype. For each, clone #fieldClone, set values, append.
             if (visualParamsObj.fname && Array.isArray(visualParamsObj.fname)) {
                 visualParamsObj.fname.forEach(function(name, idx){
-                    if(name && visualParamsObj.fvalue[idx]){ // Ensure field and value exist
+                    if(name && visualParamsObj.fvalue[idx]){ // Ensure field and value exist for the current condition
                         var $c = $('#fieldClone').clone().removeAttr('id').show();
-                        $c.find('select.fname').val(name);
+                        var $fnameSelect = $c.find('select.fname');
+                        var $ftypeSelect = $c.find('select[name="ftype[]"]'); //
+
+                        // Destroy Select2 instance from clone template if any
+                        if ($fnameSelect.data('select2')) $fnameSelect.select2('destroy');
+                        if ($ftypeSelect.data('select2')) $ftypeSelect.select2('destroy'); // ftype is also a select
+
+                        // Populate options for the .fname select using fieldOptionsHtml
+                        $fnameSelect.html(fieldOptionsHtml);
+
+                        // Set values
+                        $fnameSelect.val(name);
                         $c.find('input[name="fvalue[]"]').val(visualParamsObj.fvalue[idx]);
-                        if(idx > 0 && visualParamsObj.ftype[idx]) { // ftype links current to previous
-                             $c.find('select[name="ftype[]"]').val(visualParamsObj.ftype[idx]);
-                        } else if (idx === 0 && visualParamsObj.ftype && visualParamsObj.ftype[0]) {
-                            // If ftype[0] is set (e.g. from older save), handle it for the first actual condition
-                            // This might be redundant if ftype is always for linking *between* conditions
+
+                        // Set ftype (AND/OR connector)
+                        // ftype[idx] links this condition to the previous one if idx > 0.
+                        // The first condition (idx=0) doesn't use ftype from its own index.
+                        // The template #fieldClone has ftype[0] selected as 'AND' by default.
+                        // If it's not the first condition, set its ftype. Otherwise, template default is fine.
+                        if (idx > 0 && visualParamsObj.ftype[idx]) {
+                             $ftypeSelect.val(visualParamsObj.ftype[idx]);
                         }
-                        $('#btnAddWhere').after($c); // Add new condition row
-                        $c.find('select').select2(); // Initialize select2 on new row
+                        // For idx === 0, the ftype in visualParamsObj.ftype[0] (if it exists from an old save)
+                        // is not used to prefix the very first condition. The template's default 'AND' for ftype
+                        // is usually hidden or only relevant if it's NOT the first visible condition.
+                        // The current logic for adding NEW rows also makes the first ftype non-impactful.
+                        // So, we only need to explicitly set ftype if idx > 0 and visualParamsObj.ftype[idx] is available.
+
+                        $('#btnAddWhere').after($c); // Add new condition row (note: after() adds it *after* #btnAddWhere,
+                                                     // which means conditions appear in reverse order of processing.
+                                                     // To maintain order, should use a container and .append() or .prepend() to container.)
+                                                     // For now, keeping existing .after() behavior.
+
+                        // Initialize Select2
+                        var fnamePlaceholder = $fnameSelect.data('placeholder') || 'Choose Field';
+                        $fnameSelect.select2({ placeholder: fnamePlaceholder, allowClear: true });
+                        $ftypeSelect.select2(); // Basic init for ftype
+
+                        // Trigger change for Select2 display and any dependent logic
+                        $fnameSelect.trigger('change');
+                        $ftypeSelect.trigger('change');
                     }
                 });
             }
