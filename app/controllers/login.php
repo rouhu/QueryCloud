@@ -56,35 +56,34 @@ class Login
             // Handle redirect_to parameter
             $redirect_url = $_GET['redirect_to'] ?? null;
             if ($redirect_url) {
-                // Basic validation: ensure it's a relative path starting with /share/ or an absolute path for this app
-                // A more robust validation might be needed depending on security requirements
-                $app_base_url = rtrim(Flight::get('base'), '/');
-                $is_valid_share_redirect = (strpos($redirect_url, '/share/') === 0) ||
-                                           (strpos($redirect_url, $app_base_url . '/share/') === 0);
+                $config = Flight::get('config');
+                $site_url = rtrim($config['site_url'], '/');
+                $share_path_segment = '/share/';
 
-                if ($is_valid_share_redirect) {
-                    // Ensure the redirect URL is not an external malicious URL by checking if it starts with base or is relative to /share/
-                    // The check above is a basic one. For full security, one might parse the URL and check host, etc.
-                    // Or, only allow relative /share/ paths.
-                    // For now, if it contains /share/ and doesn't look obviously external, proceed.
-                    // A simple way to ensure it's not an external http:// link if $app_base_url is empty or just '/':
-                    if (strpos($redirect_url, 'http:') === 0 || strpos($redirect_url, 'https:') === 0) {
-                        // If it's an absolute URL, it must match the app's base to be considered safe.
-                        if (strpos($redirect_url, $app_base_url) !== 0) {
-                            Flight::redirect('./home'); // Or an error, or just default redirect
-                            return;
-                        }
-                    }
-                    // If it's a relative path like /share/..., it's fine.
-                    // If it's an absolute path that matched base, it's fine.
+                // Check if the redirect_url starts with the site_url + share_path_segment
+                // Or if it's a relative URL starting with the share_path_segment (more robust for same-origin redirects)
+                $is_valid_absolute_share_redirect = strpos($redirect_url, $site_url . $share_path_segment) === 0;
+                $is_valid_relative_share_redirect = strpos($redirect_url, $share_path_segment) === 0 &&
+                                                    (strpos($redirect_url, '//') === false && strpos($redirect_url, 'http:') !== 0 && strpos($redirect_url, 'https:') !== 0);
+
+
+                if ($is_valid_absolute_share_redirect) {
+                    // It's an absolute URL matching our site and share path
+                    Flight::redirect($redirect_url);
+                    return;
+                } elseif ($is_valid_relative_share_redirect) {
+                    // It's a relative path like /share/TOKEN. Prepend site_url if base Flight::redirect needs it,
+                    // or let Flight::redirect handle relative paths correctly.
+                    // Flight::redirect usually handles relative paths from app root.
                     Flight::redirect($redirect_url);
                     return;
                 }
+                // If not a valid share redirect, fall through to default.
             }
-            Flight::redirect('./home'); // Default redirect if no valid redirect_to
+            Flight::redirect(rtrim(Flight::get('base'), '/') . '/home'); // Default redirect
         } else {
             setFlashMessage('Error: Invalid username or password!');
-            Flight::redirect('./login');
+            Flight::redirect(rtrim(Flight::get('base'), '/') . '/login');
         }
     }
 

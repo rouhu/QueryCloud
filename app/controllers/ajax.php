@@ -408,17 +408,25 @@ class Ajax
                 return;
             }
 
+            $config = Flight::get('config');
+            $site_url = rtrim($config['site_url'], '/');
+
             if (!empty($saved_query->share_token)) {
                 $response['status'] = 'success';
                 $response['message'] = 'Existing share token retrieved.';
                 $response['token'] = $saved_query->share_token;
+                $response['share_url'] = $site_url . '/share/' . $saved_query->share_token;
                 $response['requires_login'] = (bool)$saved_query->share_requires_login;
             } else {
-                // Generate a new unique token
-                // No token exists, so requires_login is effectively false until set otherwise,
-                // but we'll return the persisted value which is likely the default (false/0).
+                // No token exists yet. Client will decide if/when to generate via updateShareSettings or if getShareToken should force it.
+                // For now, getShareToken just reports current state.
+                $response['status'] = 'success'; // Success in fetching info, even if no token
+                $response['message'] = 'No active share link. Settings can be updated.';
+                $response['token'] = null;
+                $response['share_url'] = null;
                 $response['requires_login'] = (bool)$saved_query->share_requires_login;
-                $token = null;
+                // Old logic to auto-generate if not exists:
+                /* $token = null;
                 $max_attempts = 5; // Prevent infinite loop in extremely unlikely collision scenario
                 for ($i = 0; $i < $max_attempts; $i++) {
                     $potential_token = bin2hex(random_bytes(32)); // 64 characters
@@ -525,7 +533,15 @@ class Ajax
                     $response['message'] .= ' A new share token was generated.';
                 }
                 $response['requires_login'] = (bool)$saved_query->share_requires_login;
-                $response['token'] = $saved_query->share_token; // Return current token
+                $response['token'] = $saved_query->share_token;
+
+                $config = Flight::get('config');
+                $site_url = rtrim($config['site_url'], '/');
+                if ($saved_query->share_token) {
+                    $response['share_url'] = $site_url . '/share/' . $saved_query->share_token;
+                } else {
+                    $response['share_url'] = null; // No token, no URL
+                }
             } else {
                 $response['message'] = 'Failed to update share settings in the database.';
             }

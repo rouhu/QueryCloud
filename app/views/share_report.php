@@ -6,12 +6,12 @@
     <title>Shared Report: <?php echo htmlspecialchars($report_title ?? 'Report', ENT_QUOTES, 'UTF-8'); ?></title>
 
     <!-- Bootstrap core CSS -->
-    <link href="<?php echo $base_url; ?>assets/css/bootstrap.min.css" rel="stylesheet">
+    <link href="<?php echo $base_site_url; ?>/assets/css/bootstrap.min.css" rel="stylesheet">
     <!-- page specific plugin styles -->
-    <link rel="stylesheet" href="<?php echo $base_url; ?>assets/plugins/dataTables/dataTables.bootstrap.css"/>
-    <link rel="stylesheet" href="<?php echo $base_url; ?>assets/css/font-awesome.min.css"/>
+    <link rel="stylesheet" href="<?php echo $base_site_url; ?>/assets/plugins/dataTables/dataTables.bootstrap.css"/>
+    <link rel="stylesheet" href="<?php echo $base_site_url; ?>/assets/css/font-awesome.min.css"/>
     <!-- Custom styles for this template -->
-    <link href="<?php echo $base_url; ?>assets/css/custom.css" rel="stylesheet">
+    <link href="<?php echo $base_site_url; ?>/assets/css/custom.css" rel="stylesheet">
 
     <style>
         body { padding-top: 20px; padding-bottom: 20px; background-color: #f9f9f9; }
@@ -28,10 +28,9 @@
         </div>
 
         <div class="export-buttons" style="margin-bottom: 15px;">
-            <!-- Note: Export links will rely on $_SESSION['tableData'] being set by Share::viewReport -->
-            <!-- The base for these export links needs to be the main application base, not /share/ -->
-            <a target="_blank" href="<?php echo rtrim($base_url, '/'); ?>/export/csv" class="btn btn-primary btn-sm"><i class="fa fa-file-text-o"></i> Export CSV</a>
-            <a target="_blank" href="<?php echo rtrim($base_url, '/'); ?>/export/excel" class="btn btn-primary btn-sm"><i class="fa fa-file-excel-o"></i> Export Excel</a>
+            <!-- Export links now use base_site_url -->
+            <a target="_blank" href="<?php echo $base_site_url; ?>/export/csv" class="btn btn-primary btn-sm"><i class="fa fa-file-text-o"></i> Export CSV</a>
+            <a target="_blank" href="<?php echo $base_site_url; ?>/export/excel" class="btn btn-primary btn-sm"><i class="fa fa-file-excel-o"></i> Export Excel</a>
         </div>
 
         <div id="shared_table_data">
@@ -51,12 +50,12 @@
     <!-- Bootstrap core JavaScript
     ================================================== -->
     <!-- Placed at the end of the document so the pages load faster -->
-    <script src="<?php echo $base_url; ?>assets/js/jquery-1.10.2.js"></script>
-    <script src="<?php echo $base_url; ?>assets/js/bootstrap.min.js"></script>
+    <script src="<?php echo $base_site_url; ?>/assets/js/jquery-1.10.2.js"></script>
+    <script src="<?php echo $base_site_url; ?>/assets/js/bootstrap.min.js"></script>
 
     <!-- page specific plugin scripts -->
-    <script src="<?php echo $base_url; ?>assets/plugins/dataTables/jquery.dataTables.js"></script>
-    <script src="<?php echo $base_url; ?>assets/plugins/dataTables/dataTables.bootstrap.js"></script>
+    <script src="<?php echo $base_site_url; ?>/assets/plugins/dataTables/jquery.dataTables.js"></script>
+    <script src="<?php echo $base_site_url; ?>/assets/plugins/dataTables/dataTables.bootstrap.js"></script>
 
     <script type="text/javascript">
         $(document).ready(function () {

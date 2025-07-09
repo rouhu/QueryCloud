@@ -9,6 +9,10 @@ $config['database_user'] = '';
 $config['database_password'] = '';
 $config['database_dbname'] = '';
 
+// Site URL - Update this to your application's full base URL
+// e.g., http://localhost/querycloud or https://yourdomain.com/querycloud
+$config['site_url'] = 'http://localhost/querycloud';
+
 //////////////////////////////////////////////
 // user details who can login - You can also specify more than one user
 //////////////////////////////////////////////
