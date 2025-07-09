@@ -31,7 +31,17 @@ class Share
             if (!isset($_SESSION['logged']) || !$_SESSION['logged']) {
                 // User is not logged in, redirect to login page with a redirect_to parameter
                 $config = Flight::get('config');
-                $site_url = rtrim($config['site_url'], '/');
+                $site_url_from_config = '';
+                if (is_array($config) && isset($config['site_url']) && is_string($config['site_url']) && !empty(trim($config['site_url']))) {
+                    $site_url_from_config = $config['site_url'];
+                } else {
+                    error_log("CRITICAL: config['site_url'] is not properly set for ShareController redirect. Login redirect may fail or be relative.");
+                    // Fallback: Attempt relative redirect if site_url is missing. This might not work if 'base' is also not set well.
+                    $base_path = rtrim(Flight::get('base'), '/'); // Flight::get('base') is often just the subdirectory
+                    Flight::redirect($base_path . '/login?redirect_to=' . urlencode($base_path . '/share/' . $token));
+                    return;
+                }
+                $site_url = rtrim($site_url_from_config, '/');
                 $current_share_url = $site_url . '/share/' . $token;
                 Flight::redirect($site_url . '/login?redirect_to=' . urlencode($current_share_url));
                 return; // Stop further execution
@@ -105,7 +115,14 @@ class Share
         }
 
         $config = Flight::get('config');
-        $site_url_for_view = rtrim($config['site_url'], '/');
+        $site_url_for_view = ''; // Default to empty string
+        if (is_array($config) && isset($config['site_url']) && is_string($config['site_url']) && !empty(trim($config['site_url']))) {
+            $site_url_for_view = rtrim($config['site_url'], '/');
+        } else {
+            error_log("WARNING: config['site_url'] is not properly set for ShareController view rendering. Asset/export links will use relative paths based on Flight::get('base').");
+            // Fallback to Flight::get('base') for asset paths if site_url is missing.
+            $site_url_for_view = rtrim(Flight::get('base'), '/');
+        }
 
 
         Flight::render(

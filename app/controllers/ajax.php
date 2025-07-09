@@ -409,7 +409,19 @@ class Ajax
             }
 
             $config = Flight::get('config');
-            $site_url = rtrim($config['site_url'], '/');
+            $site_url_from_config = ''; // Default to empty string
+
+            if (is_array($config) && isset($config['site_url']) && is_string($config['site_url']) && !empty(trim($config['site_url']))) {
+                $site_url_from_config = $config['site_url'];
+            } else {
+                error_log("WARNING: config['site_url'] is not properly set in config.php. Share URLs may be incomplete.");
+                // If site_url is critical and must be absolute, you might choose to return an error here:
+                // $response['message'] = "Configuration error: Site URL not set. Cannot generate share links.";
+                // echo json_encode($response);
+                // return;
+            }
+
+            $site_url = rtrim($site_url_from_config, '/');
 
             if (!empty($saved_query->share_token)) {
                 $response['status'] = 'success';
@@ -536,7 +548,14 @@ class Ajax
                 $response['token'] = $saved_query->share_token;
 
                 $config = Flight::get('config');
-                $site_url = rtrim($config['site_url'], '/');
+                $site_url_from_config = ''; // Default to empty string
+                if (is_array($config) && isset($config['site_url']) && is_string($config['site_url']) && !empty(trim($config['site_url']))) {
+                    $site_url_from_config = $config['site_url'];
+                } else {
+                    error_log("WARNING: config['site_url'] is not properly set in config.php. Share URLs may be incomplete in updateShareSettings response.");
+                }
+                $site_url = rtrim($site_url_from_config, '/');
+
                 if ($saved_query->share_token) {
                     $response['share_url'] = $site_url . '/share/' . $saved_query->share_token;
                 } else {

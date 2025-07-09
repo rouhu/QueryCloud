@@ -57,25 +57,44 @@ class Login
             $redirect_url = $_GET['redirect_to'] ?? null;
             if ($redirect_url) {
                 $config = Flight::get('config');
-                $site_url = rtrim($config['site_url'], '/');
+                $site_url_from_config = '';
+                if (is_array($config) && isset($config['site_url']) && is_string($config['site_url']) && !empty(trim($config['site_url']))) {
+                    $site_url_from_config = $config['site_url'];
+                } else {
+                    error_log("WARNING: config['site_url'] is not properly set for LoginController redirect validation. Redirect might be less secure or default.");
+                }
+                $site_url = rtrim($site_url_from_config, '/');
+                $app_base_path = rtrim(Flight::get('base'), '/'); // Path like /querycloud or empty if root
+
                 $share_path_segment = '/share/';
 
-                // Check if the redirect_url starts with the site_url + share_path_segment
-                // Or if it's a relative URL starting with the share_path_segment (more robust for same-origin redirects)
-                $is_valid_absolute_share_redirect = strpos($redirect_url, $site_url . $share_path_segment) === 0;
+                // Normalize redirect_url if it's relative to the app base path for comparison with site_url
+                $absolute_redirect_url = $redirect_url;
+                if (strpos($redirect_url, 'http') !== 0) { // If it's not already absolute
+                    if (strpos($redirect_url, '/') === 0) { // Starts with / e.g. /share/token or /appbase/share/token
+                        if (!empty($app_base_path) && strpos($redirect_url, $app_base_path) === 0) {
+                            // Already contains base path, e.g. /querycloud/share/token. Can be used as is for local redirect.
+                            // For comparison with site_url, we might need to prepend scheme and host if site_url is full.
+                            // However, Flight::redirect can handle paths relative to app root.
+                        } else if (!empty($app_base_path)) {
+                             // Relative to app root but doesn't include base, e.g. /share/token when base is /querycloud
+                             // This case is tricky. Flight::redirect($redirect_url) might work if app is at domain root.
+                             // If app is in subdir, $app_base_path . $redirect_url would be needed for some redirect methods.
+                             // For now, let's assume Flight::redirect handles paths starting with '/' from actual domain root.
+                        }
+                    } else { // Truly relative e.g. share/token - less likely from urlencode
+                        $absolute_redirect_url = $app_base_path . '/' . $redirect_url;
+                    }
+                }
+
+                // Check if the (potentially now absolute) redirect_url starts with the site_url + share_path_segment
+                // Or if the original redirect_url (if relative) starts with the share_path_segment
+                $is_valid_absolute_share_redirect = !empty($site_url) && strpos($absolute_redirect_url, $site_url . $share_path_segment) === 0;
                 $is_valid_relative_share_redirect = strpos($redirect_url, $share_path_segment) === 0 &&
                                                     (strpos($redirect_url, '//') === false && strpos($redirect_url, 'http:') !== 0 && strpos($redirect_url, 'https:') !== 0);
 
-
-                if ($is_valid_absolute_share_redirect) {
-                    // It's an absolute URL matching our site and share path
-                    Flight::redirect($redirect_url);
-                    return;
-                } elseif ($is_valid_relative_share_redirect) {
-                    // It's a relative path like /share/TOKEN. Prepend site_url if base Flight::redirect needs it,
-                    // or let Flight::redirect handle relative paths correctly.
-                    // Flight::redirect usually handles relative paths from app root.
-                    Flight::redirect($redirect_url);
+                if ($is_valid_absolute_share_redirect || $is_valid_relative_share_redirect) {
+                    Flight::redirect($redirect_url); // Flight::redirect should handle both absolute and relative-to-base paths
                     return;
                 }
                 // If not a valid share redirect, fall through to default.
