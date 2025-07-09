@@ -597,8 +597,18 @@ function openVisualQueryBuilderModal(visualParamsObj, queryId, queryName, isEdit
                          if(idx > 0 && visualParamsObj.htype[idx]) {
                              $hClone.find('select[name="htype[]"]').val(visualParamsObj.htype[idx]);
                          }
+                        // Clean the clone before appending
+                        $hClone.find('.select2-container').remove();
+                        var $hfnameSelectInClone = $hClone.find('select.hfname');
+                        if ($hfnameSelectInClone.data('select2')) {
+                            $hfnameSelectInClone.select2('destroy');
+                        }
+                        // Note: Options for $hfnameSelectInClone will be set by the subsequent updateHavingFieldNameOptions call.
+                        // We set the value here; if the option doesn't exist yet, Select2 will pick it up after options are added.
+                        $hfnameSelectInClone.val(name);
+
                         $('#havingConditionsContainer').append($hClone);
-                        $hClone.find('select.hfname').select2(); //Initialize select2 for hfname
+                        // DO NOT initialize Select2 here; updateHavingFieldNameOptions will handle all .hfname in the container.
                     }
                 });
             }
@@ -1035,7 +1045,7 @@ function updateHavingFieldNameOptions() {
         }
     });
 
-    var $hfnameSelects = $('select.hfname');
+    var $hfnameSelects = $('#havingConditionsContainer').find('select.hfname'); // Scoped to active HAVING rows
     var newHtml = '<option value=""></option>'; // Add a blank option for placeholder
 
     // Build HTML for options, handling optgroups if present in the initial set
