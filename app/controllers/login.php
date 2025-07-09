@@ -53,9 +53,21 @@ class Login
         if ($username_ok && $password_ok) {
             $_SESSION['logged'] = true;
 
-            // Handle redirect_to parameter
-            $redirect_url_param = $_GET['redirect_to'] ?? null;
+            // Handle redirect_to parameter - prioritize POST, then GET
+            $redirect_url_param = null;
+            if (!empty($_POST['redirect_to'])) {
+                $redirect_url_param = $_POST['redirect_to'];
+            } elseif (!empty($_GET['redirect_to'])) {
+                // Fallback to GET, though POST should be the primary source with the hidden field
+                $redirect_url_param = $_GET['redirect_to'];
+                 error_log("INFO: redirect_to parameter obtained from GET on POST request. Source: " . ($_SERVER['REQUEST_URI'] ?? 'N/A'));
+            }
+
             if ($redirect_url_param) {
+                // Add a log to show where the redirect_url_param came from
+                $source = !empty($_POST['redirect_to']) ? 'POST' : (!empty($_GET['redirect_to']) ? 'GET' : 'NONE');
+                error_log("DEBUG: redirect_url_param is '$redirect_url_param', sourced from $source");
+
                 $app_base_path = rtrim(Flight::get('base'), '/'); // e.g., /querycloud or empty if root
                 $expected_share_path_prefix = $app_base_path . '/share/';
 

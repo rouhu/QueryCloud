@@ -76,6 +76,7 @@
         <h2 class="form-signin-heading">Please sign in</h2>
         <input type="text" name="username" class="form-control" placeholder="Username" required autofocus>
         <input type="password" name="password" class="form-control" placeholder="Password" required>
+        <input type="hidden" name="redirect_to" value="<?php echo htmlspecialchars($_GET['redirect_to'] ?? ''); ?>">
         <button class="btn btn-lg btn-primary btn-block" type="submit"><i class="fa fa-sign-in"></i> Sign in</button>
     </form>
 </div>
