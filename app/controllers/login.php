@@ -183,5 +183,3 @@ class Login
         session_regenerate_id();
 
         Flight::redirect('/login');
-    }
-}
