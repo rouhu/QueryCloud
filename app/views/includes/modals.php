@@ -312,24 +312,15 @@ $fields = $fields ?? [];
             <div class="modal-body">
                 <p>Anyone with the following link can view the results of the query: <strong id="shareQueryName"></strong></p>
                 <p><small>This link provides read-only access to the report data. It does not allow modification of the query or access to other parts of the application.</small></p>
-
-                <div id="shareLinkGenerationArea" style="margin-bottom: 10px;">
-                    <!-- This div will be shown/hidden by JS. It might contain the button or the link+copy -->
+                <div class="input-group">
+                    <input type="text" class="form-control" id="shareableLinkInput" readonly>
+                    <span class="input-group-btn">
+                        <button class="btn btn-default" type="button" id="btnCopyShareLink" title="Copy to Clipboard">
+                            <i class="fa fa-clipboard"></i> Copy
+                        </button>
+                    </span>
                 </div>
-                <div id="shareLinkDisplayArea" style="display:none;">
-                    <div class="input-group">
-                        <input type="text" class="form-control" id="shareableLinkInput" readonly>
-                        <span class="input-group-btn">
-                            <button class="btn btn-default" type="button" id="btnCopyShareLink" title="Copy to Clipboard">
-                                <i class="fa fa-clipboard"></i> Copy
-                            </button>
-                        </span>
-                    </div>
-                    <div id="shareLinkCopiedMsg" class="alert alert-success" style="display:none; margin-top: 10px;">Link copied to clipboard!</div>
-                </div>
-                <button type="button" class="btn btn-primary" id="btnGenerateShareUrl" style="margin-top: 5px; margin-bottom:10px;"><i class="fa fa-link"></i> Generate Share URL</button>
-                <div id="shareGenerationStatusMsg" style="margin-top: 5px; font-style: italic;"></div>
-
+                <div id="shareLinkMsg" class="alert alert-success" style="display:none; margin-top: 10px;">Link copied to clipboard!</div>
 
                 <hr style="margin-top: 15px; margin-bottom: 15px;">
 

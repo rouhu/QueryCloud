@@ -148,86 +148,62 @@ $('body').on('click', '.btn-share-query', function() {
     var $linkInput = $('#shareableLinkInput');
     var $queryNameDisplay = $('#shareQueryName');
     var $copyBtn = $('#btnCopyShareLink');
-    var $queryNameDisplay = $('#shareQueryName');
-    var $modal = $('#modal-share-query');
-
-    $modal.data('current-query-id', queryId);
-    $queryNameDisplay.text(queryName || 'Selected Query');
-
-    fetchShareSettings(queryId); // New function to handle display logic
-    $modal.modal('show');
-});
-
-function fetchShareSettings(queryId) {
-    var $modal = $('#modal-share-query');
-    var $linkInput = $('#shareableLinkInput');
-    var $copyBtn = $('#btnCopyShareLink');
+    var $shareLinkMsg = $('#shareLinkMsg');
     var $requireLoginCheckbox = $('#shareRequireLoginCheckbox');
-    var $shareGenerationStatusMsg = $('#shareGenerationStatusMsg');
-    var $shareLinkDisplayArea = $('#shareLinkDisplayArea');
-    var $btnGenerate = $('#btnGenerateShareUrl');
+    var $shareSettingsMsg = $('#shareSettingsMsg');
 
-    // Initial state while loading
-    $linkInput.val('');
-    $shareLinkDisplayArea.hide();
-    $shareGenerationStatusMsg.text('Loading settings...').show();
+    $modal.data('current-query-id', queryId); // Store queryId on the modal for the checkbox handler
+    $queryNameDisplay.text(queryName || 'Selected Query');
+    $linkInput.val('Loading link...');
+    $shareLinkMsg.hide();
+    $shareSettingsMsg.hide().removeClass('text-success text-danger').text('');
     $copyBtn.prop('disabled', true);
-    $requireLoginCheckbox.prop('checked', false).prop('disabled', true);
-    $btnGenerate.prop('disabled', true);
+    $requireLoginCheckbox.prop('checked', false).prop('disabled', true); // Disable until loaded
+
+    $modal.modal('show');
 
     $.ajax({
-        url: base + '/ajax/getShareToken/' + queryId, // Existing endpoint
+        url: base + '/ajax/getShareToken/' + queryId,
         type: 'GET',
         dataType: 'json',
         success: function(response) {
             if (response.status === 'success') {
                 if (response.share_url) {
                     $linkInput.val(response.share_url);
-                    $shareLinkDisplayArea.show();
                     $copyBtn.prop('disabled', false);
-                    $shareGenerationStatusMsg.text('Share URL is active.').delay(3000).fadeOut();
-                    $btnGenerate.text('Regenerate URL / Update Settings');
                 } else {
-                    $linkInput.val('');
-                    $shareLinkDisplayArea.hide();
-                    $shareGenerationStatusMsg.text("No public link generated yet. Click 'Generate Share URL' to create one.").show();
-                    $btnGenerate.text('Generate Share URL');
+                    // No token/URL yet.
+                    $linkInput.val('No public link generated yet. Check "Require Login" to generate or if already checked, save settings.');
+                    $copyBtn.prop('disabled', true); // Disable copy if no URL
                 }
                 $requireLoginCheckbox.prop('checked', response.requires_login || false);
             } else {
-                $shareGenerationStatusMsg.text(response.message || 'Could not retrieve share settings.').addClass('text-danger').show();
-                $btnGenerate.text('Generate Share URL');
+                $linkInput.val('Could not retrieve share settings.');
+                $.jGrowl(response.message || 'Error fetching share link.', { header: 'Error', theme: 'error' });
             }
         },
         error: function(jqXHR, textStatus, errorThrown) {
-            $shareGenerationStatusMsg.text('Error fetching link: ' + textStatus).addClass('text-danger').show();
-            $btnGenerate.text('Generate Share URL');
+            $linkInput.val('Error fetching link.');
+            $.jGrowl('AJAX Error: ' + textStatus + ' - ' + errorThrown, { header: 'AJAX Error', theme: 'error' });
         },
         complete: function() {
-            $requireLoginCheckbox.prop('disabled', false);
-            $btnGenerate.prop('disabled', false);
+            $requireLoginCheckbox.prop('disabled', false); // Enable checkbox after loading
         }
     });
-}
+});
 
-function generateOrUpdateShareLink() {
+// Handler for the "Require Login" checkbox change
+$('body').on('change', '#shareRequireLoginCheckbox', function() {
     var queryId = $('#modal-share-query').data('current-query-id');
-    if (!queryId) {
-        $.jGrowl('Error: Query ID not found in modal.', { header: 'Error', theme: 'error' });
-        return;
-    }
+    var requireLogin = $(this).is(':checked');
+    var $shareSettingsMsg = $('#shareSettingsMsg');
+    var $linkInput = $('#shareableLinkInput');
+    var $copyBtn = $('#btnCopyShareLink');
 
-    var requireLogin = $('#shareRequireLoginCheckbox').is(':checked');
-    var $shareGenerationStatusMsg = $('#shareGenerationStatusMsg');
-    var $btnGenerate = $('#btnGenerateShareUrl');
-    var $requireLoginCheckbox = $('#shareRequireLoginCheckbox');
-
-    $shareGenerationStatusMsg.text('Processing...').removeClass('text-danger text-success').show();
-    $btnGenerate.prop('disabled', true);
-    $requireLoginCheckbox.prop('disabled', true);
+    $shareSettingsMsg.hide().removeClass('text-success text-danger').text('Saving...');
 
     $.ajax({
-        url: base + '/ajax/generate_share_token', // NEW Endpoint
+        url: base + '/ajax/updateShareSettings',
         type: 'POST',
         data: {
             query_id: queryId,
@@ -236,52 +212,46 @@ function generateOrUpdateShareLink() {
         dataType: 'json',
         success: function(response) {
             if (response.status === 'success') {
-                // Refresh the modal display with the new/updated settings
-                fetchShareSettings(queryId);
-                // fetchShareSettings will handle enabling controls and updating messages.
-                // We can show a temporary success message here if desired, then fetchShareSettings will overwrite it.
-                $shareGenerationStatusMsg.text(response.message || 'URL processed successfully!').addClass('text-success').show().delay(2000).fadeOut(function() {
-                    // After fading out, fetchShareSettings's message might take over or it might be empty if link is active
-                    if ($('#shareableLinkInput').val()) {
-                        $(this).text('Share URL is active.').show().delay(2000).fadeOut();
-                    } else {
-                         $(this).text("No public link generated yet. Click 'Generate Share URL' to create one.").show();
-                    }
-                });
+                $shareSettingsMsg.addClass('text-success').text(response.message || 'Settings saved!').fadeIn().delay(2000).fadeOut();
+                // Update checkbox state based on server response for consistency, though it should match user's click
+                $requireLoginCheckbox.prop('checked', response.requires_login || false);
+
+                if (response.share_url) {
+                    $linkInput.val(response.share_url);
+                    $copyBtn.prop('disabled', false);
+                } else if (!response.requires_login) {
+                    // If requireLogin is false and no token/URL (e.g., token was cleared or never generated for public)
+                    $linkInput.val('No public link generated (login not required and no active link).');
+                    $copyBtn.prop('disabled', true);
+                } else if (response.requires_login && !response.share_url) {
+                    // This case implies require_login is true, but backend failed to return/generate a URL/token.
+                    // Ajax::updateShareSettings should always generate a token if require_login is true and no token exists.
+                    $linkInput.val('Error: Link should be active but was not provided.');
+                    $copyBtn.prop('disabled', true);
+                } else { // Fallback, e.g. if requires_login true but no token
+                     $linkInput.val('Link status unclear. Refresh modal.');
+                     $copyBtn.prop('disabled', true);
+                }
             } else {
-                $shareGenerationStatusMsg.text(response.message || 'Failed to process share URL.').addClass('text-danger').show();
-                $btnGenerate.prop('disabled', false); // Re-enable on failure
-                $requireLoginCheckbox.prop('disabled', false);
+                $shareSettingsMsg.addClass('text-danger').text(response.message || 'Failed to save settings.').fadeIn();
+                // Revert checkbox state on failure? Or leave as is and let user retry?
+                // For now, leave as is. User can try again.
             }
         },
         error: function(jqXHR, textStatus, errorThrown) {
-            $shareGenerationStatusMsg.text('AJAX Error: ' + textStatus + ' - ' + errorThrown).addClass('text-danger').show();
-            $btnGenerate.prop('disabled', false); // Re-enable on AJAX error
-            $requireLoginCheckbox.prop('disabled', false);
+            $shareSettingsMsg.addClass('text-danger').text('AJAX Error: Could not save settings. ' + textStatus).fadeIn();
         }
-        // 'complete' is handled by fetchShareSettings enabling controls if called, or by error callbacks above
     });
-}
-
-// Event listener for the new "Generate Share URL" button
-$('body').on('click', '#btnGenerateShareUrl', function() {
-    generateOrUpdateShareLink();
-});
-
-// Modified handler for the "Require Login" checkbox change
-$('body').on('change', '#shareRequireLoginCheckbox', function() {
-    // Now, changing the checkbox will also trigger the generation/update logic
-    generateOrUpdateShareLink();
 });
 
 
 $('body').on('click', '#btnCopyShareLink', function() {
     var $linkInput = $('#shareableLinkInput');
-    var $shareLinkCopiedMsg = $('#shareLinkCopiedMsg'); // Use the new ID
+    var $shareLinkMsg = $('#shareLinkMsg');
 
     if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText($linkInput.val()).then(function() {
-            $shareLinkCopiedMsg.text('Link copied to clipboard!').fadeIn().delay(2000).fadeOut();
+            $shareLinkMsg.text('Link copied to clipboard!').fadeIn().delay(2000).fadeOut();
         }).catch(function(err) {
             // Fallback for older browsers or if permission denied
             try {
