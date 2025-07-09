@@ -113,21 +113,40 @@ class Login
                     } else if (strpos($redirect_url_param, 'http') === 0) {
                         // If it's an absolute URL, validate its host matches the application's host
                         // This is a stricter check than just path validation.
-                        $current_host = $_SERVER['HTTP_HOST'];
-                        $redirect_host = parse_url($redirect_url_param, PHP_URL_HOST);
-                        if (strtolower($redirect_host) !== strtolower($current_host)) {
-                           error_log("Redirect target host ($redirect_host) does not match current host ($current_host). Falling back to default.");
+                        $current_host_processed = str_replace('www.', '', strtolower($_SERVER['HTTP_HOST']));
+                        $redirect_host_parsed = parse_url($redirect_url_param, PHP_URL_HOST);
+                        $redirect_host_processed = '';
+                        if ($redirect_host_parsed) {
+                            $redirect_host_processed = str_replace('www.', '', strtolower($redirect_host_parsed));
+                        }
+
+                        // Extended logging for debugging
+                        error_log("DEBUG: Login Redirect Check");
+                        error_log("DEBUG: Original redirect_to: " . $redirect_url_param);
+                        error_log("DEBUG: App base path (Flight::get('base')): " . $app_base_path);
+                        error_log("DEBUG: Parsed redirect path: " . $redirect_path);
+                        error_log("DEBUG: Expected share path prefix (normalized): " . $normalized_expected_share_path_prefix);
+                        error_log("DEBUG: Current host (SERVER_HTTP_HOST): " . $_SERVER['HTTP_HOST']);
+                        error_log("DEBUG: Processed current host: " . $current_host_processed);
+                        error_log("DEBUG: Parsed redirect host: " . ($redirect_host_parsed ?: 'N/A'));
+                        error_log("DEBUG: Processed redirect host: " . ($redirect_host_processed ?: 'N/A'));
+                        error_log("DEBUG: Path comparison (strpos): " . (strpos($redirect_path, $normalized_expected_share_path_prefix) === 0 ? 'Match' : 'No Match'));
+                        error_log("DEBUG: Length comparison (strlen): " . (strlen($redirect_path) > strlen($normalized_expected_share_path_prefix) ? 'Valid Length' : 'Invalid Length'));
+
+                        if ($redirect_host_parsed && $redirect_host_processed !== $current_host_processed) {
+                           error_log("Redirect target host ('$redirect_host_processed') does not match current host ('$current_host_processed'). URL: '$redirect_url_param'. Falling back to default home redirect.");
                            Flight::redirect(rtrim(Flight::get('base'), '/') . '/home');
                            return;
                         }
                     }
 
-
+                    error_log("DEBUG: Redirecting to: " . $redirect_url_param);
                     Flight::redirect($redirect_url_param);
                     return;
                 }
-                error_log("Redirect URL parameter '$redirect_url_param' (path: '$redirect_path') did not match expected share path structure starting with '$normalized_expected_share_path_prefix'. Falling back to default redirect.");
+                error_log("Redirect URL parameter '$redirect_url_param' (path: '$redirect_path') did not match expected share path structure starting with '$normalized_expected_share_path_prefix'. Conditions: path_match=" . (strpos($redirect_path, $normalized_expected_share_path_prefix) === 0 ? 'true':'false') . ", length_ok=" . (strlen($redirect_path) > strlen($normalized_expected_share_path_prefix) ? 'true':'false') . ". Falling back to default redirect.");
             }
+            error_log("DEBUG: No redirect_url_param or param was empty. Defaulting to home.");
             Flight::redirect(rtrim(Flight::get('base'), '/') . '/home'); // Default redirect
         } else {
             setFlashMessage('Error: Invalid username or password!');
