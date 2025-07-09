@@ -387,4 +387,67 @@ class Ajax
 
         echo json_encode($response);
     }
+
+    public static function getShareToken($query_id)
+    {
+        header('Content-Type: application/json');
+        $response = ['status' => 'error', 'message' => 'An unknown error occurred.', 'token' => null];
+
+        if (empty($query_id) || !is_numeric($query_id)) {
+            $response['message'] = 'Invalid Query ID provided.';
+            echo json_encode($response);
+            return;
+        }
+
+        try {
+            $saved_query = ORM::for_table('saved_queries')->find_one($query_id);
+
+            if (!$saved_query) {
+                $response['message'] = 'Query not found.';
+                echo json_encode($response);
+                return;
+            }
+
+            if (!empty($saved_query->share_token)) {
+                $response['status'] = 'success';
+                $response['message'] = 'Existing share token retrieved.';
+                $response['token'] = $saved_query->share_token;
+            } else {
+                // Generate a new unique token
+                $token = null;
+                $max_attempts = 5; // Prevent infinite loop in extremely unlikely collision scenario
+                for ($i = 0; $i < $max_attempts; $i++) {
+                    $potential_token = bin2hex(random_bytes(32)); // 64 characters
+                    $exists = ORM::for_table('saved_queries')->where('share_token', $potential_token)->count();
+                    if ($exists == 0) {
+                        $token = $potential_token;
+                        break;
+                    }
+                }
+
+                if ($token) {
+                    $saved_query->share_token = $token;
+                    if ($saved_query->save()) {
+                        $response['status'] = 'success';
+                        $response['message'] = 'New share token generated and saved.';
+                        $response['token'] = $token;
+                    } else {
+                        $response['message'] = 'Failed to save new share token to the database.';
+                        error_log("Failed to save new share token for query_id: $query_id");
+                    }
+                } else {
+                    $response['message'] = 'Failed to generate a unique share token after multiple attempts.';
+                    error_log("Failed to generate unique share token for query_id: $query_id after $max_attempts attempts.");
+                }
+            }
+        } catch (PDOException $e) {
+            error_log("Database error in getShareToken for query_id $query_id: " . $e->getMessage());
+            $response['message'] = 'Database error: ' . $e->getMessage();
+        } catch (Exception $e) {
+            error_log("General error in getShareToken for query_id $query_id: " . $e->getMessage());
+            $response['message'] = 'An unexpected error occurred: ' . $e->getMessage();
+        }
+
+        echo json_encode($response);
+    }
 }

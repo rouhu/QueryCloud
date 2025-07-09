@@ -30,6 +30,7 @@ CREATE TABLE saved_queries (
     is_visual_query TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'Flag to indicate if the query was created/saved via the visual builder',
     visual_params TEXT NULL COMMENT 'JSON string representing the visual builder parameters',
     table_formatting TEXT NULL COMMENT 'JSON string representing the table display formatting options',
+    share_token VARCHAR(64) NULL DEFAULT NULL UNIQUE COMMENT 'Unique token for sharing query results publicly',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 */
