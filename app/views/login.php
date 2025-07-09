@@ -80,6 +80,7 @@
     </form>
 </div>
 
+<script src="<?php echo Flight::get('base'); ?>/assets/js/jquery-1.10.2.js"></script>
 <script src="<?php echo Flight::get('base'); ?>/assets/js/bootstrap.min.js"></script>
 
 </body>
