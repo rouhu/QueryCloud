@@ -255,6 +255,8 @@ $('#btnAddHavingCondition').click(function () {
 
     // Destroy existing Select2 instance from the template clone if it had one (it shouldn't due to initialSelect2Selector)
     // but good for safety if template structure changes.
+    // Also remove any stray select2 container divs that might have been cloned.
+    $clone.find('.select2-container').remove();
     $hfnameSelect.select2('destroy');
 
     $('#havingConditionsContainer').append($clone);
