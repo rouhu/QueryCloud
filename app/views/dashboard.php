@@ -22,6 +22,9 @@
                                 <button type="button" class="btn btn-danger btn-sm btn-delete-saved-query" data-query-id="<?php echo htmlspecialchars($query['id']); ?>" data-query-name="<?php echo htmlspecialchars($query['query_name']); ?>" style="margin-left: 5px;">
                                     <i class="fa fa-trash-o"></i> Delete
                                 </button>
+                                <button type="button" class="btn btn-info btn-sm btn-share-query" data-query-id="<?php echo htmlspecialchars($query['id']); ?>" data-query-name="<?php echo htmlspecialchars($query['query_name']); ?>" style="margin-left: 5px;">
+                                    <i class="fa fa-share-alt"></i> Share
+                                </button>
                             </div>
                         </li>
                     <?php endforeach; ?>

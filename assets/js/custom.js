@@ -139,6 +139,86 @@ $('body').on('click', '#btnShowTableFormatModal', function() {
     });
 });
 
+// --- Share Query Modal Functionality ---
+$('body').on('click', '.btn-share-query', function() {
+    var queryId = $(this).data('query-id');
+    var queryName = $(this).data('query-name'); // Assuming query name is also available on the button
+
+    var $modal = $('#modal-share-query');
+    var $linkInput = $('#shareableLinkInput');
+    var $queryNameDisplay = $('#shareQueryName');
+    var $copyBtn = $('#btnCopyShareLink');
+    var $shareLinkMsg = $('#shareLinkMsg');
+
+    $queryNameDisplay.text(queryName || 'Selected Query'); // Display query name
+    $linkInput.val('Loading link...'); // Placeholder while fetching
+    $shareLinkMsg.hide();
+    $copyBtn.prop('disabled', true);
+
+    // Show modal first, then populate
+    $modal.modal('show');
+
+    $.ajax({
+        url: base + '/ajax/getShareToken/' + queryId,
+        type: 'GET',
+        dataType: 'json',
+        success: function(response) {
+            if (response.status === 'success' && response.token) {
+                var shareUrl = base + '/share/' + response.token;
+                // Ensure 'base' doesn't end with a slash if '/share/' already starts with one.
+                // Or ensure 'base' ends with a slash and '/share/' doesn't start with one.
+                // Current 'base' is like 'http://localhost/querycloud', so need to ensure no double slashes.
+                // A robust way to build URL:
+                var appBaseUrl = (base.endsWith('/') ? base.substring(0, base.length -1) : base);
+                shareUrl = appBaseUrl + '/share/' + response.token;
+
+                $linkInput.val(shareUrl);
+                $copyBtn.prop('disabled', false);
+            } else {
+                $linkInput.val('Could not generate share link.');
+                $.jGrowl(response.message || 'Error fetching share link.', { header: 'Error', theme: 'error' });
+            }
+        },
+        error: function(jqXHR, textStatus, errorThrown) {
+            $linkInput.val('Error fetching link.');
+            $.jGrowl('AJAX Error: ' + textStatus + ' - ' + errorThrown, { header: 'AJAX Error', theme: 'error' });
+        }
+    });
+});
+
+$('body').on('click', '#btnCopyShareLink', function() {
+    var $linkInput = $('#shareableLinkInput');
+    var $shareLinkMsg = $('#shareLinkMsg');
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText($linkInput.val()).then(function() {
+            $shareLinkMsg.text('Link copied to clipboard!').fadeIn().delay(2000).fadeOut();
+        }).catch(function(err) {
+            // Fallback for older browsers or if permission denied
+            try {
+                $linkInput[0].select();
+                document.execCommand('copy');
+                $shareLinkMsg.text('Link copied to clipboard! (fallback method)').fadeIn().delay(2000).fadeOut();
+            } catch (e) {
+                $shareLinkMsg.text('Failed to copy. Please copy manually.').removeClass('alert-success').addClass('alert-danger').fadeIn().delay(3000).fadeOut(function(){
+                    $(this).removeClass('alert-danger').addClass('alert-success'); // Reset class
+                });
+            }
+        });
+    } else { // Fallback for very old browsers
+        try {
+            $linkInput[0].select();
+            document.execCommand('copy');
+            $shareLinkMsg.text('Link copied to clipboard! (fallback method)').fadeIn().delay(2000).fadeOut();
+        } catch (e) {
+             $shareLinkMsg.text('Failed to copy. Please copy manually.').removeClass('alert-success').addClass('alert-danger').fadeIn().delay(3000).fadeOut(function(){
+                $(this).removeClass('alert-danger').addClass('alert-success'); // Reset class
+            });
+        }
+    }
+});
+
+
 $('body').on('click', '#btnSaveTableFormatting', function() {
     var queryId = $('#table_format_query_id').val();
     var $msgContainer = $('#tableFormatMsg');

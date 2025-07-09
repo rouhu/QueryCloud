@@ -301,6 +301,35 @@ $fields = $fields ?? [];
     <div class="clearfix"></div>
 </div>
 
+<!-- Share Query Modal -->
+<div class="modal fade" id="modal-share-query">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header label-info">
+                <button type="button" class="close" data-dismiss="modal">&times;</button>
+                <h4 class="modal-title"><i class="fa fa-share-alt"></i> Share Query Report</h4>
+            </div>
+            <div class="modal-body">
+                <p>Anyone with the following link can view the results of the query: <strong id="shareQueryName"></strong></p>
+                <p><small>This link provides read-only access to the report data. It does not allow modification of the query or access to other parts of the application.</small></p>
+                <div class="input-group">
+                    <input type="text" class="form-control" id="shareableLinkInput" readonly>
+                    <span class="input-group-btn">
+                        <button class="btn btn-default" type="button" id="btnCopyShareLink" title="Copy to Clipboard">
+                            <i class="fa fa-clipboard"></i> Copy
+                        </button>
+                    </span>
+                </div>
+                <div id="shareLinkMsg" class="alert alert-success" style="display:none; margin-top: 10px;">Link copied to clipboard!</div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-dismiss="modal"><i class="fa fa-times"></i> Close</button>
+                <!-- Future: <button type="button" class="btn btn-warning" id="btnRegenerateShareLink"><i class="fa fa-refresh"></i> Regenerate Link</button> -->
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Table Formatting Modal -->
 <div class="modal fade" id="modal-table-format">
     <div class="modal-dialog modal-lg"> <!-- Using modal-lg for potentially many columns -->
