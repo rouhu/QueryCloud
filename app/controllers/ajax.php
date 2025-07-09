@@ -575,4 +575,116 @@ class Ajax
 
         echo json_encode($response);
     }
+
+    public static function generateOrUpdateShareToken()
+    {
+        header('Content-Type: application/json');
+        $response = ['status' => 'error', 'message' => 'An unknown error occurred.'];
+
+        $query_id = $_POST['query_id'] ?? null;
+        $require_login_input = $_POST['require_login'] ?? null; // Expected 'true' or 'false' as string, or boolean
+
+        if (empty($query_id) || !is_numeric($query_id)) {
+            $response['message'] = 'Invalid Query ID provided.';
+            echo json_encode($response);
+            return;
+        }
+
+        if ($require_login_input === null) {
+            $response['message'] = 'Require login status not provided.';
+            echo json_encode($response);
+            return;
+        }
+
+        // Handle boolean true/false or string "true"/"false"
+        if (is_string($require_login_input)) {
+            if (strtolower($require_login_input) === 'true') {
+                $require_login = true;
+            } elseif (strtolower($require_login_input) === 'false') {
+                $require_login = false;
+            } else {
+                $response['message'] = 'Invalid string value for require_login. Must be "true" or "false".';
+                echo json_encode($response);
+                return;
+            }
+        } elseif (is_bool($require_login_input)) {
+            $require_login = $require_login_input;
+        } else {
+            $response['message'] = 'Invalid type for require_login. Must be boolean or string "true"/"false".';
+            echo json_encode($response);
+            return;
+        }
+
+        try {
+            $saved_query = ORM::for_table('saved_queries')->find_one($query_id);
+
+            if (!$saved_query) {
+                $response['message'] = 'Query not found.';
+                echo json_encode($response);
+                return;
+            }
+
+            // Always ensure a token exists if we are calling this endpoint.
+            // If it doesn't exist, generate one. If it exists, reuse it.
+            // Regeneration (creating a new token to invalidate old one) could be a future feature.
+            if (empty($saved_query->share_token)) {
+                $token = null;
+                $max_attempts = 5;
+                for ($i = 0; $i < $max_attempts; $i++) {
+                    $potential_token = bin2hex(random_bytes(32));
+                    if (ORM::for_table('saved_queries')->where('share_token', $potential_token)->count() == 0) {
+                        $token = $potential_token;
+                        break;
+                    }
+                }
+                if ($token) {
+                    $saved_query->share_token = $token;
+                    $response['message_detail'] = 'New share token generated.';
+                } else {
+                    $response['message'] = 'Failed to generate a unique share token.';
+                    error_log("Failed to generate unique share token during generateOrUpdateShareToken for query_id: $query_id");
+                    echo json_encode($response);
+                    return;
+                }
+            } else {
+                 $response['message_detail'] = 'Existing share token retained.';
+            }
+
+            $saved_query->share_requires_login = $require_login ? 1 : 0;
+
+            if ($saved_query->save()) {
+                $response['status'] = 'success';
+                $response['message'] = 'Share URL processed successfully. ' . ($response['message_detail'] ?? '');
+                $response['requires_login'] = (bool)$saved_query->share_requires_login;
+                $response['token'] = $saved_query->share_token;
+
+                $config = Flight::get('config');
+                $site_url_from_config = rtrim($config['site_url'] ?? '', '/');
+
+                if (empty($site_url_from_config)) {
+                     error_log("WARNING: config['site_url'] is not properly set. Share URLs may be incomplete in generateOrUpdateShareToken response.");
+                }
+
+                if ($saved_query->share_token) {
+                    $response['share_url'] = $site_url_from_config . '/share/' . $saved_query->share_token;
+                } else {
+                    // This case should not be reached if token generation logic above is correct
+                    $response['share_url'] = null;
+                    $response['message'] = 'Error: Token was expected but is missing after save.';
+                    $response['status'] = 'error';
+                }
+            } else {
+                $response['message'] = 'Failed to save share settings to the database.';
+            }
+        } catch (PDOException $e) {
+            error_log("Database error in generateOrUpdateShareToken for query_id $query_id: " . $e->getMessage());
+            $response['message'] = 'Database error: ' . $e->getMessage();
+        } catch (Exception $e) {
+            error_log("General error in generateOrUpdateShareToken for query_id $query_id: " . $e->getMessage());
+            $response['message'] = 'An unexpected error occurred: ' . $e->getMessage();
+        }
+
+        unset($response['message_detail']); // Don't send this internal detail to client
+        echo json_encode($response);
+    }
 }
