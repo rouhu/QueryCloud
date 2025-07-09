@@ -463,6 +463,7 @@ class Ajax
                     $response['message'] = 'Failed to generate a unique share token after multiple attempts.';
                     error_log("Failed to generate unique share token for query_id: $query_id after $max_attempts attempts.");
                 }
+                */ // Correctly terminate the comment block here
             }
         } catch (PDOException $e) {
             error_log("Database error in getShareToken for query_id $query_id: " . $e->getMessage());
