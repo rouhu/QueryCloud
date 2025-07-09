@@ -179,7 +179,3 @@ class Login
         Flight::redirect(rtrim(Flight::get('base'), '/') . '/login');
     }
 }
-        @session_destroy();
-        session_regenerate_id();
-
-        Flight::redirect('/login');
