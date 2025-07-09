@@ -604,8 +604,9 @@ function openVisualQueryBuilderModal(visualParamsObj, queryId, queryName, isEdit
                             $hfnameSelectInClone.select2('destroy');
                         }
                         // Note: Options for $hfnameSelectInClone will be set by the subsequent updateHavingFieldNameOptions call.
-                        // We set the value here; if the option doesn't exist yet, Select2 will pick it up after options are added.
-                        $hfnameSelectInClone.val(name);
+                        // Store the intended value. updateHavingFieldNameOptions will use this after populating options.
+                        $hfnameSelectInClone.data('intended-value', name);
+                        // Do not set .val() here as options are not populated yet.
 
                         $('#havingConditionsContainer').append($hClone);
                         // DO NOT initialize Select2 here; updateHavingFieldNameOptions will handle all .hfname in the container.
@@ -1068,16 +1069,23 @@ function updateHavingFieldNameOptions() {
 
     $hfnameSelects.each(function() {
         var $select = $(this);
-        var currentValue = $select.val(); // Preserve selected value if possible
+        var intendedValue = $select.data('intended-value'); // Get the stored intended value
 
         $select.select2('destroy'); // Destroy before updating HTML
-        $select.html(newHtml);
+        $select.html(newHtml);      // Populate with all possible options
 
-        if (currentValue && $select.find('option[value="' + currentValue + '"]').length > 0) {
-            $select.val(currentValue);
+        if (intendedValue && $select.find('option[value="' + intendedValue + '"]').length > 0) {
+            $select.val(intendedValue); // Set to the stored intended value if option exists
+            $select.removeData('intended-value'); // Clean up data attribute
+        } else {
+            // If no intended value, or if it's no longer a valid option,
+            // let Select2 default to placeholder or first option.
+            // No explicit .val('') needed here as the newHtml starts with an empty option.
         }
-        // Re-initialize Select2 after updating options
+
+        // Re-initialize Select2 after updating options and value
         $select.select2({ placeholder: 'Select Field/Alias', allowClear: true });
+        $select.trigger('change'); // Trigger change to ensure UI consistency
     });
 }
 
