@@ -9,6 +9,10 @@ $config['database_user'] = '';
 $config['database_password'] = '';
 $config['database_dbname'] = '';
 
+// Site URL - Update this to your application's full base URL
+// e.g., http://localhost/querycloud or https://yourdomain.com/querycloud
+$config['site_url'] = 'http://localhost/querycloud';
+
 //////////////////////////////////////////////
 // user details who can login - You can also specify more than one user
 //////////////////////////////////////////////
@@ -31,6 +35,7 @@ CREATE TABLE saved_queries (
     visual_params TEXT NULL COMMENT 'JSON string representing the visual builder parameters',
     table_formatting TEXT NULL COMMENT 'JSON string representing the table display formatting options',
     share_token VARCHAR(64) NULL DEFAULT NULL UNIQUE COMMENT 'Unique token for sharing query results publicly',
+    share_requires_login TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'If true, accessing the share_token link requires user login',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 */

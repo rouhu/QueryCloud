@@ -149,13 +149,17 @@ $('body').on('click', '.btn-share-query', function() {
     var $queryNameDisplay = $('#shareQueryName');
     var $copyBtn = $('#btnCopyShareLink');
     var $shareLinkMsg = $('#shareLinkMsg');
+    var $requireLoginCheckbox = $('#shareRequireLoginCheckbox');
+    var $shareSettingsMsg = $('#shareSettingsMsg');
 
-    $queryNameDisplay.text(queryName || 'Selected Query'); // Display query name
-    $linkInput.val('Loading link...'); // Placeholder while fetching
+    $modal.data('current-query-id', queryId); // Store queryId on the modal for the checkbox handler
+    $queryNameDisplay.text(queryName || 'Selected Query');
+    $linkInput.val('Loading link...');
     $shareLinkMsg.hide();
+    $shareSettingsMsg.hide().removeClass('text-success text-danger').text('');
     $copyBtn.prop('disabled', true);
+    $requireLoginCheckbox.prop('checked', false).prop('disabled', true); // Disable until loaded
 
-    // Show modal first, then populate
     $modal.modal('show');
 
     $.ajax({
@@ -163,28 +167,83 @@ $('body').on('click', '.btn-share-query', function() {
         type: 'GET',
         dataType: 'json',
         success: function(response) {
-            if (response.status === 'success' && response.token) {
-                var shareUrl = base + '/share/' + response.token;
-                // Ensure 'base' doesn't end with a slash if '/share/' already starts with one.
-                // Or ensure 'base' ends with a slash and '/share/' doesn't start with one.
-                // Current 'base' is like 'http://localhost/querycloud', so need to ensure no double slashes.
-                // A robust way to build URL:
-                var appBaseUrl = (base.endsWith('/') ? base.substring(0, base.length -1) : base);
-                shareUrl = appBaseUrl + '/share/' + response.token;
-
-                $linkInput.val(shareUrl);
-                $copyBtn.prop('disabled', false);
+            if (response.status === 'success') {
+                if (response.share_url) {
+                    $linkInput.val(response.share_url);
+                    $copyBtn.prop('disabled', false);
+                } else {
+                    // No token/URL yet.
+                    $linkInput.val('No public link generated yet. Check "Require Login" to generate or if already checked, save settings.');
+                    $copyBtn.prop('disabled', true); // Disable copy if no URL
+                }
+                $requireLoginCheckbox.prop('checked', response.requires_login || false);
             } else {
-                $linkInput.val('Could not generate share link.');
+                $linkInput.val('Could not retrieve share settings.');
                 $.jGrowl(response.message || 'Error fetching share link.', { header: 'Error', theme: 'error' });
             }
         },
         error: function(jqXHR, textStatus, errorThrown) {
             $linkInput.val('Error fetching link.');
             $.jGrowl('AJAX Error: ' + textStatus + ' - ' + errorThrown, { header: 'AJAX Error', theme: 'error' });
+        },
+        complete: function() {
+            $requireLoginCheckbox.prop('disabled', false); // Enable checkbox after loading
         }
     });
 });
+
+// Handler for the "Require Login" checkbox change
+$('body').on('change', '#shareRequireLoginCheckbox', function() {
+    var queryId = $('#modal-share-query').data('current-query-id');
+    var requireLogin = $(this).is(':checked');
+    var $shareSettingsMsg = $('#shareSettingsMsg');
+    var $linkInput = $('#shareableLinkInput');
+    var $copyBtn = $('#btnCopyShareLink');
+
+    $shareSettingsMsg.hide().removeClass('text-success text-danger').text('Saving...');
+
+    $.ajax({
+        url: base + '/ajax/updateShareSettings',
+        type: 'POST',
+        data: {
+            query_id: queryId,
+            require_login: requireLogin
+        },
+        dataType: 'json',
+        success: function(response) {
+            if (response.status === 'success') {
+                $shareSettingsMsg.addClass('text-success').text(response.message || 'Settings saved!').fadeIn().delay(2000).fadeOut();
+                // Update checkbox state based on server response for consistency, though it should match user's click
+                $requireLoginCheckbox.prop('checked', response.requires_login || false);
+
+                if (response.share_url) {
+                    $linkInput.val(response.share_url);
+                    $copyBtn.prop('disabled', false);
+                } else if (!response.requires_login) {
+                    // If requireLogin is false and no token/URL (e.g., token was cleared or never generated for public)
+                    $linkInput.val('No public link generated (login not required and no active link).');
+                    $copyBtn.prop('disabled', true);
+                } else if (response.requires_login && !response.share_url) {
+                    // This case implies require_login is true, but backend failed to return/generate a URL/token.
+                    // Ajax::updateShareSettings should always generate a token if require_login is true and no token exists.
+                    $linkInput.val('Error: Link should be active but was not provided.');
+                    $copyBtn.prop('disabled', true);
+                } else { // Fallback, e.g. if requires_login true but no token
+                     $linkInput.val('Link status unclear. Refresh modal.');
+                     $copyBtn.prop('disabled', true);
+                }
+            } else {
+                $shareSettingsMsg.addClass('text-danger').text(response.message || 'Failed to save settings.').fadeIn();
+                // Revert checkbox state on failure? Or leave as is and let user retry?
+                // For now, leave as is. User can try again.
+            }
+        },
+        error: function(jqXHR, textStatus, errorThrown) {
+            $shareSettingsMsg.addClass('text-danger').text('AJAX Error: Could not save settings. ' + textStatus).fadeIn();
+        }
+    });
+});
+
 
 $('body').on('click', '#btnCopyShareLink', function() {
     var $linkInput = $('#shareableLinkInput');

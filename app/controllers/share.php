@@ -26,6 +26,19 @@ class Share
             return;
         }
 
+        // Check if this shared query requires login
+        if ($saved_query->share_requires_login) {
+            if (!isset($_SESSION['logged']) || !$_SESSION['logged']) {
+                // User is not logged in, redirect to login page with a redirect_to parameter
+                $config = Flight::get('config');
+                $site_url = rtrim($config['site_url'], '/');
+                $current_share_url = $site_url . '/share/' . $token;
+                Flight::redirect($site_url . '/login?redirect_to=' . urlencode($current_share_url));
+                return; // Stop further execution
+            }
+            // If user is logged in, proceed
+        }
+
         $sql_query = $saved_query->sql_query;
         $table_formatting_json = $saved_query->table_formatting;
         $query_name = $saved_query->query_name;
@@ -91,11 +104,8 @@ class Share
             $table_html = Presenter::listTableData($data_for_view, [], $header_for_view);
         }
 
-        // Base URL for assets
-        $base_url = Flight::get('base');
-        if (substr($base_url, -1) !== '/') {
-            $base_url .= '/';
-        }
+        $config = Flight::get('config');
+        $site_url_for_view = rtrim($config['site_url'], '/');
 
 
         Flight::render(
@@ -104,7 +114,7 @@ class Share
                 'report_title' => $query_name,
                 'table_data_html' => $table_html,
                 'timetaken' => $timetaken,
-                'base_url' => $base_url, // Pass base_url to the view for assets
+                'base_site_url' => $site_url_for_view, // Pass full site_url for assets and links
                 'token' => $token // Pass token for potential re-use in view/JS if needed later
             )
         );
