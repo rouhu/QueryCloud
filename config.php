@@ -31,6 +31,7 @@ CREATE TABLE saved_queries (
     visual_params TEXT NULL COMMENT 'JSON string representing the visual builder parameters',
     table_formatting TEXT NULL COMMENT 'JSON string representing the table display formatting options',
     share_token VARCHAR(64) NULL DEFAULT NULL UNIQUE COMMENT 'Unique token for sharing query results publicly',
+    share_requires_login TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'If true, accessing the share_token link requires user login',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 */

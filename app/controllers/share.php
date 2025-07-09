@@ -26,6 +26,17 @@ class Share
             return;
         }
 
+        // Check if this shared query requires login
+        if ($saved_query->share_requires_login) {
+            if (!isset($_SESSION['logged']) || !$_SESSION['logged']) {
+                // User is not logged in, redirect to login page with a redirect_to parameter
+                $current_share_url = rtrim(Flight::get('base'), '/') . '/share/' . $token;
+                Flight::redirect(rtrim(Flight::get('base'), '/') . '/login?redirect_to=' . urlencode($current_share_url));
+                return; // Stop further execution
+            }
+            // If user is logged in, proceed
+        }
+
         $sql_query = $saved_query->sql_query;
         $table_formatting_json = $saved_query->table_formatting;
         $query_name = $saved_query->query_name;

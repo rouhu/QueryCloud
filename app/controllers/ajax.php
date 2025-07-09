@@ -391,7 +391,7 @@ class Ajax
     public static function getShareToken($query_id)
     {
         header('Content-Type: application/json');
-        $response = ['status' => 'error', 'message' => 'An unknown error occurred.', 'token' => null];
+        $response = ['status' => 'error', 'message' => 'An unknown error occurred.', 'token' => null, 'requires_login' => false];
 
         if (empty($query_id) || !is_numeric($query_id)) {
             $response['message'] = 'Invalid Query ID provided.';
@@ -412,8 +412,12 @@ class Ajax
                 $response['status'] = 'success';
                 $response['message'] = 'Existing share token retrieved.';
                 $response['token'] = $saved_query->share_token;
+                $response['requires_login'] = (bool)$saved_query->share_requires_login;
             } else {
                 // Generate a new unique token
+                // No token exists, so requires_login is effectively false until set otherwise,
+                // but we'll return the persisted value which is likely the default (false/0).
+                $response['requires_login'] = (bool)$saved_query->share_requires_login;
                 $token = null;
                 $max_attempts = 5; // Prevent infinite loop in extremely unlikely collision scenario
                 for ($i = 0; $i < $max_attempts; $i++) {
@@ -445,6 +449,91 @@ class Ajax
             $response['message'] = 'Database error: ' . $e->getMessage();
         } catch (Exception $e) {
             error_log("General error in getShareToken for query_id $query_id: " . $e->getMessage());
+            $response['message'] = 'An unexpected error occurred: ' . $e->getMessage();
+        }
+
+        echo json_encode($response);
+    }
+
+    public static function updateShareSettings()
+    {
+        header('Content-Type: application/json');
+        $response = ['status' => 'error', 'message' => 'An unknown error occurred.'];
+
+        $query_id = $_POST['query_id'] ?? null;
+        $require_login_input = $_POST['require_login'] ?? null; // Expected 'true' or 'false' as string
+
+        if (empty($query_id) || !is_numeric($query_id)) {
+            $response['message'] = 'Invalid Query ID provided.';
+            echo json_encode($response);
+            return;
+        }
+
+        if ($require_login_input === null) {
+            $response['message'] = 'Require login status not provided.';
+            echo json_encode($response);
+            return;
+        }
+
+        $require_login = filter_var($require_login_input, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+
+        if ($require_login === null) {
+            $response['message'] = 'Invalid value for require_login. Must be true or false.';
+            echo json_encode($response);
+            return;
+        }
+
+        try {
+            $saved_query = ORM::for_table('saved_queries')->find_one($query_id);
+
+            if (!$saved_query) {
+                $response['message'] = 'Query not found.';
+                echo json_encode($response);
+                return;
+            }
+
+            $saved_query->share_requires_login = $require_login ? 1 : 0;
+            $token_generated_or_existed = !empty($saved_query->share_token);
+
+            // If requiring login and no token exists, generate one
+            if ($require_login && empty($saved_query->share_token)) {
+                $token = null;
+                $max_attempts = 5;
+                for ($i = 0; $i < $max_attempts; $i++) {
+                    $potential_token = bin2hex(random_bytes(32));
+                    if (ORM::for_table('saved_queries')->where('share_token', $potential_token)->count() == 0) {
+                        $token = $potential_token;
+                        break;
+                    }
+                }
+                if ($token) {
+                    $saved_query->share_token = $token;
+                    $token_generated_or_existed = true;
+                    $response['new_token'] = $token; // Inform client a new token was generated
+                } else {
+                    $response['message'] = 'Failed to generate a unique share token. Settings not fully saved.';
+                    error_log("Failed to generate unique share token during updateShareSettings for query_id: $query_id");
+                    echo json_encode($response);
+                    return;
+                }
+            }
+
+            if ($saved_query->save()) {
+                $response['status'] = 'success';
+                $response['message'] = 'Share settings updated successfully.';
+                if (isset($response['new_token'])) {
+                    $response['message'] .= ' A new share token was generated.';
+                }
+                $response['requires_login'] = (bool)$saved_query->share_requires_login;
+                $response['token'] = $saved_query->share_token; // Return current token
+            } else {
+                $response['message'] = 'Failed to update share settings in the database.';
+            }
+        } catch (PDOException $e) {
+            error_log("Database error in updateShareSettings for query_id $query_id: " . $e->getMessage());
+            $response['message'] = 'Database error: ' . $e->getMessage();
+        } catch (Exception $e) {
+            error_log("General error in updateShareSettings for query_id $query_id: " . $e->getMessage());
             $response['message'] = 'An unexpected error occurred: ' . $e->getMessage();
         }
 

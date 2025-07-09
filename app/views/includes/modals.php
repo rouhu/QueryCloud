@@ -321,10 +321,20 @@ $fields = $fields ?? [];
                     </span>
                 </div>
                 <div id="shareLinkMsg" class="alert alert-success" style="display:none; margin-top: 10px;">Link copied to clipboard!</div>
+
+                <hr style="margin-top: 15px; margin-bottom: 15px;">
+
+                <div class="checkbox">
+                    <label>
+                        <input type="checkbox" id="shareRequireLoginCheckbox"> <strong>Require Login to View</strong>
+                    </label>
+                    <i class="fa fa-info-circle" title="If checked, users must log in to view this shared report link."></i>
+                </div>
+                <div id="shareSettingsMsg" style="display:none; margin-top: 10px; font-style: italic;"></div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-default" data-dismiss="modal"><i class="fa fa-times"></i> Close</button>
-                <!-- Future: <button type="button" class="btn btn-warning" id="btnRegenerateShareLink"><i class="fa fa-refresh"></i> Regenerate Link</button> -->
+                <!-- No explicit "Save Settings" button for now; checkbox change will trigger save. -->
             </div>
         </div>
     </div>
