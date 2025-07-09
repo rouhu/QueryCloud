@@ -54,50 +54,79 @@ class Login
             $_SESSION['logged'] = true;
 
             // Handle redirect_to parameter
-            $redirect_url = $_GET['redirect_to'] ?? null;
-            if ($redirect_url) {
-                $config = Flight::get('config');
-                $site_url_from_config = '';
-                if (is_array($config) && isset($config['site_url']) && is_string($config['site_url']) && !empty(trim($config['site_url']))) {
-                    $site_url_from_config = $config['site_url'];
-                } else {
-                    error_log("WARNING: config['site_url'] is not properly set for LoginController redirect validation. Redirect might be less secure or default.");
+            $redirect_url_param = $_GET['redirect_to'] ?? null;
+            if ($redirect_url_param) {
+                $app_base_path = rtrim(Flight::get('base'), '/'); // e.g., /querycloud or empty if root
+                $expected_share_path_prefix = $app_base_path . '/share/';
+
+                // Parse the path from the redirect_url_param
+                $redirect_path = parse_url($redirect_url_param, PHP_URL_PATH);
+
+                // Sanitize and normalize the path
+                $redirect_path = filter_var($redirect_path, FILTER_SANITIZE_URL);
+                $redirect_path = rtrim($redirect_path, '/'); // Remove trailing slash for comparison consistency
+                // Add leading slash if missing, assuming it's relative to domain root or app_base_path
+                if (strpos($redirect_path, '/') !== 0 && !empty($redirect_path)) {
+                    $redirect_path = '/' . $redirect_path;
                 }
-                $site_url = rtrim($site_url_from_config, '/');
-                $app_base_path = rtrim(Flight::get('base'), '/'); // Path like /querycloud or empty if root
 
-                $share_path_segment = '/share/';
+                // Normalize expected_share_path_prefix by ensuring it has a trailing slash for strpos comparison
+                $normalized_expected_share_path_prefix = rtrim($expected_share_path_prefix, '/') . '/';
 
-                // Normalize redirect_url if it's relative to the app base path for comparison with site_url
-                $absolute_redirect_url = $redirect_url;
-                if (strpos($redirect_url, 'http') !== 0) { // If it's not already absolute
-                    if (strpos($redirect_url, '/') === 0) { // Starts with / e.g. /share/token or /appbase/share/token
-                        if (!empty($app_base_path) && strpos($redirect_url, $app_base_path) === 0) {
-                            // Already contains base path, e.g. /querycloud/share/token. Can be used as is for local redirect.
-                            // For comparison with site_url, we might need to prepend scheme and host if site_url is full.
-                            // However, Flight::redirect can handle paths relative to app root.
-                        } else if (!empty($app_base_path)) {
-                             // Relative to app root but doesn't include base, e.g. /share/token when base is /querycloud
-                             // This case is tricky. Flight::redirect($redirect_url) might work if app is at domain root.
-                             // If app is in subdir, $app_base_path . $redirect_url would be needed for some redirect methods.
-                             // For now, let's assume Flight::redirect handles paths starting with '/' from actual domain root.
+
+                // Check if the redirect path starts with the expected share path prefix
+                // This handles cases like:
+                // 1. redirect_url_param = http://querycloud.io/share/token -> $redirect_path = /share/token
+                //    app_base_path = '' -> $normalized_expected_share_path_prefix = /share/
+                //    strpos("/share/token", "/share/") === 0 -> true
+                // 2. redirect_url_param = http://localhost/querycloud/share/token -> $redirect_path = /querycloud/share/token
+                //    app_base_path = '/querycloud' -> $normalized_expected_share_path_prefix = /querycloud/share/
+                //    strpos("/querycloud/share/token", "/querycloud/share/") === 0 -> true
+                // 3. redirect_url_param = /share/token (relative from domain root)
+                //    app_base_path = '' -> $normalized_expected_share_path_prefix = /share/
+                //    strpos("/share/token", "/share/") === 0 -> true
+                // 4. redirect_url_param = /querycloud/share/token (relative from domain root, app in subdir)
+                //    app_base_path = '/querycloud' -> $normalized_expected_share_path_prefix = /querycloud/share/
+                //    strpos("/querycloud/share/token", "/querycloud/share/") === 0 -> true
+
+                // We must ensure that $redirect_path is not just $app_base_path . '/'
+                // and that there is something after $normalized_expected_share_path_prefix
+                if ($redirect_path && strpos($redirect_path, $normalized_expected_share_path_prefix) === 0 && strlen($redirect_path) > strlen($normalized_expected_share_path_prefix)) {
+                    // It's a valid share link path.
+                    // We should use the original $redirect_url_param for Flight::redirect
+                    // as it might be an absolute URL and Flight::redirect can handle it.
+                    // Also, ensure it's not an open redirect vulnerability by checking it's not redirecting to a different domain
+                    // if the original param was just a path.
+                    // However, the initial problem was that different domains in config vs. param caused issues.
+                    // The most important part is that it *is* a share link.
+                    // Flight::redirect itself handles URL construction well.
+
+                    // Basic check to prevent redirection to external domains if redirect_url_param was relative
+                    // If redirect_url_param starts with http/https, it's fine.
+                    // If it starts with /, it's relative to the current domain, also fine.
+                    $is_external_redirect = false;
+                    if (strpos($redirect_url_param, 'http') !== 0 && strpos($redirect_url_param, '/') !== 0) {
+                        // This would be something like "evil.com/path", which is not what we want.
+                        // However, parse_url with PHP_URL_PATH would likely make this less of an issue.
+                        // For safety, we can restrict to known patterns.
+                        // The current logic with parse_url and checking path structure is reasonably safe.
+                    } else if (strpos($redirect_url_param, 'http') === 0) {
+                        // If it's an absolute URL, validate its host matches the application's host
+                        // This is a stricter check than just path validation.
+                        $current_host = $_SERVER['HTTP_HOST'];
+                        $redirect_host = parse_url($redirect_url_param, PHP_URL_HOST);
+                        if (strtolower($redirect_host) !== strtolower($current_host)) {
+                           error_log("Redirect target host ($redirect_host) does not match current host ($current_host). Falling back to default.");
+                           Flight::redirect(rtrim(Flight::get('base'), '/') . '/home');
+                           return;
                         }
-                    } else { // Truly relative e.g. share/token - less likely from urlencode
-                        $absolute_redirect_url = $app_base_path . '/' . $redirect_url;
                     }
-                }
 
-                // Check if the (potentially now absolute) redirect_url starts with the site_url + share_path_segment
-                // Or if the original redirect_url (if relative) starts with the share_path_segment
-                $is_valid_absolute_share_redirect = !empty($site_url) && strpos($absolute_redirect_url, $site_url . $share_path_segment) === 0;
-                $is_valid_relative_share_redirect = strpos($redirect_url, $share_path_segment) === 0 &&
-                                                    (strpos($redirect_url, '//') === false && strpos($redirect_url, 'http:') !== 0 && strpos($redirect_url, 'https:') !== 0);
 
-                if ($is_valid_absolute_share_redirect || $is_valid_relative_share_redirect) {
-                    Flight::redirect($redirect_url); // Flight::redirect should handle both absolute and relative-to-base paths
+                    Flight::redirect($redirect_url_param);
                     return;
                 }
-                // If not a valid share redirect, fall through to default.
+                error_log("Redirect URL parameter '$redirect_url_param' (path: '$redirect_path') did not match expected share path structure starting with '$normalized_expected_share_path_prefix'. Falling back to default redirect.");
             }
             Flight::redirect(rtrim(Flight::get('base'), '/') . '/home'); // Default redirect
         } else {
