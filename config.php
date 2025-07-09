@@ -14,16 +14,34 @@ $config['database_dbname'] = '';
 $config['site_url'] = 'http://localhost/querycloud';
 
 //////////////////////////////////////////////
-// user details who can login - You can also specify more than one user
+// User details who can login
+// user_type can be 'admin' or 'viewer'
+// 'admin' users can access the full application.
+// 'viewer' users can only access shared reports via /share/token URLs.
 //////////////////////////////////////////////
 
-// user 1
-$config['username'][] = 'admin';
-$config['password'][] = 'admin';
-
-// user 2
-$config['username'][] = 'admin2';
-$config['password'][] = 'admin2';
+$config['users'] = [
+    [
+        'username' => 'admin',
+        'password' => 'adminpass', // Changed default password for clarity
+        'user_type' => 'admin'
+    ],
+    [
+        'username' => 'admin2',
+        'password' => 'admin2pass', // Changed default password for clarity
+        'user_type' => 'admin'
+    ],
+    [
+        'username' => 'viewer1',
+        'password' => 'viewerpass',
+        'user_type' => 'viewer'
+    ],
+    [
+        'username' => 'viewer2',
+        'password' => 'viewerpass2',
+        'user_type' => 'viewer'
+    ]
+];
 
 // table to store saved queries
 /*

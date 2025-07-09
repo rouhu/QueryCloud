@@ -46,8 +46,17 @@ class Dashboard
     private static function checkLogin()
     {
         // session stuff
-        if (! isset($_SESSION['logged'])) {
-            Flight::redirect('./login');
+        if (!isset($_SESSION['logged'])) {
+            setFlashMessage('You must be logged in to view this page.');
+            Flight::redirect(rtrim(Flight::get('base'), '/') . '/login');
+            exit; // Ensure no further code execution after redirect
+        }
+
+        if (!isset($_SESSION['user_type']) || $_SESSION['user_type'] !== 'admin') {
+            setFlashMessage('Access denied. You need admin privileges to view this page.');
+            // Redirect to login, or a more appropriate page if one exists for non-admins
+            Flight::redirect(rtrim(Flight::get('base'), '/') . '/login');
+            exit; // Ensure no further code execution after redirect
         }
     }
 }
