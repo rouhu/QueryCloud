@@ -111,10 +111,18 @@ class Login
                         // For safety, we can restrict to known patterns.
                         // The current logic with parse_url and checking path structure is reasonably safe.
                     } else if (strpos($redirect_url_param, 'http') === 0) {
-                        // If it's an absolute URL, validate its host matches the application's host
-                        // This is a stricter check than just path validation.
-                        $current_host_processed = str_replace('www.', '', strtolower($_SERVER['HTTP_HOST']));
-                        $redirect_host_parsed = parse_url($redirect_url_param, PHP_URL_HOST);
+                        // If it's an absolute URL, validate its host matches the application's host (scheme-agnostic, port-agnostic for host part)
+
+                        // Get current host name (scheme/port agnostic for comparison)
+                        $current_server_host_header = $_SERVER['HTTP_HOST']; // e.g., querycloud.io or querycloud.io:8080
+                        $current_host_name = parse_url('http://' . $current_server_host_header, PHP_URL_HOST); // Ensures we only get host part
+                        if (!$current_host_name) { // Fallback if parse_url fails (e.g. invalid HTTP_HOST)
+                            $current_host_name = $current_server_host_header; // Use raw header, might include port
+                        }
+                        $current_host_processed = str_replace('www.', '', strtolower($current_host_name));
+
+                        // Get redirect target host name
+                        $redirect_host_parsed = parse_url($redirect_url_param, PHP_URL_HOST); // Already scheme/port agnostic for host part
                         $redirect_host_processed = '';
                         if ($redirect_host_parsed) {
                             $redirect_host_processed = str_replace('www.', '', strtolower($redirect_host_parsed));
@@ -126,17 +134,30 @@ class Login
                         error_log("DEBUG: App base path (Flight::get('base')): " . $app_base_path);
                         error_log("DEBUG: Parsed redirect path: " . $redirect_path);
                         error_log("DEBUG: Expected share path prefix (normalized): " . $normalized_expected_share_path_prefix);
-                        error_log("DEBUG: Current host (SERVER_HTTP_HOST): " . $_SERVER['HTTP_HOST']);
-                        error_log("DEBUG: Processed current host: " . $current_host_processed);
-                        error_log("DEBUG: Parsed redirect host: " . ($redirect_host_parsed ?: 'N/A'));
-                        error_log("DEBUG: Processed redirect host: " . ($redirect_host_processed ?: 'N/A'));
+                        error_log("DEBUG: Current host header (SERVER_HTTP_HOST): " . $current_server_host_header);
+                        error_log("DEBUG: Parsed current host name (from HTTP_HOST): " . $current_host_name);
+                        error_log("DEBUG: Processed current host name: " . $current_host_processed);
+                        error_log("DEBUG: Parsed redirect host name: " . ($redirect_host_parsed ?: 'N/A'));
+                        error_log("DEBUG: Processed redirect host name: " . ($redirect_host_processed ?: 'N/A'));
                         error_log("DEBUG: Path comparison (strpos): " . (strpos($redirect_path, $normalized_expected_share_path_prefix) === 0 ? 'Match' : 'No Match'));
                         error_log("DEBUG: Length comparison (strlen): " . (strlen($redirect_path) > strlen($normalized_expected_share_path_prefix) ? 'Valid Length' : 'Invalid Length'));
 
-                        if ($redirect_host_parsed && $redirect_host_processed !== $current_host_processed) {
+                        if ($redirect_host_parsed && !empty($redirect_host_processed) && $redirect_host_processed !== $current_host_processed) {
                            error_log("Redirect target host ('$redirect_host_processed') does not match current host ('$current_host_processed'). URL: '$redirect_url_param'. Falling back to default home redirect.");
                            Flight::redirect(rtrim(Flight::get('base'), '/') . '/home');
                            return;
+                        }
+                        // If $redirect_host_parsed is null or $redirect_host_processed is empty (e.g. redirect_to was like "/path"), skip host check.
+                        // This is for relative URLs or cases where host parsing failed but path is still valid.
+                        // The primary goal is to prevent redirection to *different external* domains.
+                        if ($redirect_host_parsed && empty($redirect_host_processed)) {
+                            error_log("WARN: Redirect URL '$redirect_url_param' parsed to an empty host. Treating as invalid for host check, but path check might still allow if it's a local path. This case should be rare for absolute URLs.");
+                            // Potentially fall back if this is an absolute URL that resolved to no host.
+                            // However, if $redirect_url_param starts with '/', it's a local path and this host check block isn't critical.
+                            // The `strpos($redirect_url_param, 'http') === 0` condition already gates this block.
+                            // So, if we are here, it means it was an http/https URL. An empty processed host here is an anomaly.
+                            Flight::redirect(rtrim(Flight::get('base'), '/') . '/home');
+                            return;
                         }
                     }
 
