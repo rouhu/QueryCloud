@@ -22,4 +22,8 @@ Flight::route('POST /ajax/[a-zA-Z0-9-_?+]+', 'Ajax::'.$lastSegment);
 Flight::route('GET /ajax/getSavedQueries', 'Ajax::getSavedQueries'); // Route for fetching saved queries
 Flight::route('POST /ajax/saveTableFormatting', 'Ajax::saveTableFormatting'); // Route for saving table formatting
 Flight::route('GET /ajax/getTableFormatting/@query_id', 'Ajax::getTableFormatting'); // Route for fetching specific table formatting
+Flight::route('GET /ajax/getShareToken/@query_id', 'Ajax::getShareToken'); // Route for getting/generating a share token
 //Flight::route('POST /ajax/@action', 'Ajax::@action');
+
+// Public share route
+Flight::route('GET /share/@token', 'Share::viewReport');
