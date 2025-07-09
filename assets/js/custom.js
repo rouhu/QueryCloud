@@ -253,13 +253,20 @@ $('#btnAddHavingCondition').click(function () {
     var $clone = $('#fieldCloneHaving').clone().removeAttr('id');
     var $hfnameSelect = $clone.find('.hfname');
 
-    // Destroy existing Select2 instance if any, then re-initialize
+    // Destroy existing Select2 instance from the template clone if it had one (it shouldn't due to initialSelect2Selector)
+    // but good for safety if template structure changes.
     $hfnameSelect.select2('destroy');
-    $('#havingConditionsContainer').append($clone);
-    $hfnameSelect.select2({ placeholder: 'Select Field/Alias', allowClear: true });
 
-    $clone.slideDown('fast');
-    updateHavingFieldNameOptions(); // Ensure new HAVING rows get the correct options
+    $('#havingConditionsContainer').append($clone);
+    // $clone.slideDown('fast'); // slideDown can happen after options are set.
+                               // For now, keep original behavior of sliding then updating.
+
+    // updateHavingFieldNameOptions will find this new row and initialize Select2 on its .hfname
+    // with the correct options. No need to initialize Select2 on $hfnameSelect here.
+    updateHavingFieldNameOptions();
+    $clone.slideDown('fast'); // Ensure it's visible and then options are updated & Select2 initialized by the call above.
+                              // Or, call slideDown after updateHavingFieldNameOptions if preferred.
+                              // The original order was slideDown then update.
 });
 
 // When aggregate alias or group by fields change, update HAVING field name options
