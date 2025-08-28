@@ -111,8 +111,9 @@ foreach ($data as $datakey => $datavalue) {
 
 @file_put_contents('tables.json', json_encode($json));
 
-$tables = Presenter::listTables($data);
-Flight::set('tables', $tables);
+$table_options = Presenter::listTablesAsOptions($data);
+Flight::set('table_options', $table_options);
+//Flight::set('tables', ''); // Deprecate the old list view
 
 if (false !== strpos($_SERVER['REQUEST_URI'], '/table')) {
     $currentTableKey = array_search(Flight::get('lastSegment'), $data, true);

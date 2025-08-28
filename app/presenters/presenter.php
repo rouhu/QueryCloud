@@ -20,8 +20,24 @@ HTML;
         return $html;
     }
 
+    public static function listTablesAsOptions(array $array)
+    {
+        $html = '';
+        $base = Flight::get('base');
+        $current_table = Flight::get('lastSegment');
+
+        foreach ($array as $arrayitem) {
+            $selected = ($current_table == $arrayitem) ? 'selected' : '';
+            $url = "$base/table/$arrayitem";
+            $html .= "<option value=\"{$url}\" {$selected}>" . htmlspecialchars($arrayitem, ENT_QUOTES, 'UTF-8') . "</option>\n";
+        }
+
+        return $html;
+    }
+
     public static function listTableData(array $array, $fieldTypes = array(), $display_header = null, $original_header = null)
     {
+
         $html = '<table class="table table-striped table-bordered table-hover">' . "\n";
         $html .= '<thead>' . "\n";
 

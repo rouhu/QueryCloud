@@ -1107,6 +1107,14 @@ $(document).ready(function() {
     if (typeof initialSavedQueries !== 'undefined' && Array.isArray(initialSavedQueries)) {
         savedQueriesCache = initialSavedQueries;
     }
+
+    // handle table select dropdown change
+    $('#table_select').on('change', function () {
+        var url = $(this).val();
+        if (url) {
+            window.location.href = url;
+        }
+    });
 });
 
 function updateHavingFieldNameOptions() {
