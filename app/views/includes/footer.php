@@ -46,14 +46,10 @@
                 return
             }
 
-            $.getJSON(
-               "<?php echo Flight::get('base'); ?>/tables.json",
-               function (wordList) {
-                   // wordList like [{"word":"flow","freq":24,"score":300,"flags":"bc","syllables":"1"}]
-                   callback(null, wordList.map(function (res) {
-                       return {name: res.word, value: res.word}
-                   }));
-               })
+            var wordList = <?php echo Flight::get('tableNamesJson'); ?>;
+            callback(null, wordList.map(function (res) {
+                return {name: res.word, value: res.word}
+            }));
         }
     }
 
