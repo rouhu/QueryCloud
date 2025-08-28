@@ -111,6 +111,37 @@ class Table
         );
     }
 
+    public static function run_saved_query()
+    {
+        $query = $_POST['cquery'];
+        $running_saved_query_name = $_POST['running_saved_query_name'] ?? null;
+
+        // Extract table name from query
+        $matches = [];
+        preg_match('/from\s+`?([a-zA-Z0-9_]+)`?/i', $query, $matches);
+        $tableName = $matches[1] ?? null;
+
+        if (!$tableName) {
+            setFlashMessage('Error: Could not determine table name from the query.');
+            Flight::redirect('/dashboard');
+            return;
+        }
+
+        // Get table columns
+        try {
+            $stmt = Flight::get('db')->query("DESCRIBE `$tableName`");
+            $columns = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $fields = array_column($columns, 'Field');
+        } catch (PDOException $e) {
+            setFlashMessage('Error describing table: ' . $e->getMessage());
+            Flight::redirect('/dashboard');
+            return;
+        }
+
+        Flight::set('lastSegment', $tableName);
+        self::runQueryWithView($query, $fields, '', null, $running_saved_query_name);
+    }
+
     /**
      * Runs Custom or Visual SQL query
      */

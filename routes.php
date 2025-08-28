@@ -26,6 +26,7 @@ Flight::route('POST /etl/run', 'ETL::run');
 Flight::route('GET /export/csv', 'Export::csv');
 Flight::route('GET /export/excel', 'Export::excel');
 Flight::route('GET /table/[a-zA-Z0-9-_?+]+', 'Table::index');
+Flight::route('POST /table/run_saved_query', 'Table::run_saved_query');
 Flight::route('POST /table/[a-zA-Z0-9-_?+]+', 'Table::runquery');
 //Flight::route('POST /ajax/[a-zA-Z0-9-_?+]+', array('Ajax', Flight::get('lastSegment')));
 $lastSegment = Flight::get('lastSegment');
