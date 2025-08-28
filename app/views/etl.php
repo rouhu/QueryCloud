@@ -48,7 +48,10 @@
 
                         <div class="form-group">
                             <div class="col-sm-offset-3 col-sm-6">
-                                <button type="submit" class="btn btn-primary"><i class="fa fa-save"></i> Save Configuration</button>
+                                <button type="submit" class="btn btn-primary" formaction="<?php echo Flight::get('base'); ?>/etl/save"><i class="fa fa-save"></i> Save Configuration</button>
+                                <?php if (!empty($etl_config['destination_db_id']) && !empty($etl_config['destination_table_name'])): ?>
+                                    <button type="submit" class="btn btn-success" formaction="<?php echo Flight::get('base'); ?>/etl/run"><i class="fa fa-play"></i> Run ETL Now</button>
+                                <?php endif; ?>
                                 <a href="<?php echo Flight::get('base'); ?>/dashboard" class="btn btn-default">Cancel</a>
                             </div>
                         </div>

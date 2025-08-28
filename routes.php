@@ -21,6 +21,7 @@ Flight::route('POST /destinations/delete', 'Destinations::delete');
 // ETL Configuration
 Flight::route('GET /etl/@query_id:[0-9]+', 'ETL::index');
 Flight::route('POST /etl/save', 'ETL::save');
+Flight::route('POST /etl/run', 'ETL::run');
 
 Flight::route('GET /export/csv', 'Export::csv');
 Flight::route('GET /export/excel', 'Export::excel');
