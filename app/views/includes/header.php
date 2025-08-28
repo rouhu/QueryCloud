@@ -47,15 +47,19 @@
            'base'
         ); ?>/home"><i class="fa fa-database"></i> <?php echo Flight::get('appname'); ?></a>
 
-        <label for="database">Select Database</label><br/>
-        <select name="database" id="database" class="form-control" style="width: 230px; margin-right: 20px;">
-            <?php echo Flight::get('databaseOptions'); ?>
-        </select>
-        <br/>
-
         <ul class="sidebar-nav">
-            <?php echo Flight::get('tables'); ?>
-            <!-- Saved Queries link removed, queries are now shown on dashboard -->
+            <li><a href="<?php echo Flight::get('base'); ?>/dashboard"><i class="fa fa-dashboard"></i> Dashboard</a></li>
+            <li><a href="<?php echo Flight::get('base'); ?>/destinations"><i class="fa fa-rocket"></i> Manage Destinations</a></li>
+
+            <li class="nav-divider"></li>
+
+            <li class="nav-heading" style="padding: 10px 15px; font-weight: bold; color: #fff;">Select Table</li>
+            <li style="padding: 0 15px;">
+                <select id="table_select" name="table_select" class="form-control" style="width: 230px;">
+                    <option value="">-- Choose a Table --</option>
+                    <?php echo Flight::get('table_options'); ?>
+                </select>
+            </li>
         </ul>
     </div>
     <!-- End Sidebar -->

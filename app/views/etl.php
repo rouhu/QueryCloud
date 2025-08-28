@@ -1,0 +1,66 @@
+<?php require_once 'includes/header.php'; ?>
+
+<div class="page-content inset">
+    <div class="row">
+        <div class="col-md-12">
+            <div class="panel panel-default">
+                <div class="panel-heading">
+                    <h3 class="panel-title">ETL Configuration for Query: "<?php echo htmlspecialchars($saved_query->query_name, ENT_QUOTES, 'UTF-8'); ?>"</h3>
+                </div>
+                <div class="panel-body">
+
+                    <h4>Saved SQL Query:</h4>
+                    <div class="well well-sm">
+                        <pre><code><?php echo htmlspecialchars($saved_query->sql_query, ENT_QUOTES, 'UTF-8'); ?></code></pre>
+                    </div>
+
+                    <hr>
+
+                    <h4>Destination Setup:</h4>
+                    <form class="form-horizontal" action="<?php echo Flight::get('base'); ?>/etl/save" method="post" role="form">
+                        <input type="hidden" name="query_id" value="<?php echo $saved_query->id; ?>">
+
+                        <div class="form-group">
+                            <label for="destination_id" class="col-sm-3 control-label">Destination Connection</label>
+                            <div class="col-sm-6">
+                                <select class="form-control" id="destination_id" name="destination_id" required>
+                                    <option value="">-- Select a Destination --</option>
+                                    <?php if (isset($destinations)): ?>
+                                        <?php foreach ($destinations as $dest): ?>
+                                            <option value="<?php echo $dest->id; ?>" <?php echo (isset($etl_config['destination_db_id']) && $etl_config['destination_db_id'] == $dest->id) ? 'selected' : ''; ?>>
+                                                <?php echo htmlspecialchars($dest->connection_name, ENT_QUOTES, 'UTF-8'); ?> (<?php echo htmlspecialchars($dest->db_host, ENT_QUOTES, 'UTF-8'); ?>)
+                                            </option>
+                                        <?php endforeach; ?>
+                                    <?php endif; ?>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="destination_table" class="col-sm-3 control-label">Destination Table Name</label>
+                            <div class="col-sm-6">
+                                <input type="text" class="form-control" id="destination_table" name="destination_table"
+                                       placeholder="e.g., daily_sales_summary"
+                                       value="<?php echo isset($etl_config['destination_table_name']) ? htmlspecialchars($etl_config['destination_table_name'], ENT_QUOTES, 'UTF-8') : ''; ?>" required>
+                                <p class="help-block">The table where the query results will be inserted. The table must exist.</p>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <div class="col-sm-offset-3 col-sm-6">
+                                <button type="submit" class="btn btn-primary" formaction="<?php echo Flight::get('base'); ?>/etl/save"><i class="fa fa-save"></i> Save Configuration</button>
+                                <?php if (!empty($etl_config['destination_db_id']) && !empty($etl_config['destination_table_name'])): ?>
+                                    <button type="submit" class="btn btn-success" formaction="<?php echo Flight::get('base'); ?>/etl/run"><i class="fa fa-play"></i> Run ETL Now</button>
+                                <?php endif; ?>
+                                <a href="<?php echo Flight::get('base'); ?>/dashboard" class="btn btn-default">Cancel</a>
+                            </div>
+                        </div>
+                    </form>
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<?php require_once 'includes/footer.php'; ?>

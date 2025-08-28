@@ -61,19 +61,6 @@ class Ajax
         echo $html;
     }
 
-    public static function setDatabase()
-    {
-        $db = $_POST['db'];
-
-        if ($db) {
-            $_SESSION['db'] = $db;
-
-            if ($_SESSION['db']) {
-                echo 'ok';
-            }
-        }
-    }
-
     public static function saveQuery()
     {
         header('Content-Type: application/json');

@@ -20,29 +20,48 @@ HTML;
         return $html;
     }
 
-    public static function listTableData(array $array, $fieldTypes = array(), $header_row = null)
+    public static function listTablesAsOptions(array $array)
     {
-        //$fieldTypes = convertFieldTypesEditable($fieldTypes);
+        $html = '';
+        $base = Flight::get('base');
+        $current_table = Flight::get('lastSegment');
 
+        foreach ($array as $arrayitem) {
+            $selected = ($current_table == $arrayitem) ? 'selected' : '';
+            $url = "$base/table/$arrayitem";
+            $html .= "<option value=\"{$url}\" {$selected}>" . htmlspecialchars($arrayitem, ENT_QUOTES, 'UTF-8') . "</option>\n";
+        }
+
+        return $html;
+    }
+
+    public static function listTableData(array $array, $fieldTypes = array(), $display_header = null, $original_header = null)
+    {
         $html = '<table class="table table-striped table-bordered table-hover">' . "\n";
         $html .= '<thead>' . "\n";
 
-        // build headings
-        if (!empty($header_row) && is_array($header_row)) {
-            // Use provided header row
-            foreach ($header_row as $head) {
-                $html .= "<th>" . htmlspecialchars($head, ENT_QUOTES, 'UTF-8') . "</th>" . "\n";
-            }
-        } elseif (!empty($array) && isset($array[0]) && is_array($array[0])) {
-            // Fallback to inferring from data keys if no header_row or if data is present
-            foreach (array_keys($array[0]) as $head) {
-                $html .= "<th>" . htmlspecialchars($head, ENT_QUOTES, 'UTF-8') . "</th>" . "\n";
-            }
-        } else {
-            // No data and no header row, perhaps render an empty header or a message
-            // For now, just an empty thead if no headers can be determined.
+        // If original_header is not provided, fallback to display_header for keys
+        if ($original_header === null) {
+            $original_header = $display_header;
         }
 
+        // build headings
+        if (!empty($display_header) && is_array($display_header)) {
+            foreach ($display_header as $index => $head) {
+                // Use the original header name for the data attribute
+                $original_name_attr = '';
+                if (isset($original_header[$index])) {
+                    $original_name_attr = 'data-original-name="' . htmlspecialchars($original_header[$index], ENT_QUOTES, 'UTF-8') . '"';
+                }
+                $html .= "<th " . $original_name_attr . ">" . htmlspecialchars($head, ENT_QUOTES, 'UTF-8') . "</th>" . "\n";
+            }
+        } elseif (!empty($array) && isset($array[0]) && is_array($array[0])) {
+            // Fallback to inferring from data keys if no header info is provided
+            foreach (array_keys($array[0]) as $head) {
+                // In this fallback, original and display names are the same
+                $html .= "<th data-original-name=\"" . htmlspecialchars($head, ENT_QUOTES, 'UTF-8') . "\">" . htmlspecialchars($head, ENT_QUOTES, 'UTF-8') . "</th>" . "\n";
+            }
+        }
 
         $html .= '</thead>' . "\n";
 

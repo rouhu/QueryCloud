@@ -13,6 +13,9 @@
                                 <button type="button" class="btn btn-warning btn-sm btn-rename-query" data-query-id="<?php echo htmlspecialchars($query['id']); ?>" data-query-name="<?php echo htmlspecialchars($query['query_name']); ?>" style="margin-left: 10px;">
                                     <i class="fa fa-i-cursor"></i> Rename
                                 </button>
+                                <a href="<?php echo Flight::get('base'); ?>/etl/<?php echo htmlspecialchars($query['id']); ?>" class="btn btn-success btn-sm" style="margin-left: 5px;">
+                                    <i class="fa fa-cogs"></i> ETL
+                                </a>
                                 <button type="button" class="btn btn-info btn-sm btn-edit-saved-query" data-query-id="<?php echo htmlspecialchars($query['id']); ?>" data-query-name="<?php echo htmlspecialchars($query['query_name']); ?>" style="margin-left: 5px;">
                                     <i class="fa fa-pencil"></i> Edit SQL/Visual
                                 </button>
