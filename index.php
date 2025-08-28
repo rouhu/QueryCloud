@@ -102,13 +102,12 @@ $data = arrayFlatten($data);
 $masterTableOptionsHTML = getOptions($data, true);
 Flight::set('masterTableOptionsHTML', $masterTableOptionsHTML);
 
-// create table names json file
+// create table names json for autocompletion
 $json = array();
 foreach ($data as $datakey => $datavalue) {
     $json[]['word'] = $datavalue;
 }
-
-@file_put_contents('tables.json', json_encode($json));
+Flight::set('tableNamesJson', json_encode($json));
 
 $table_options = Presenter::listTablesAsOptions($data);
 Flight::set('table_options', $table_options);
