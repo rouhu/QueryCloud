@@ -81,8 +81,7 @@ $urlParts = explode('/', $request['url']);
 Flight::set('lastSegment', end($urlParts));
 
 // connect configuration
-//$database = $_SESSION['db'] ? $_SESSION['db'] : $config['database_dbname'];
-$database = $_SESSION['db'] ?? $config['database_dbname'];
+$database = $config['database_dbname'];
 ORM::configure('mysql:host=' . $config['database_host'] . ';dbname=' . $database);
 ORM::configure('username', $config['database_user']);
 ORM::configure('password', $config['database_password']);
@@ -122,12 +121,6 @@ if (false !== strpos($_SERVER['REQUEST_URI'], '/table')) {
     // make dropdown options
     Flight::set('tablesOptions', getOptions($data));
 }
-
-// get an array of databases
-$stmt = $db->query("SHOW DATABASES");
-$data = $stmt->fetchAll(PDO::FETCH_NUM);
-$data = arrayFlatten($data);
-Flight::set('databaseOptions', getOptions($data, true, null, $database));
 
 // setup custom 404 page
 //Flight::map(

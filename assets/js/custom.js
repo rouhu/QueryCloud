@@ -1703,13 +1703,3 @@ function populateJoinFieldDropdown($selectElement, tableName, selectedValue, cal
 }
 
 
-// change database
-$('#database').change(function () {
-    if (this.value) {
-        $.post(base + '/ajax/setDatabase', {"db": this.value}, function (response) {
-            if (response === 'ok') {
-                window.location.href = base;
-            }
-        });
-    }
-});
