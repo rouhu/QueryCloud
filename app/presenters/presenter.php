@@ -21,6 +21,7 @@ HTML;
     }
 
     public static function listTablesAsOptions(array $array)
+
     {
         $html = '';
         $base = Flight::get('base');
@@ -34,6 +35,7 @@ HTML;
 
         return $html;
     }
+
 
     public static function listTableData(array $array, $fieldTypes = array(), $display_header = null, $original_header = null)
     {
