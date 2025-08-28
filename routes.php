@@ -18,6 +18,11 @@ Flight::route('GET /destinations', 'Destinations::index');
 Flight::route('POST /destinations/add', 'Destinations::add');
 Flight::route('POST /destinations/delete', 'Destinations::delete');
 
+// Data Source Management
+Flight::route('GET /datasources', 'DataSources::index');
+Flight::route('POST /datasources/add', 'DataSources::add');
+Flight::route('POST /datasources/delete', 'DataSources::delete');
+
 // ETL Configuration
 Flight::route('GET /etl/@query_id:[0-9]+', 'ETL::index');
 Flight::route('POST /etl/save', 'ETL::save');
@@ -30,6 +35,8 @@ Flight::route('POST /table/run_saved_query', 'Table::run_saved_query');
 Flight::route('POST /table/[a-zA-Z0-9-_?+]+', 'Table::runquery');
 //Flight::route('POST /ajax/[a-zA-Z0-9-_?+]+', array('Ajax', Flight::get('lastSegment')));
 $lastSegment = Flight::get('lastSegment');
+Flight::route('POST /ajax/set_data_source', 'Ajax::set_data_source');
+Flight::route('POST /ajax/get_tables_for_data_source', 'Ajax::get_tables_for_data_source');
 Flight::route('POST /ajax/[a-zA-Z0-9-_?+]+', 'Ajax::'.$lastSegment);
 Flight::route('GET /ajax/getSavedQueries', 'Ajax::getSavedQueries'); // Route for fetching saved queries
 Flight::route('POST /ajax/saveTableFormatting', 'Ajax::saveTableFormatting'); // Route for saving table formatting

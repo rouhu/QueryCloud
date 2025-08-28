@@ -1093,6 +1093,46 @@ $(document).ready(function() {
             window.location.href = url;
         }
     });
+
+    // handle data source select dropdown change
+    $('#datasource').on('change', function () {
+        var dataSourceId = $(this).val();
+        $.ajax({
+            url: base + '/ajax/set_data_source',
+            type: 'POST',
+            data: { data_source_id: dataSourceId },
+            success: function (response) {
+                if (response.status === 'success') {
+                    updateTableDropdown(dataSourceId);
+                }
+            }
+        });
+    });
+
+    function updateTableDropdown(dataSourceId) {
+        var $tableSelect = $('#table_select');
+        $tableSelect.empty().append('<option value="">Loading tables...</option>');
+
+        if (!dataSourceId) {
+            $tableSelect.empty().append('<option value="">-- Choose a Table --</option>');
+            return;
+        }
+
+        $.ajax({
+            url: base + '/ajax/get_tables_for_data_source',
+            type: 'POST',
+            data: { data_source_id: dataSourceId },
+            success: function (response) {
+                $tableSelect.empty().append('<option value="">-- Choose a Table --</option>');
+                if (response.status === 'success' && response.tables) {
+                    $.each(response.tables, function (index, table) {
+                        var url = base + '/table/' + table;
+                        $tableSelect.append('<option value="' + url + '">' + table + '</option>');
+                    });
+                }
+            }
+        });
+    }
 });
 
 function updateHavingFieldNameOptions() {

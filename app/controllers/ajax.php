@@ -2,6 +2,61 @@
 
 class Ajax
 {
+    public static function set_data_source()
+    {
+        header('Content-Type: application/json');
+        $response = ['status' => 'error', 'message' => 'An unknown error occurred.'];
+
+        if (isset($_POST['data_source_id'])) {
+            $_SESSION['selected_data_source'] = $_POST['data_source_id'];
+            $response['status'] = 'success';
+            $response['message'] = 'Data source set successfully.';
+        } else {
+            $response['message'] = 'Data source ID not provided.';
+        }
+
+        echo json_encode($response);
+    }
+
+    public static function get_tables_for_data_source()
+    {
+        header('Content-Type: application/json');
+        $response = ['status' => 'error', 'message' => 'An unknown error occurred.', 'tables' => []];
+
+        if (isset($_POST['data_source_id'])) {
+            $data_source_id = $_POST['data_source_id'];
+            $source = ORM::for_table('data_sources')->find_one($data_source_id);
+
+            if ($source) {
+                try {
+                    $password = toggleEncryption($source->db_password);
+
+                    // Create a temporary connection to the data source
+                    ORM::configure('mysql:host=' . $source->db_host . ';dbname=' . $source->db_name, null, 'temp_connection');
+                    ORM::configure('username', $source->db_user, 'temp_connection');
+                    ORM::configure('password', $password, 'temp_connection');
+
+                    $db = ORM::get_db('temp_connection');
+                    $stmt = $db->query('SHOW TABLES');
+                    $tables = $stmt->fetchAll(PDO::FETCH_COLUMN);
+
+                    $response['status'] = 'success';
+                    $response['message'] = 'Tables retrieved successfully.';
+                    $response['tables'] = $tables;
+
+                } catch (PDOException $e) {
+                    $response['message'] = 'Database connection failed: ' . $e->getMessage();
+                }
+            } else {
+                $response['message'] = 'Data source not found.';
+            }
+        } else {
+            $response['message'] = 'Data source ID not provided.';
+        }
+
+        echo json_encode($response);
+    }
+
     /**
      * Gets fields/columns of specified table and generates dropdown options
      */

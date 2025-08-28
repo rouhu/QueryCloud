@@ -135,6 +135,16 @@ if (false !== strpos($_SERVER['REQUEST_URI'], '/table')) {
 // set global variables
 Flight::set('appname', $config['appname']);
 
+// Get data sources for dropdown
+$data_sources = ORM::for_table('data_sources')->order_by_asc('source_name')->find_many();
+$dataSourceOptions = '';
+foreach ($data_sources as $source) {
+    $selected = (isset($_SESSION['selected_data_source']) && $_SESSION['selected_data_source'] == $source->id) ? 'selected' : '';
+    $dataSourceOptions .= "<option value=\"{$source->id}\" {$selected}>{$source->source_name}</option>";
+}
+Flight::set('dataSourceOptions', $dataSourceOptions);
+
+
 ///////// setup routes /////////////
 require_once 'routes.php';
 
