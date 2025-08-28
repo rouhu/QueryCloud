@@ -55,7 +55,7 @@
 
             <li class="nav-heading" style="padding: 10px 15px; font-weight: bold; color: #fff;">Select Table</li>
 
-            <li style="padding: 0 15px;">
+            <li style="padding: 0 1px;">
                 <select id="table_select" name="table_select" class="form-control" style="width: 230px;">
                     <option value="">-- Choose a Table --</option>
                     <?php echo Flight::get('table_options'); ?>
