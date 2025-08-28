@@ -54,6 +54,9 @@
         <br/>
 
         <ul class="sidebar-nav">
+            <li><a href="<?php echo Flight::get('base'); ?>/dashboard"><i class="fa fa-dashboard"></i> Dashboard</a></li>
+            <li><a href="<?php echo Flight::get('base'); ?>/destinations"><i class="fa fa-rocket"></i> Manage Destinations</a></li>
+            <li class="nav-divider"></li>
             <?php echo Flight::get('tables'); ?>
             <!-- Saved Queries link removed, queries are now shown on dashboard -->
         </ul>
