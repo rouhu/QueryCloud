@@ -21,6 +21,7 @@ HTML;
     }
 
     public static function listTablesAsOptions(array $array)
+
     {
         $html = '';
         $base = Flight::get('base');
