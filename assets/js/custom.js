@@ -52,40 +52,33 @@ $('body').on('click', '#btnShowTableFormatModal', function() {
     $fieldsContainer.empty().append('<p class="text-center"><i class="fa fa-spinner fa-spin"></i> Loading columns...</p>');
     $msgContainer.hide().removeClass('alert-success alert-danger alert-info').text('');
 
-    // Fetch current column headers from the displayed table
-    var currentHeaders = [];
-    // Assuming the table is the one within div#tabledata and has a class like .dataTable or .table
-    // More robust selector might be needed if structure varies.
-    // We need the *original* headers, which are in the `<thead>` of the results table.
-    // The Presenter creates <th>OriginalName</th>
-
-    // Adjusted selector to correctly get headers from a DataTables-enhanced table,
-    // especially when scrollX is used (which clones headers).
+    // Fetch current column headers from the displayed table, now with data-original-name
+    var columns = [];
     var $tableInScrollHead = $('#tabledata .dataTables_scrollHead table.dataTable');
     var $thElements;
 
     if ($tableInScrollHead.length > 0) {
-        // If a scrolling header exists, use its th elements
         $thElements = $tableInScrollHead.find('thead tr:first-child th');
     } else {
-        // Otherwise, use the th elements from the main table directly within #tabledata
-        // This targets the first table found that has the class dataTable
         var $mainTable = $('#tabledata table.dataTable:first');
         if ($mainTable.length > 0) {
             $thElements = $mainTable.find('thead tr:first-child th');
         } else {
-            // Fallback to the original simpler selector if no dataTable class is found (should not happen for styled tables)
             $thElements = $('#tabledata table:first').find('thead tr:first-child th');
         }
     }
 
     if ($thElements && $thElements.length > 0) {
         $thElements.each(function() {
-            currentHeaders.push($(this).text());
+            var $th = $(this);
+            columns.push({
+                originalName: $th.data('original-name'),
+                displayName: $th.text()
+            });
         });
     }
 
-    if (currentHeaders.length === 0) {
+    if (columns.length === 0) {
         $fieldsContainer.empty().append('<p class="text-danger">Could not find table headers on the page.</p>');
         $modal.modal('show');
         return;
@@ -102,30 +95,25 @@ $('body').on('click', '#btnShowTableFormatModal', function() {
             if (response.status === 'success' && response.table_formatting && response.table_formatting.column_titles) {
                 existingColumnTitles = response.table_formatting.column_titles;
                  $msgContainer.addClass('alert-info').text('Loaded existing formatting.').show().delay(2000).fadeOut();
-            } else if (response.status !== 'success') {
-                 $msgContainer.addClass('alert-warning').text(response.message || 'Could not load existing formatting.').show();
+            } else if (response.status !== 'success' && response.message) {
+                 $msgContainer.addClass('alert-warning').text(response.message).show();
             }
-            // If no formatting, existingColumnTitles remains empty, so placeholders will be shown.
 
-            currentHeaders.forEach(function(originalHeader, index) {
-                // The 'name' attribute for inputs needs to be the original header to map correctly on save
-                // We need a way to get the *actual* original DB column name if the displayed header is already a custom one.
-                // For phase 1, the `originalHeader` is what `Presenter` used. If formatting was already applied,
-                // this `originalHeader` *is* the custom title. This is a problem.
-                // The `Presenter` needs to store original names if it's displaying custom ones.
-                //
-                // Workaround for Phase 1: We assume `currentHeaders` are the *original* database column names.
-                // This will be true if formatting has NOT YET been applied by a page reload.
-                // If formatting *has* been applied, this modal will show the *custom* titles as "Original".
-                // This is a limitation of Phase 1 based on current presenter.
-                // For now, let's assume `$(this).text()` from `<th>` is the key to use.
+            columns.forEach(function(column, index) {
+                if (!column.originalName) {
+                    console.warn("Skipping a column in formatting modal because it's missing 'data-original-name' attribute.");
+                    return; // a th without the attribute cannot be formatted
+                }
 
-                var inputId = 'th_format_' + index; // Use index for unique ID
-                var newTitle = existingColumnTitles[originalHeader] || ''; // Use originalHeader as key
+                var inputId = 'th_format_' + index;
+                // Look up the saved title using the *original* database column name
+                var savedTitle = existingColumnTitles[column.originalName] || '';
 
                 var fieldHtml = '<div class="form-group col-md-4">' +
-                                '<label for="' + inputId + '">Original: ' + escapeHtml(originalHeader) + '</label>' +
-                                '<input type="text" class="form-control" id="' + inputId + '" name="header_titles[' + escapeHtml(originalHeader) + ']" value="' + escapeHtml(newTitle) + '" placeholder="New Title (default: ' + escapeHtml(originalHeader) + ')">' +
+                                // The label shows the *currently displayed* name for user context
+                                '<label for="' + inputId + '">Current: ' + escapeHtml(column.displayName) + '</label>' +
+                                // The input's name attribute is the *original* name, which is the key for saving
+                                '<input type="text" class="form-control" id="' + inputId + '" name="header_titles[' + escapeHtml(column.originalName) + ']" value="' + escapeHtml(savedTitle) + '" placeholder="New Title (default: ' + escapeHtml(column.originalName) + ')">' +
                                 '</div>';
                 $fieldsContainer.append(fieldHtml);
             });
@@ -1119,6 +1107,14 @@ $(document).ready(function() {
     if (typeof initialSavedQueries !== 'undefined' && Array.isArray(initialSavedQueries)) {
         savedQueriesCache = initialSavedQueries;
     }
+
+    // handle table select dropdown change
+    $('#table_select').on('change', function () {
+        var url = $(this).val();
+        if (url) {
+            window.location.href = url;
+        }
+    });
 });
 
 function updateHavingFieldNameOptions() {
