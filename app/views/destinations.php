@@ -66,10 +66,6 @@
                                         </td>
                                     </tr>
                                 <?php endforeach; ?>
-                            <?php else: ?>
-                                <tr>
-                                    <td colspan="5" class="text-center">No destinations configured yet.</td>
-                                </tr>
                             <?php endif; ?>
                         </tbody>
                     </table>
