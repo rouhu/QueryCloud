@@ -33,6 +33,9 @@
             <button type="button" class="btn btn-warning" id="btnShowTableFormatModal" style="margin-left: 10px;" data-query-id="<?php echo htmlspecialchars($executed_query_id, ENT_QUOTES, 'UTF-8'); ?>">
                 <i class="fa fa-paint-brush"></i> Format Table
             </button>
+            <a href="<?php echo Flight::get('base'); ?>/etl/<?php echo htmlspecialchars($executed_query_id, ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-info" style="margin-left: 10px;">
+                <i class="fa fa-cogs"></i> ETL
+            </a>
         <?php endif; ?>
     </div>
     <div class="footer" id="generatedQueryDisplay">
