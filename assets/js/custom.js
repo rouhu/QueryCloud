@@ -422,29 +422,7 @@ $('body').on('click', '.btn-run-saved-query', function(e) {
         var formAction = '';
         var onDashboard = (!lastSegment || lastSegment === 'home' || lastSegment === 'dashboard');
 
-        if (onDashboard) {
-            var firstTableLink = $('.sidebar-nav a[href*="/table/"]').first();
-            if (firstTableLink.length > 0) {
-                var hrefParts = firstTableLink.attr('href').split('/');
-                var firstTableName = hrefParts[hrefParts.length - 1];
-                if (firstTableName) {
-                    formAction = base + '/table/' + firstTableName;
-                } else {
-                    $.jGrowl('Could not determine a default table context. Please select a table first.', { header: 'Error', theme: 'error' });
-                    return;
-                }
-            } else {
-                $.jGrowl('No tables available for query context. Please ensure tables are loaded.', { header: 'Error', theme: 'error' });
-                return;
-            }
-        } else {
-            // On a table page, the action is the current page's URL.
-            // The custom query form in #modal-custom-query has action=""
-            formAction = $('#modal-custom-query form').attr('action'); // This will be ""
-            if(formAction === "" || typeof formAction === 'undefined') {
-                 formAction = window.location.pathname + window.location.search + window.location.hash;
-            }
-        }
+        formAction = base + '/table/run_saved_query';
 
         var $dynamicForm = $('<form>', {
             'action': formAction,
