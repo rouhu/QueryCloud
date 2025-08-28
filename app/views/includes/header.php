@@ -49,8 +49,16 @@
 
         <ul class="sidebar-nav">
             <li><a href="<?php echo Flight::get('base'); ?>/dashboard"><i class="fa fa-dashboard"></i> Dashboard</a></li>
+            <li><a href="<?php echo Flight::get('base'); ?>/datasources"><i class="fa fa-database"></i> Manage Data Sources</a></li>
             <li><a href="<?php echo Flight::get('base'); ?>/destinations"><i class="fa fa-rocket"></i> Manage Destinations</a></li>
 
+            <li style="padding: 10px 15px;">
+                <label for="datasource" style="color: #fff; font-weight: bold;">Select Data Source</label>
+                <select name="datasource" id="datasource" class="form-control" style="width: 200px;">
+                    <option value="">-- Choose a Data Source --</option>
+                    <?php echo Flight::get('dataSourceOptions'); ?>
+                </select>
+            </li>
             <li class="nav-divider"></li>
 
             <li class="nav-heading" style="padding: 10px 15px; font-weight: bold; color: #fff;">Select Table</li>

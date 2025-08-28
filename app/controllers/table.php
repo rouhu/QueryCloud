@@ -6,14 +6,41 @@ class Table
 {
     private static $icon = 'fa fa-table';
 
+    private static function get_data_source_connection_name()
+    {
+        if (isset($_SESSION['selected_data_source']) && $_SESSION['selected_data_source']) {
+            $data_source_id = $_SESSION['selected_data_source'];
+            $source = ORM::for_table('data_sources')->find_one($data_source_id);
+
+            if ($source) {
+                $connection_name = 'data_source_' . $source->id;
+                try {
+                    $password = toggleEncryption($source->db_password);
+
+                    ORM::configure('mysql:host=' . $source->db_host . ';dbname=' . $source->db_name, null, $connection_name);
+                    ORM::configure('username', $source->db_user, $connection_name);
+                    ORM::configure('password', $password, $connection_name);
+
+                    return $connection_name;
+                } catch (PDOException $e) {
+                    // fall back to default connection
+                    return ORM::DEFAULT_CONNECTION;
+                }
+            }
+        }
+
+        return ORM::DEFAULT_CONNECTION;
+    }
+
     public static function index($name)
     {
-
+        $connection_name = self::get_data_source_connection_name();
+        $db = ORM::get_db($connection_name);
         $table = Flight::get('lastSegment',$name);
     
         try {
             // Get table structure
-            $stmt = Flight::get('db')->query("DESCRIBE `$table`");
+            $stmt = $db->query("DESCRIBE `$table`");
             $table_fields_data = $stmt->fetchAll(PDO::FETCH_ASSOC); // Renamed to avoid conflict with $fields later
             // Pass the table name to getOptions to generate qualified field names
             $fieldOptions = getOptions(array_column($table_fields_data, 'Field'), false, $table);
@@ -39,14 +66,14 @@ class Table
         self::checkLogin();
 
         // enable query profiling
-        Flight::get('db')->query('SET profiling = 1;');
+        $db->query('SET profiling = 1;');
 
         // get specified table data as array
-        $records = ORM::for_table(Flight::get('lastSegment'))->find_array();
+        $records = ORM::for_table(Flight::get('lastSegment'), $connection_name)->find_array();
         //pretty_print($records);
 
         // find out time above query was ran for
-        $exec_time_result = Flight::get('db')->query(
+        $exec_time_result = $db->query(
            'SELECT query_id, SUM(duration) FROM information_schema.profiling GROUP BY query_id ORDER BY query_id DESC LIMIT 1;'
         );
 
@@ -113,6 +140,8 @@ class Table
 
     public static function run_saved_query()
     {
+        $connection_name = self::get_data_source_connection_name();
+        $db = ORM::get_db($connection_name);
         $query = $_POST['cquery'];
         $running_saved_query_name = $_POST['running_saved_query_name'] ?? null;
 
@@ -129,7 +158,7 @@ class Table
 
         // Get table columns
         try {
-            $stmt = Flight::get('db')->query("DESCRIBE `$tableName`");
+            $stmt = $db->query("DESCRIBE `$tableName`");
             $columns = $stmt->fetchAll(PDO::FETCH_ASSOC);
             $fields = array_column($columns, 'Field');
         } catch (PDOException $e) {
@@ -139,7 +168,7 @@ class Table
         }
 
         Flight::set('lastSegment', $tableName);
-        self::runQueryWithView($query, $fields, '', null, $running_saved_query_name);
+        self::runQueryWithView($query, $fields, '', null, $running_saved_query_name, $connection_name);
     }
 
     /**
@@ -147,6 +176,8 @@ class Table
      */
     public static function runquery()
     {
+        $connection_name = self::get_data_source_connection_name();
+        $db = ORM::get_db($connection_name);
         $printArray = '';
         $query = $_POST['cquery'];
 
@@ -155,7 +186,7 @@ class Table
         }
 
         // table columns
-        $stmt = Flight::get('db')->query("DESCRIBE " . Flight::get('lastSegment'));
+        $stmt = $db->query("DESCRIBE " . Flight::get('lastSegment'));
         $columns = $stmt->fetchAll(PDO::FETCH_ASSOC);
         //pretty_print($columns);
 
@@ -171,7 +202,7 @@ class Table
 
         // for custom query
         if ($query) {
-            self::runQueryWithView($query, $fields, $printArray, null, $running_saved_query_name);
+            self::runQueryWithView($query, $fields, $printArray, null, $running_saved_query_name, $connection_name);
 
         } // for visual query
         else {
@@ -227,7 +258,7 @@ class Table
                 }
             }
 
-            self::runQueryWithView($query, $fields, $printArray, $visual_params_for_view, $current_running_saved_query_name);
+            self::runQueryWithView($query, $fields, $printArray, $visual_params_for_view, $current_running_saved_query_name, $connection_name);
         }
 
     }
@@ -438,15 +469,20 @@ class Table
     }
 
 
-    private static function runQueryWithView($query, $fields, $printArray, $visual_query_params = null, $running_saved_query_name = null)
+    private static function runQueryWithView($query, $fields, $printArray, $visual_query_params = null, $running_saved_query_name = null, $connection_name = null)
     {
+        if (is_null($connection_name)) {
+            $connection_name = self::get_data_source_connection_name();
+        }
+        $db = ORM::get_db($connection_name);
+
         $_SESSION['tableData'] = array();
 
         $exec_time_row = array();
         $records = '';
 
         // Ensure tablesOptions is available for the view context by generating it directly
-        $_db = Flight::get('db');
+        $_db = $db;
         $tablesOptionsHtmlForView = '<option value="">Error loading tables (Controller Default)</option>'; // Default
         try {
             $allTablesStmt = $_db->query('SHOW TABLES');
@@ -468,12 +504,12 @@ class Table
 
         try {
             // turn on query profiling
-            Flight::get('db')->query('SET profiling = 1;');
+            $db->query('SET profiling = 1;');
 
-            $stmt = Flight::get('db')->query($query);
+            $stmt = $db->query($query);
 
             // find out time above query was ran for
-            $exec_time_result = Flight::get('db')->query(
+            $exec_time_result = $db->query(
                'SELECT query_id, SUM(duration) FROM information_schema.profiling GROUP BY query_id ORDER BY query_id DESC LIMIT 1;'
             );
 
