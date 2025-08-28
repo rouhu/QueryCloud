@@ -37,6 +37,7 @@ HTML;
 
     public static function listTableData(array $array, $fieldTypes = array(), $display_header = null, $original_header = null)
     {
+
         $html = '<table class="table table-striped table-bordered table-hover">' . "\n";
         $html .= '<thead>' . "\n";
 
