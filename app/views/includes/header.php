@@ -51,12 +51,6 @@
             <li><a href="<?php echo Flight::get('base'); ?>/dashboard"><i class="fa fa-dashboard"></i> Dashboard</a></li>
             <li><a href="<?php echo Flight::get('base'); ?>/destinations"><i class="fa fa-rocket"></i> Manage Destinations</a></li>
 
-            <li style="padding: 10px 15px;">
-                <label for="database" style="color: #fff; font-weight: bold;">Select Database</label>
-                <select name="database" id="database" class="form-control" style="width: 200px;">
-                    <?php echo Flight::get('databaseOptions'); ?>
-                </select>
-            </li>
             <li class="nav-divider"></li>
 
             <li class="nav-heading" style="padding: 10px 15px; font-weight: bold; color: #fff;">Select Table</li>
