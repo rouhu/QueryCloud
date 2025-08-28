@@ -98,8 +98,9 @@ class ETL
             }
 
             // 2. Establish Destination Connection
+            $decrypted_password = toggleEncryption($destination_db_details->db_password);
             $dsn = "mysql:host={$destination_db_details->db_host};port={$destination_db_details->db_port};dbname={$destination_db_details->db_name};charset=utf8";
-            $dest_pdo = new PDO($dsn, $destination_db_details->db_user, $destination_db_details->db_password);
+            $dest_pdo = new PDO($dsn, $destination_db_details->db_user, $decrypted_password);
             $dest_pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
             // 3. Fetch Source Data
