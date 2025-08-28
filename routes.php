@@ -12,6 +12,16 @@ Flight::route('POST /login', 'Login::loginuser');
 Flight::route('GET /login/logout', 'Login::logout');
 
 Flight::route('GET /dashboard', 'Dashboard::index');
+
+// Destination Management
+Flight::route('GET /destinations', 'Destinations::index');
+Flight::route('POST /destinations/add', 'Destinations::add');
+Flight::route('POST /destinations/delete', 'Destinations::delete');
+
+// ETL Configuration
+Flight::route('GET /etl/@query_id:[0-9]+', 'ETL::index');
+Flight::route('POST /etl/save', 'ETL::save');
+
 Flight::route('GET /export/csv', 'Export::csv');
 Flight::route('GET /export/excel', 'Export::excel');
 Flight::route('GET /table/[a-zA-Z0-9-_?+]+', 'Table::index');
