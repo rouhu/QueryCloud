@@ -457,36 +457,17 @@ class Table
 // Extract column names from DESCRIBE result
 //print_r($data);
             if (!empty($data) && isset($data[0])) {
-                $header = array_keys($data[0]);
+                $original_header = array_keys($data[0]); // <-- Keep the original headers
+                $display_header = $original_header; // By default, display header is the original
 
                 // --- Apply Table Formatting ---
-                // Check if we are running a saved query that might have formatting
-                $current_query_id_for_formatting = null;
-                if ($running_saved_query_name) { // If a saved query by name was run
-                    // Try to get its ID. This part might be slightly redundant if executed_query_id is already reliably set later
-                    // but good to have a direct path if possible.
-                    $temp_saved_query = ORM::for_table('saved_queries')->where('query_name', $running_saved_query_name)->find_one();
-                    if ($temp_saved_query) {
-                        $current_query_id_for_formatting = $temp_saved_query->id;
-                    }
-                }
-                // If visual_query_params are present, and they contain an 'executed_query_id', that's another source
-                // This is primarily for when "Edit Query" is used from a saved query.
-                // For direct "Run Query" from dashboard, running_saved_query_name is the primary source.
-                // The logic to get executed_query_id for view_data later is more comprehensive.
-                // For applying formatting, we need the ID *before* Presenter::listTableData.
-
-                // Let's refine how we get the query_id for formatting, using the same logic as for view_data population
                 $query_id_for_formatting_lookup = null;
-                if (isset($_POST['executed_query_id']) && !empty($_POST['executed_query_id'])) { // If explicitly passed (e.g. during an edit flow)
+                if (isset($_POST['executed_query_id']) && !empty($_POST['executed_query_id'])) {
                      $query_id_for_formatting_lookup = $_POST['executed_query_id'];
-                } else if ($running_saved_query_name) { // If a saved query was run by name
+                } else if ($running_saved_query_name) {
                     $sq_details = ORM::for_table('saved_queries')->where('query_name', $running_saved_query_name)->find_one();
                     if ($sq_details) $query_id_for_formatting_lookup = $sq_details->id;
                 }
-                // $_POST['query_id'] might also be relevant if a query is saved and run immediately.
-                // However, the current flow for "Save" doesn't immediately run and apply formatting.
-                // Formatting is applied when a *saved* query is run.
 
                 if ($query_id_for_formatting_lookup) {
                     $query_with_formatting = ORM::for_table('saved_queries')->find_one($query_id_for_formatting_lookup);
@@ -494,12 +475,11 @@ class Table
                         try {
                             $formatting_rules = json_decode($query_with_formatting->table_formatting, true);
                             if (json_last_error() === JSON_ERROR_NONE && isset($formatting_rules['column_titles'])) {
-                                $new_header = [];
-                                foreach ($header as $original_col_name) {
-                                    // Use the new title if defined and not empty, otherwise use original
-                                    $new_header[] = (!empty($formatting_rules['column_titles'][$original_col_name])) ? $formatting_rules['column_titles'][$original_col_name] : $original_col_name;
+                                $new_display_header = [];
+                                foreach ($original_header as $original_col_name) {
+                                    $new_display_header[] = (!empty($formatting_rules['column_titles'][$original_col_name])) ? $formatting_rules['column_titles'][$original_col_name] : $original_col_name;
                                 }
-                                $header = $new_header; // Replace original header with formatted one
+                                $display_header = $new_display_header; // Set the display header to the formatted one
                             }
                         } catch (Exception $e) {
                             error_log("Error decoding table formatting JSON: " . $e->getMessage());
@@ -508,20 +488,21 @@ class Table
                 }
                 // --- End Apply Table Formatting ---
 
-                $_SESSION['tableData'] = array($header);  // Header row as array, now potentially with custom titles
+                $_SESSION['tableData'] = array($display_header);  // Use display_header for session/export data
 
                 foreach ($data as $row) {
-                    $_SESSION['tableData'][] = array_values($row);  // Data rows as arrays
+                    $_SESSION['tableData'][] = array_values($row);
                 }
             } else {
-                // Handle empty result set for session data
-                $header = []; // No header if no data
-                $_SESSION['tableData'] = array(); // Store empty data or a specific format for no results
-                $data = []; // Ensure $data is an empty array if query returned no results
+                // Handle empty result set
+                $original_header = [];
+                $display_header = [];
+                $_SESSION['tableData'] = array();
+                $data = [];
             }
 
-            // Pass the potentially modified $header to Presenter
-            $records = Presenter::listTableData($data, [], $header);
+            // Pass both original and display headers to Presenter
+            $records = Presenter::listTableData($data, [], $display_header, $original_header);
 
 
         } catch (PDOException $e) {
