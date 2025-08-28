@@ -31,7 +31,7 @@ class Destinations
             $destination->db_port = $_POST['db_port'];
             $destination->db_name = $_POST['db_name'];
             $destination->db_user = $_POST['db_user'];
-            $destination->db_password = $_POST['db_password']; // Security Note: Storing plain text password
+            $destination->db_password = toggleEncryption($_POST['db_password']);
             $destination->save();
 
             setFlashMessage('Destination added successfully!');
