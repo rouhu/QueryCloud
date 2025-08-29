@@ -25,6 +25,7 @@ class Table
                     ORM::configure('mysql:host=' . $source->db_host . ';dbname=' . $source->db_name, null, $connection_name);
                     ORM::configure('username', $source->db_user, $connection_name);
                     ORM::configure('password', $password, $connection_name);
+                    ORM::configure('logging', true, $connection_name);
 
                     return $connection_name;
                 } catch (PDOException $e) {
@@ -75,6 +76,7 @@ class Table
 
         // get specified table data as array
         $records = ORM::for_table(Flight::get('lastSegment'), $connection_name)->find_array();
+        $the_query = ORM::get_last_query($connection_name);
         //pretty_print($records);
 
         // find out time above query was ran for
@@ -136,7 +138,8 @@ class Table
               'title' => Flight::get('lastSegment'), // This is $table
               'icon' => self::$icon,
               'table_data' => $records,
-              'query' => SqlFormatter::format(ORM::get_last_query($connection_name)),
+
+              'query' => SqlFormatter::format($the_query),
               'timetaken' => $exec_time_row[0][1],
               'view_tables_options_html' => $tablesOptionsHtmlForView
            )
