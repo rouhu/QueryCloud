@@ -143,6 +143,13 @@ foreach ($data_sources as $source) {
 }
 Flight::set('dataSourceOptions', $dataSourceOptions);
 
+// Also create a generic, unselected list of data sources for modals
+$dataSourceOptionsUnselected = '<option value="">-- Choose Data Source --</option>';
+foreach ($data_sources as $source) {
+    $dataSourceOptionsUnselected .= "<option value=\"{$source->id}\">{$source->source_name}</option>";
+}
+Flight::set('dataSourceOptionsUnselected', $dataSourceOptionsUnselected);
+
 
 ///////// setup routes /////////////
 require_once 'routes.php';

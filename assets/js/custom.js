@@ -1342,6 +1342,15 @@ $('body').on('click', '#btnShowSaveQueryModal', function() {
     $('#sql_query_save').val(sqlQueryText);
     $('#query_name_save').val(''); // Always clear name for a new save
 
+    // Pre-select the data source in the modal if it's displayed on the page
+    var displayedSourceId = $('#executed_query_source_connection_id_display').val();
+    if (displayedSourceId) {
+        $('#source_connection_id_save').val(displayedSourceId);
+    } else {
+        // If not on a saved query page, ensure the modal dropdown is reset to default
+        $('#source_connection_id_save').val('');
+    }
+
     // For saving visual query params
     var visualParamsJsonString = $('#current_visual_params').val();
     if (visualParamsJsonString && visualParamsJsonString !== '') {
@@ -1377,6 +1386,7 @@ $('body').on('click', '#btnShowSaveQueryModal', function() {
 $('body').on('click', '#btnSaveQueryConfirm', function() {
     var queryName = $('#query_name_save').val();
     var sqlQuery = $('#sql_query_save').val();
+    var sourceConnectionId = $('#source_connection_id_save').val();
     var $saveQueryMsg = $('#saveQueryMsg');
     var visualParams = $('#modal-save-query').data('visual-params');
 
@@ -1390,12 +1400,18 @@ $('body').on('click', '#btnSaveQueryConfirm', function() {
         return;
     }
 
+    if ($.trim(sourceConnectionId) === '') {
+        $saveQueryMsg.removeClass('alert-success').addClass('alert-danger').text('Please select a data source.').show();
+        return;
+    }
+
     var $thisButton = $(this);
     $thisButton.prop('disabled', true).find('i').removeClass('fa-save').addClass('fa-spinner fa-spin');
 
     var ajaxData = {
         query_name: queryName,
         sql_query: sqlQuery,
+        source_connection_id: sourceConnectionId,
         is_visual_query: (visualParams && visualParams !== '') ? true : false,
         visual_params: (visualParams && visualParams !== '') ? visualParams : null
     };
