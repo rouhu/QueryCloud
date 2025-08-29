@@ -1349,7 +1349,7 @@ $('body').on('click', '#btnShowSaveQueryModal', function() {
     }
 
     // Pre-select the data source in the modal if it's displayed on the page
-    var displayedSourceId = $('#executed_query_source_connection_id_display').val();
+    var displayedSourceId = $('#executed_query_source_connection_id').val();
     if (displayedSourceId) {
         $('#source_connection_id_save').val(displayedSourceId);
     } else {

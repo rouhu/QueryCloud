@@ -618,6 +618,12 @@ class Table
                 $view_data['executed_query_id'] = $saved_query_details->id;
                 $view_data['executed_query_name'] = $saved_query_details->query_name;
                 $view_data['executed_query_source_connection_id'] = $saved_query_details->source_connection_id;
+                if ($saved_query_details->source_connection_id) {
+                    $source = ORM::for_table('data_sources')->find_one($saved_query_details->source_connection_id);
+                    if ($source) {
+                        $view_data['executed_query_source_name'] = $source->source_name;
+                    }
+                }
                 $view_data['executed_query_was_saved_visual'] = (bool)$saved_query_details->is_visual_query;
                 // If it was a saved visual query, its visual_params should be used for editing,
                 // overriding any ad-hoc VQB params that might have been used to run it (though less likely for "Run Saved Query")
