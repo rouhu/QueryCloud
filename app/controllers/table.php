@@ -138,7 +138,6 @@ class Table
               'title' => Flight::get('lastSegment'), // This is $table
               'icon' => self::$icon,
               'table_data' => $records,
-
               'query' => SqlFormatter::format($the_query),
               'timetaken' => $exec_time_row[0][1],
               'view_tables_options_html' => $tablesOptionsHtmlForView

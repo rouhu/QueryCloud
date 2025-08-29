@@ -187,7 +187,7 @@ class Ajax
                         $updated_fields_count++;
                     }
                     if ($is_visual_query_provided) { // Update visual only if is_visual_query was part of the request
-                        $saved_query->is_visual_query = $is_visual_query;
+                        $saved_query->is_visual_query = (int)$is_visual_query;
                         $saved_query->visual_params = $is_visual_query ? $visual_params : null;
                         $updated_fields_count++;
 
@@ -245,7 +245,7 @@ class Ajax
                 $saved_query->query_name = $query_name; // Already trimmed
                 $saved_query->sql_query = $sql_query; // Must be present due to earlier check
                 $saved_query->source_connection_id = $source_connection_id;
-                $saved_query->is_visual_query = $is_visual_query;
+                $saved_query->is_visual_query = (int)$is_visual_query;
                 $saved_query->visual_params = $is_visual_query ? $visual_params : null;
                 // created_at is handled by database default
 
