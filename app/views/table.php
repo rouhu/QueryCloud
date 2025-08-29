@@ -14,6 +14,25 @@
     <div style="margin-bottom: 10px;">
         <h3 style="display: inline-block; margin-right: 10px;">Generated Query</h3>
         <button type="button" class="btn btn-success" id="btnShowSaveQueryModal"><i class="fa fa-save"></i> Save Current Query</button>
+        <?php if (isset($executed_query_id) && !empty($executed_query_id)): ?>
+            <div style="display: inline-block; margin-left: 15px;">
+                <label for="executed_query_source_connection_id_display" style="font-weight: bold;">Data Source:</label>
+                <select class="form-control" id="executed_query_source_connection_id_display" name="executed_query_source_connection_id_display" style="width: 200px; display: inline-block;" disabled>
+                    <?php
+                        // Re-create options with the correct one selected
+                        $options = Flight::get('dataSourceOptionsUnselected');
+                        if (isset($executed_query_source_connection_id)) {
+                            $options = str_replace(
+                                'value="' . $executed_query_source_connection_id . '"',
+                                'value="' . $executed_query_source_connection_id . '" selected',
+                                $options
+                            );
+                        }
+                        echo $options;
+                    ?>
+                </select>
+            </div>
+        <?php endif; ?>
         <?php
             // Determine if the "Edit Query" button should be shown.
             // Option 1: Query was just built with VQB (visual_params_json is set from current VQB run)
