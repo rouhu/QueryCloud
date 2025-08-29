@@ -407,6 +407,12 @@ $fields = $fields ?? [];
                     <label for="query_name_save">Query Name:</label>
                     <input type="text" class="form-control" id="query_name_save" name="query_name_save" required>
                 </div>
+                <div class="form-group">
+                    <label for="source_connection_id_save">Data Source:</label>
+                    <select class="form-control" id="source_connection_id_save" name="source_connection_id_save" required>
+                        <?php echo Flight::get('dataSourceOptionsUnselected'); ?>
+                    </select>
+                </div>
                 <input type="hidden" id="sql_query_save" name="sql_query_save">
             </div>
             <div class="modal-footer">

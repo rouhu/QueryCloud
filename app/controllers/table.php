@@ -6,10 +6,15 @@ class Table
 {
     private static $icon = 'fa fa-table';
 
-    private static function get_data_source_connection_name()
+    private static function get_data_source_connection_name($data_source_id = null)
     {
-        if (isset($_SESSION['selected_data_source']) && $_SESSION['selected_data_source']) {
+        // Prioritize the explicitly passed data_source_id
+        if (is_null($data_source_id) && isset($_SESSION['selected_data_source']) && $_SESSION['selected_data_source']) {
+            // Fallback to session if no specific ID is provided
             $data_source_id = $_SESSION['selected_data_source'];
+        }
+
+        if ($data_source_id) {
             $source = ORM::for_table('data_sources')->find_one($data_source_id);
 
             if ($source) {
@@ -140,10 +145,14 @@ class Table
 
     public static function run_saved_query()
     {
-        $connection_name = self::get_data_source_connection_name();
-        $db = ORM::get_db($connection_name);
         $query = $_POST['cquery'];
         $running_saved_query_name = $_POST['running_saved_query_name'] ?? null;
+
+        $saved_query = ORM::for_table('saved_queries')->where('query_name', $running_saved_query_name)->find_one();
+        $source_connection_id = $saved_query ? $saved_query->source_connection_id : null;
+
+        $connection_name = self::get_data_source_connection_name($source_connection_id);
+        $db = ORM::get_db($connection_name);
 
         // Extract table name from query
         $matches = [];
@@ -606,6 +615,7 @@ class Table
             if ($saved_query_details) {
                 $view_data['executed_query_id'] = $saved_query_details->id;
                 $view_data['executed_query_name'] = $saved_query_details->query_name;
+                $view_data['executed_query_source_connection_id'] = $saved_query_details->source_connection_id;
                 $view_data['executed_query_was_saved_visual'] = (bool)$saved_query_details->is_visual_query;
                 // If it was a saved visual query, its visual_params should be used for editing,
                 // overriding any ad-hoc VQB params that might have been used to run it (though less likely for "Run Saved Query")
