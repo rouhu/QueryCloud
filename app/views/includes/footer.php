@@ -57,6 +57,16 @@
 
     // set font size
     document.getElementById('ace').style.fontSize = '13px';
+
+    // Handler to populate the editor when the modal is opened
+    $('body').on('click', 'a[data-target="#modal-custom-query"], button[data-target="#modal-custom-query"]', function() {
+        var currentQuery = $('#generatedQueryDisplay pre').text();
+        if (currentQuery && $.trim(currentQuery) !== '') {
+            editor.setValue($.trim(currentQuery), 1); // 1 moves cursor to the end
+        } else {
+            editor.setValue('', -1); // -1 moves cursor to the start and clears editor
+        }
+    });
 </script>
 
 <script>
