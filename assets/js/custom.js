@@ -948,8 +948,9 @@ $('body').on('click', '#btnUpdateVisualQuery', function() {
                         // itemInCache.sql_query = new_sql_query_from_server;
                     }
                 }
-                // Optionally close the modal
-                // $modal.modal('hide');
+                setTimeout(function() {
+                    location.reload();
+                }, 1500);
             } else {
                 $.jGrowl(response.message || 'An error occurred while updating the query.', { header: 'Error', theme: 'error', life: 5000 });
             }
@@ -1022,8 +1023,7 @@ $('body').on('click', '#btnUpdateSavedQuery', function() {
                 // }
 
                 setTimeout(function() {
-                    $msgContainer.fadeOut(function() { $(this).hide(); });
-                    $('#modal-custom-query').modal('hide');
+                    location.reload();
                 }, 1500);
             } else {
                 $msgContainer.removeClass('alert-success').addClass('alert-danger').text(response.message || 'An unknown error occurred.').show();
@@ -1472,8 +1472,8 @@ $('body').on('click', '#btnSaveQueryConfirm', function() {
 
 
                 setTimeout(function() {
-                    $saveQueryMsg.fadeOut();
-                }, 3000);
+                    location.reload();
+                }, 1500);
             } else {
                 $saveQueryMsg.removeClass('alert-success').addClass('alert-danger').text(response.message || 'An unknown error occurred.').show();
             }
