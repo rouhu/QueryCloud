@@ -787,6 +787,33 @@ $('body').on('click', '#btnEditExecutedQuery', function() {
     }
 });
 
+// --- Edit Custom SQL Query Button (from query results page) ---
+$('body').on('click', '#btnEditCustomSQL', function() {
+    var executedQueryId = $('#executed_query_id').val();
+    var sqlQueryText = $('#generatedQueryDisplay pre').text();
+
+    if (!executedQueryId) {
+        $.jGrowl('Error: Executed query ID not found.', { header: 'Error' });
+        return;
+    }
+
+    // Populate the hidden input in the custom query modal
+    $('#custom_query_id_edit').val(executedQueryId);
+
+    // Set the ACE editor's content
+    if (typeof editor !== 'undefined' && editor !== null) {
+        editor.setValue(sqlQueryText, -1); // -1 moves cursor to the start
+    } else {
+        // Fallback if ACE editor is not ready, though it should be.
+        // The modal might not be visible yet, but we can try to set a textarea if one existed.
+        // For now, we rely on the editor being available when the modal is shown.
+        console.warn('ACE editor instance not found when trying to set SQL for editing.');
+    }
+
+    // Show the modal
+    $('#modal-custom-query').modal('show');
+});
+
 
 // --- Helper functions (initializeVisualQueryBuilder, initializeVisualQueryForm, setupJoinRow, openAsSQLQuery) ---
 // These were part of the older structure and are now largely replaced or integrated into openVisualQueryBuilderModal
