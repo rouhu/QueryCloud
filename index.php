@@ -93,9 +93,40 @@ ORM::configure('logging', true);
 Flight::set('db', $db);
 Flight::set('dbname', $database);
 
-$stmt = $db->query("SHOW TABLES FROM " . Flight::get('dbname'));
-$data = $stmt->fetchAll(PDO::FETCH_NUM);
-$data = arrayFlatten($data);
+// Initialize table data as empty
+$data = [];
+
+// Check if a data source is selected in the session
+if (isset($_SESSION['selected_data_source']) && $_SESSION['selected_data_source']) {
+    $data_source_id = $_SESSION['selected_data_source'];
+    $source = ORM::for_table('data_sources')->find_one($data_source_id);
+
+    if ($source) {
+        $connection_name = 'data_source_index_' . $source->id;
+        try {
+            $password = toggleEncryption($source->db_password);
+
+            // Configure a temporary, distinct connection for fetching tables
+            ORM::configure('mysql:host=' . $source->db_host . ';dbname=' . $source->db_name, null, $connection_name);
+            ORM::configure('username', $source->db_user, $connection_name);
+            ORM::configure('password', $password, $connection_name);
+            ORM::configure('logging', true, $connection_name);
+
+            $source_db = ORM::get_db($connection_name);
+
+            // Fetch tables from the selected data source
+            $stmt = $source_db->query("SHOW TABLES");
+            $data = $stmt->fetchAll(PDO::FETCH_NUM);
+            $data = arrayFlatten($data);
+
+        } catch (PDOException $e) {
+            // Log error, and data remains an empty array
+            error_log("Error connecting to data source ID $data_source_id in index.php: " . $e->getMessage());
+            // Optionally, set a flash message for the user
+            // setFlashMessage('Could not connect to the selected data source to list tables.', 'error');
+        }
+    }
+}
 
 // Generate HTML options for all tables to be used globally, especially in modals
 // The `true` for getOptions prepends a "Choose Table" or similar default option.

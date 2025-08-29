@@ -136,7 +136,7 @@ class Table
               'title' => Flight::get('lastSegment'), // This is $table
               'icon' => self::$icon,
               'table_data' => $records,
-              'query' => SqlFormatter::format(ORM::get_last_query(ORM::DEFAULT_CONNECTION)),
+              'query' => SqlFormatter::format(ORM::get_last_query($connection_name)),
               'timetaken' => $exec_time_row[0][1],
               'view_tables_options_html' => $tablesOptionsHtmlForView
            )
