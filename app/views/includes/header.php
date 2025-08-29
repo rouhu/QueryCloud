@@ -92,10 +92,6 @@
                            class="fa fa-database"></i> Visual Query
                     </button>
 
-                    <button rel="hover_popover" data-content="Type Custom Query" class="btn btn-primary btn-lg" data-toggle="modal" data-target="#modal-custom-query">
-                        <i
-                           class="fa fa-pencil-square-o"></i> Custom Query
-                    </button>
                 <?php } ?>
 
                 <a rel="hover_popover" data-content="Log Out" href="<?php echo Flight::get(
