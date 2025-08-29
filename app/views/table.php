@@ -16,21 +16,8 @@
         <button type="button" class="btn btn-success" id="btnShowSaveQueryModal"><i class="fa fa-save"></i> Save Current Query</button>
         <?php if (isset($executed_query_id) && !empty($executed_query_id)): ?>
             <div style="display: inline-block; margin-left: 15px;">
-                <label for="executed_query_source_connection_id_display" style="font-weight: bold;">Data Source:</label>
-                <select class="form-control" id="executed_query_source_connection_id_display" name="executed_query_source_connection_id_display" style="width: 200px; display: inline-block;" disabled>
-                    <?php
-                        // Re-create options with the correct one selected
-                        $options = Flight::get('dataSourceOptionsUnselected');
-                        if (isset($executed_query_source_connection_id)) {
-                            $options = str_replace(
-                                'value="' . $executed_query_source_connection_id . '"',
-                                'value="' . $executed_query_source_connection_id . '" selected',
-                                $options
-                            );
-                        }
-                        echo $options;
-                    ?>
-                </select>
+                <strong style="font-weight: bold;">Data Source:</strong>
+                <span style="margin-left: 5px;"><?php echo htmlspecialchars($executed_query_source_name ?? 'N/A', ENT_QUOTES, 'UTF-8'); ?></span>
             </div>
         <?php endif; ?>
         <?php
@@ -73,6 +60,7 @@
     <!-- Holds info about the executed query IF it was a saved query that was run -->
     <input type="hidden" id="executed_query_id" value="<?php echo isset($executed_query_id) ? htmlspecialchars($executed_query_id, ENT_QUOTES, 'UTF-8') : ''; ?>">
     <input type="hidden" id="executed_query_name" value="<?php echo isset($executed_query_name) ? htmlspecialchars($executed_query_name, ENT_QUOTES, 'UTF-8') : ''; ?>">
+    <input type="hidden" id="executed_query_source_connection_id" value="<?php echo isset($executed_query_source_connection_id) ? htmlspecialchars($executed_query_source_connection_id, ENT_QUOTES, 'UTF-8') : ''; ?>">
     <!-- This flag helps JS determine if the #current_visual_params are from a saved visual query context vs an ad-hoc VQB run -->
     <input type="hidden" id="executed_query_was_saved_visual" value="<?php echo (isset($executed_query_was_saved_visual) && $executed_query_was_saved_visual) ? 'true' : 'false'; ?>">
 
