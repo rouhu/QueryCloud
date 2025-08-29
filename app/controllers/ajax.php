@@ -125,6 +125,7 @@ class Ajax
         // Use null coalescing and provide default empty string for trim if not set
         $query_name = trim($_POST['query_name'] ?? '');
         $sql_query = $_POST['sql_query'] ?? null;
+        $source_connection_id = $_POST['source_connection_id'] ?? null;
         $is_visual_query_provided = isset($_POST['is_visual_query']);
         $visual_params_provided = isset($_POST['visual_params']);
 
@@ -147,16 +148,18 @@ class Ajax
                 return;
             }
 
+            $has_source_connection_to_update = isset($_POST['source_connection_id']);
+
             // At least one field must be intended for update if query_id is present
-            if (!$has_name_to_update && !$has_sql_to_update && !$has_visual_to_update) {
+            if (!$has_name_to_update && !$has_sql_to_update && !$has_visual_to_update && !$has_source_connection_to_update) {
                  $response['message'] = 'No data provided to update for existing query.';
                  echo json_encode($response);
                  return;
             }
 
         } else { // This is a CREATE operation
-            if (empty($query_name) || empty($sql_query)) {
-                $response['message'] = 'For a new query, name and SQL query cannot be empty.';
+            if (empty($query_name) || empty($sql_query) || empty($source_connection_id)) {
+                $response['message'] = 'For a new query, name, SQL query and data source cannot be empty.';
                 echo json_encode($response);
                 return;
             }
@@ -177,6 +180,10 @@ class Ajax
                     }
                     if (isset($_POST['sql_query'])) {
                         $saved_query->sql_query = $sql_query;
+                        $updated_fields_count++;
+                    }
+                    if (isset($_POST['source_connection_id'])) {
+                        $saved_query->source_connection_id = $source_connection_id;
                         $updated_fields_count++;
                     }
                     if ($is_visual_query_provided) { // Update visual only if is_visual_query was part of the request
@@ -237,6 +244,7 @@ class Ajax
                 $saved_query = ORM::for_table('saved_queries')->create();
                 $saved_query->query_name = $query_name; // Already trimmed
                 $saved_query->sql_query = $sql_query; // Must be present due to earlier check
+                $saved_query->source_connection_id = $source_connection_id;
                 $saved_query->is_visual_query = $is_visual_query;
                 $saved_query->visual_params = $is_visual_query ? $visual_params : null;
                 // created_at is handled by database default
