@@ -1340,7 +1340,13 @@ $('body').on('click', '#btnShowSaveQueryModal', function() {
     }
 
     $('#sql_query_save').val(sqlQueryText);
-    $('#query_name_save').val(''); // Always clear name for a new save
+
+    var executedQueryName = $('#executed_query_name').val();
+    if (executedQueryName) {
+        $('#query_name_save').val(executedQueryName + ' (copy)');
+    } else {
+        $('#query_name_save').val(''); // Clear name for a new save
+    }
 
     // Pre-select the data source in the modal if it's displayed on the page
     var displayedSourceId = $('#executed_query_source_connection_id_display').val();
