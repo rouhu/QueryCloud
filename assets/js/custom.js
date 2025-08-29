@@ -948,9 +948,8 @@ $('body').on('click', '#btnUpdateVisualQuery', function() {
                         // itemInCache.sql_query = new_sql_query_from_server;
                     }
                 }
-                setTimeout(function() {
-                    location.reload();
-                }, 1500);
+                // Optionally close the modal
+                // $modal.modal('hide');
             } else {
                 $.jGrowl(response.message || 'An error occurred while updating the query.', { header: 'Error', theme: 'error', life: 5000 });
             }
@@ -1022,9 +1021,27 @@ $('body').on('click', '#btnUpdateSavedQuery', function() {
                 //    $listItem.find('.btn-edit-saved-query, .btn-delete-saved-query').data('query-name', queryName);
                 // }
 
-                setTimeout(function() {
-                    location.reload();
-                }, 1500);
+                // Re-run the query to show updated results
+                var updatedQuery = (typeof editor !== 'undefined' && editor !== null) ? editor.getValue() : sqlQuery;
+                var queryName = $('#executed_query_name').val(); // This is on the table results page
+
+                var formAction = base + '/table/run_saved_query';
+                var $dynamicForm = $('<form>', {
+                    'action': formAction,
+                    'method': 'POST',
+                    'style': 'display:none;'
+                }).append($('<input>', {
+                    'type': 'hidden',
+                    'name': 'cquery',
+                    'value': updatedQuery
+                })).append($('<input>', {
+                    'type': 'hidden',
+                    'name': 'running_saved_query_name',
+                    'value': queryName
+                }));
+
+                $('body').append($dynamicForm);
+                $dynamicForm.submit();
             } else {
                 $msgContainer.removeClass('alert-success').addClass('alert-danger').text(response.message || 'An unknown error occurred.').show();
             }
@@ -1472,8 +1489,8 @@ $('body').on('click', '#btnSaveQueryConfirm', function() {
 
 
                 setTimeout(function() {
-                    location.reload();
-                }, 1500);
+                    $saveQueryMsg.fadeOut();
+                }, 3000);
             } else {
                 $saveQueryMsg.removeClass('alert-success').addClass('alert-danger').text(response.message || 'An unknown error occurred.').show();
             }

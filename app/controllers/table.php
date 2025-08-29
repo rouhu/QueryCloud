@@ -138,7 +138,7 @@ class Table
               'title' => Flight::get('lastSegment'), // This is $table
               'icon' => self::$icon,
               'table_data' => $records,
-              'query' => SqlFormatter::format($the_query),
+              'query' => $the_query,
               'timetaken' => $exec_time_row[0][1],
               'view_tables_options_html' => $tablesOptionsHtmlForView
            )
@@ -601,7 +601,7 @@ class Table
             'icon' => self::$icon,
             'table_data' => $records,
             'fields' => getOptions($fields, false, Flight::get('lastSegment')), // Pass table name for field dropdowns
-            'query' => SqlFormatter::format($query),
+            'query' => $query,
             'printArray' => $printArray,
             'timetaken' => $exec_time_row[0][1] ?? '0.00', // Ensure timetaken has a default
             'view_tables_options_html' => $tablesOptionsHtmlForView // Use the locally generated one
