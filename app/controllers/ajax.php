@@ -129,6 +129,14 @@ class Ajax
         $is_visual_query_provided = isset($_POST['is_visual_query']);
         $visual_params_provided = isset($_POST['visual_params']);
 
+        // If no ID is provided, check if a query with the same name exists to perform an update.
+        if (!$query_id && !empty($query_name)) {
+            $existing_query = ORM::for_table('saved_queries')->where('query_name', $query_name)->find_one();
+            if ($existing_query) {
+                $query_id = $existing_query->id;
+            }
+        }
+
         if ($query_id && is_numeric($query_id)) { // This is an UPDATE operation
             $has_name_to_update = isset($_POST['query_name']); // Check if 'query_name' key was sent
             $has_sql_to_update = isset($_POST['sql_query']);   // Check if 'sql_query' key was sent

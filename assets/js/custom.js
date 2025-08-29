@@ -1343,7 +1343,7 @@ $('body').on('click', '#btnShowSaveQueryModal', function() {
 
     var executedQueryName = $('#executed_query_name').val();
     if (executedQueryName) {
-        $('#query_name_save').val(executedQueryName + ' (copy)');
+        $('#query_name_save').val(executedQueryName);
     } else {
         $('#query_name_save').val(''); // Clear name for a new save
     }
