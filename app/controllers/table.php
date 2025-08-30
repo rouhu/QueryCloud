@@ -6,7 +6,7 @@ class Table
 {
     private static $icon = 'fa fa-table';
 
-    private static function get_data_source_connection_name($data_source_id = null)
+    public static function get_data_source_connection_name($data_source_id = null)
     {
         // Prioritize the explicitly passed data_source_id
         if (is_null($data_source_id) && isset($_SESSION['selected_data_source']) && $_SESSION['selected_data_source']) {

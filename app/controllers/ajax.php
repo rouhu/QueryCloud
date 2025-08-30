@@ -97,35 +97,13 @@ class Ajax
         $dataSourceId = $_POST['data_source_id'] ?? null;
         $tables = json_decode($tablesJSON, true) ?: [];
         $html = '';
-        $db = null;
 
-        if ($dataSourceId) {
-            $source = ORM::for_table('data_sources')->find_one($dataSourceId);
-            if ($source) {
-                try {
-                    $password = toggleEncryption($source->db_password);
-                    $connection_name = 'temp_ds_' . $source->id;
-                    // Configure a temporary connection
-                    ORM::configure('mysql:host=' . $source->db_host . ';dbname=' . $source->db_name, null, $connection_name);
-                    ORM::configure('username', $source->db_user, $connection_name);
-                    ORM::configure('password', $password, $connection_name);
-                    $db = ORM::get_db($connection_name);
-                } catch (PDOException $e) {
-                    error_log("Failed to connect to data source $dataSourceId in getselectfields: " . $e->getMessage());
-                    // Fallback to default connection if specific one fails
-                    $db = Flight::get('db');
-                }
-            } else {
-                // Data source not found, use default
-                $db = Flight::get('db');
-            }
-        } else {
-            // No data source specified, use default
-            $db = Flight::get('db');
-        }
+        // Use the reliable, reusable method from the Table class to get the connection
+        $connection_name = Table::get_data_source_connection_name($dataSourceId);
+        $db = ORM::get_db($connection_name);
 
         if (!$db) {
-            error_log("getselectfields: Could not establish a database connection.");
+            error_log("getselectfields: Could not establish a database connection using connection name '$connection_name'.");
             echo ''; // Return empty string on catastrophic failure
             return;
         }
@@ -142,7 +120,7 @@ class Ajax
                 }
                 $html .= '</optgroup>';
             } catch (PDOException $e) {
-                error_log("Field fetch error for table '$table' in getselectfields: ".$e->getMessage());
+                error_log("Field fetch error for table '$table' in getselectfields on connection '$connection_name': ".$e->getMessage());
             }
         }
     

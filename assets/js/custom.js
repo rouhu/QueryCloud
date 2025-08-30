@@ -451,281 +451,199 @@ $('body').on('click', '.btn-run-saved-query', function(e) {
 // --- Reusable function to open and populate VQB Modal ---
 function openVisualQueryBuilderModal(visualParamsObj, queryId, queryName, isEditingSaved, dataSourceId) {
     var $modal = $('#modal-visual-query');
-    
-    // Clear/Reset VQB form elements (important before populating)
-    // Non-aggregated fields
-    $modal.find('select.fields').val(null).trigger('change.select2');
-    // Aggregated fields
-    $('#aggregateFieldsContainer').empty();
-    // WHERE conditions
-    $('#modal-visual-query form .parent').not('#fieldClone, #fieldCloneTable, #fieldCloneAggregate, #fieldCloneHaving, #orderby, #group, #limit').remove(); // remove only cloned condition rows
-    // ORDER BY
-    $modal.find('select.orderfields').val(null).trigger('change.select2');
-    $modal.find('input[name="chkDescending"]').prop('checked', false);
-    $('#orderby').hide(); // Hide the section if it was shown
-    // GROUP BY
-    $modal.find('select.groupfields').val(null).trigger('change.select2');
-    $('#group').hide();
-    // LIMIT
-    $modal.find('input[name="limitStart"]').val('');
-    $modal.find('input[name="limitNumRows"]').val('');
-    $('#limit').hide();
-    // HAVING Conditions
-    $('#havingConditionsContainer').empty();
-    // Clear existing join rows
-    $modal.find('.cloned-join-row').remove();
 
-
-    // Set primary table context
-    __table = visualParamsObj.primaryTable || '';
-    $modal.find('.vqb-table-name').text('Table: ' + (__table ? __table.toUpperCase() : 'UNKNOWN'));
-    // TODO: Update modal title if queryName is provided: $modal.find('.modal-title').text('Editing: ' + queryName);
-
-    // Store queryId if editing a saved query
-    if (isEditingSaved && queryId) {
-        $modal.find('#visual_query_id_edit').val(queryId);
-    } else {
-        $modal.find('#visual_query_id_edit').val(''); // Clear if not editing a saved one
+    // Helper to check for valid <option> HTML
+    function _hasValidTableOptions(htmlString) {
+        return htmlString && typeof htmlString === 'string' && htmlString.indexOf('<option') !== -1;
     }
 
-    // Set VQB form action
-    if (__table) {
-        var formActionUrl = base + '/table/' + __table;
-        $modal.find('form').attr('action', formActionUrl);
-        console.log("VQB form action set to:", formActionUrl);
-    } else {
-        console.error("VQB: __table is not defined, cannot set form action. Submitting to current page.");
-        $modal.find('form').attr('action', '');
-    }
+    // Main logic to populate and show the modal, moved into a function
+    function _populateAndShowModal(tablesOptionsHtml) {
+        // Clear/Reset VQB form elements
+        $modal.find('select.fields').val(null).trigger('change.select2');
+        $('#aggregateFieldsContainer').empty();
+        $('#modal-visual-query form .parent').not('#fieldClone, #fieldCloneTable, #fieldCloneAggregate, #fieldCloneHaving, #orderby, #group, #limit').remove();
+        $modal.find('select.orderfields').val(null).trigger('change.select2');
+        $modal.find('input[name="chkDescending"]').prop('checked', false);
+        $('#orderby').hide();
+        $modal.find('select.groupfields').val(null).trigger('change.select2');
+        $('#group').hide();
+        $modal.find('input[name="limitStart"]').val('');
+        $modal.find('input[name="limitNumRows"]').val('');
+        $('#limit').hide();
+        $('#havingConditionsContainer').empty();
+        $modal.find('.cloned-join-row').remove();
 
-    // Determine currentTableOptions for join dropdowns
-    var currentTableOptions = '';
-    // Helper function (defined within .btn-edit-saved-query previously, needs to be accessible or redefined)
-    // For simplicity, assuming hasValidTableOptions is globally available or we inline a simplified check
-    function _hasValidTableOptions(htmlString) { // Simplified local version
-        return htmlString && typeof htmlString === 'string' && htmlString.indexOf('<option') !== -1 && $(htmlString).length > 1;
-    }
-
-    if (_hasValidTableOptions(allTablesOptionsHTML)) {
-        currentTableOptions = allTablesOptionsHTML;
-    } else {
-        var templateTableOptions = $('#fieldCloneTable select.jointable').html();
-        if (_hasValidTableOptions(templateTableOptions)) {
-            currentTableOptions = templateTableOptions;
+        // Set primary table context
+        __table = visualParamsObj.primaryTable || '';
+        $modal.find('.vqb-table-name').text('Table: ' + (__table ? __table.toUpperCase() : 'UNKNOWN'));
+        if (isEditingSaved && queryId) {
+            $modal.find('#visual_query_id_edit').val(queryId);
         } else {
-            $.jGrowl('Error: Could not find a valid table list for VQB.', { header: 'Error', theme: 'error' });
-            // Do not show modal if table options are missing
-            return;
+            $modal.find('#visual_query_id_edit').val('');
         }
-    }
-    if (allTablesOptionsHTML !== currentTableOptions && _hasValidTableOptions(currentTableOptions)) {
-        allTablesOptionsHTML = currentTableOptions; // Ensure global one is updated if template was better
-    }
 
-    // Populate Joins
-    if (visualParamsObj.jointype && Array.isArray(visualParamsObj.jointype)) {
-        var $joinTemplate = $('#fieldCloneTable');
-        visualParamsObj.jointype.forEach(function(type, idx) {
-            var $clone = $joinTemplate.clone().removeAttr('id').addClass('cloned-join-row');
-            $clone.find('select.jointype').val(type);
-            var $tableSelect = $clone.find('select.jointable');
-            $tableSelect.html(currentTableOptions).val(visualParamsObj.jointable[idx]);
+        if (__table) {
+            $modal.find('form').attr('action', base + '/table/' + __table);
+        } else {
+            $modal.find('form').attr('action', '');
+        }
 
-            $('#btnJoinTable').before($clone); // Insert before the button
-            
-            $clone.find('select').each(function() {
-                if ($(this).data('select2')) $(this).select2('destroy');
-                $(this).select2({ placeholder: 'Choose', allowClear: true });
-            });
-            $clone.show(); // Ensure it's visible
+        // Populate Joins
+        if (visualParamsObj.jointype && Array.isArray(visualParamsObj.jointype)) {
+            var $joinTemplate = $('#fieldCloneTable');
+            visualParamsObj.jointype.forEach(function(type, idx) {
+                var $clone = $joinTemplate.clone().removeAttr('id').addClass('cloned-join-row');
+                $clone.find('select.jointype').val(type);
+                var $tableSelect = $clone.find('select.jointable');
+                $tableSelect.html(tablesOptionsHtml).val(visualParamsObj.jointable[idx]); // Use the passed in HTML
 
-            populateJoinFieldDropdown(
-                $clone.find('select.joinfieldselected'),
-                visualParamsObj.jointable[idx],
-                visualParamsObj.joinfield[idx],
-                function(success) {
-                    // if (success) {
-                    //     // Value for joinfieldmain will be set after addTablesToDropdown completes for all fields
-                    // }
-                    // Still trigger change for the joinfieldselected that was just populated
-                    $clone.find('select.joinfieldselected').trigger('change.select2');
+                $('#btnJoinTable').before($clone);
+
+                $clone.find('select').each(function() {
+                    if ($(this).data('select2')) $(this).select2('destroy');
+                    $(this).select2({ placeholder: 'Choose', allowClear: true });
+                });
+                $clone.show();
+
+                populateJoinFieldDropdown(
+                    $clone.find('select.joinfieldselected'),
+                    visualParamsObj.jointable[idx],
+                    visualParamsObj.joinfield[idx]
+                );
+                if (visualParamsObj.joinfieldp && visualParamsObj.joinfieldp[idx]) {
+                    $clone.find('select.joinfieldmain').data('saved-value', visualParamsObj.joinfieldp[idx]);
                 }
-            );
-            // Store the target value for joinfieldp (primary table's field) on the element itself
-            // It will be applied after addTablesToDropdown finishes loading all options.
-            if (visualParamsObj.joinfieldp && visualParamsObj.joinfieldp[idx]) {
-                $clone.find('select.joinfieldmain').data('saved-value', visualParamsObj.joinfieldp[idx]);
+            });
+        }
+
+        // Load options for all field dropdowns and then populate other VQB elements
+        addTablesToDropdown(dataSourceId, function(success, fieldOptionsHtml) {
+            if (success && fieldOptionsHtml) {
+                if (visualParamsObj.fields && Array.isArray(visualParamsObj.fields)) {
+                    $modal.find('select[name="fields[]"]').val(visualParamsObj.fields).trigger('change.select2');
+                }
+                $modal.find('.cloned-join-row').each(function() {
+                    var $clonedJoinRow = $(this);
+                    var $joinfieldmainSelect = $clonedJoinRow.find('select.joinfieldmain');
+                    var savedValue = $joinfieldmainSelect.data('saved-value');
+                    if (savedValue) {
+                        $joinfieldmainSelect.val(savedValue).trigger('change.select2');
+                    }
+                });
+
+                if (visualParamsObj.fname && Array.isArray(visualParamsObj.fname)) {
+                    visualParamsObj.fname.forEach(function(name, idx){
+                        if(name && visualParamsObj.fvalue[idx]){
+                            var $c = $('#fieldClone').clone().removeAttr('id').show();
+                            var $fnameSelect = $c.find('select.fname');
+                            var $ftypeSelect = $c.find('select[name="ftype[]"]');
+                            if ($fnameSelect.data('select2')) $fnameSelect.select2('destroy');
+                            if ($ftypeSelect.data('select2')) $ftypeSelect.select2('destroy');
+                            $fnameSelect.html(fieldOptionsHtml);
+                            $fnameSelect.val(name);
+                            $c.find('input[name="fvalue[]"]').val(visualParamsObj.fvalue[idx]);
+                            if (idx > 0 && visualParamsObj.ftype[idx]) {
+                                 $ftypeSelect.val(visualParamsObj.ftype[idx]);
+                            }
+                            $('#btnAddWhere').after($c);
+                            $fnameSelect.select2({ placeholder: 'Choose Field', allowClear: true });
+                            $ftypeSelect.select2();
+                            $fnameSelect.trigger('change');
+                            $ftypeSelect.trigger('change');
+                        }
+                    });
+                }
+
+                 if (visualParamsObj.agg_field && Array.isArray(visualParamsObj.agg_field)) {
+                    var $aggContainer = $('#aggregateFieldsContainer');
+                    visualParamsObj.agg_field.forEach(function(fieldValue, idx) {
+                        if (fieldValue && visualParamsObj.agg_func[idx]) {
+                            var $aggClone = $('#fieldCloneAggregate').clone().removeAttr('id').show();
+                            var $aggFieldSelect = $aggClone.find('.agg_field');
+                            var $aggFuncSelect = $aggClone.find('.agg_func');
+                            if ($aggFieldSelect.data('select2')) $aggFieldSelect.select2('destroy');
+                            if ($aggFuncSelect.data('select2')) $aggFuncSelect.select2('destroy');
+                            $aggFieldSelect.html(fieldOptionsHtml);
+                            $aggFieldSelect.val(fieldValue);
+                            $aggFuncSelect.val(visualParamsObj.agg_func[idx]);
+                            $aggClone.find('.agg_alias').val(visualParamsObj.agg_alias[idx] || '');
+                            $aggContainer.append($aggClone);
+                            $aggFieldSelect.select2({ placeholder: 'Select Field', allowClear: true });
+                            $aggFuncSelect.select2();
+                            $aggFieldSelect.trigger('change');
+                            $aggFuncSelect.trigger('change');
+                        }
+                    });
+                }
+
+                if (visualParamsObj.groupfields && Array.isArray(visualParamsObj.groupfields) && visualParamsObj.groupfields.length > 0) {
+                    $modal.find('select.groupfields').val(visualParamsObj.groupfields).trigger('change.select2');
+                    $('#group').show();
+                }
+
+                 if (visualParamsObj.orderfields && Array.isArray(visualParamsObj.orderfields) && visualParamsObj.orderfields.length > 0) {
+                    $modal.find('select.orderfields').val(visualParamsObj.orderfields).trigger('change.select2');
+                    if (visualParamsObj.chkDescending === 'on' || visualParamsObj.chkDescending === true) {
+                        $modal.find('input[name="chkDescending"]').prop('checked', true);
+                    } else {
+                        $modal.find('input[name="chkDescending"]').prop('checked', false);
+                    }
+                    $('#orderby').show();
+                }
+
+                if (visualParamsObj.limitStart || visualParamsObj.limitNumRows) {
+                     $modal.find('input[name="limitStart"]').val(visualParamsObj.limitStart || '');
+                     $modal.find('input[name="limitNumRows"]').val(visualParamsObj.limitNumRows || '');
+                     $('#limit').show();
+                }
+
+                if (visualParamsObj.hfname && Array.isArray(visualParamsObj.hfname)) {
+                    visualParamsObj.hfname.forEach(function(name, idx){
+                         if(name && visualParamsObj.hfvalue[idx]){
+                            var $hClone = $('#fieldCloneHaving').clone().removeAttr('id').show();
+                            $hClone.find('select.hfname').val(name);
+                            $hClone.find('input[name="hfvalue[]"]').val(visualParamsObj.hfvalue[idx]);
+                             if(idx > 0 && visualParamsObj.htype[idx]) {
+                                 $hClone.find('select[name="htype[]"]').val(visualParamsObj.htype[idx]);
+                             }
+                            $hClone.find('.select2-container').remove();
+                            var $hfnameSelectInClone = $hClone.find('select.hfname');
+                            if ($hfnameSelectInClone.data('select2')) {
+                                $hfnameSelectInClone.select2('destroy');
+                            }
+                            $hfnameSelectInClone.data('intended-value', name);
+                            $('#havingConditionsContainer').append($hClone);
+                        }
+                    });
+                }
+                updateHavingFieldNameOptions();
+            } else {
+                $.jGrowl('Warning: VQB fields may not be fully loaded.', { header: 'Warning' });
             }
+            $modal.modal('show');
         });
     }
 
-    // Load options for all field dropdowns and then populate other VQB elements
-    addTablesToDropdown(dataSourceId, function(success, fieldOptionsHtml) { // <-- Accept fieldOptionsHtml here
-        if (success && fieldOptionsHtml) { // <-- Check if fieldOptionsHtml is valid
-            // Non-aggregated fields - targeting specifically by name to avoid conflict with other selects that might have '.fields' class
-            if (visualParamsObj.fields && Array.isArray(visualParamsObj.fields)) {
-                $modal.find('select[name="fields[]"]').val(visualParamsObj.fields).trigger('change.select2');
-            }
-
-            // After all options are loaded by addTablesToDropdown,
-            // now set the saved values for joinfieldmain in each cloned join row.
-            $modal.find('.cloned-join-row').each(function() {
-                var $clonedJoinRow = $(this);
-                var $joinfieldmainSelect = $clonedJoinRow.find('select.joinfieldmain');
-                var savedValue = $joinfieldmainSelect.data('saved-value');
-                if (savedValue) {
-                    $joinfieldmainSelect.val(savedValue).trigger('change.select2');
-                }
-            });
-
-            // TODO: Populate WHERE conditions (dynamic rows)
-            // Iterate visualParamsObj.fname, fvalue, ftype. For each, clone #fieldClone, set values, append.
-            if (visualParamsObj.fname && Array.isArray(visualParamsObj.fname)) {
-                visualParamsObj.fname.forEach(function(name, idx){
-                    if(name && visualParamsObj.fvalue[idx]){ // Ensure field and value exist for the current condition
-                        var $c = $('#fieldClone').clone().removeAttr('id').show();
-                        var $fnameSelect = $c.find('select.fname');
-                        var $ftypeSelect = $c.find('select[name="ftype[]"]'); //
-
-                        // Destroy Select2 instance from clone template if any
-                        if ($fnameSelect.data('select2')) $fnameSelect.select2('destroy');
-                        if ($ftypeSelect.data('select2')) $ftypeSelect.select2('destroy'); // ftype is also a select
-
-                        // Populate options for the .fname select using fieldOptionsHtml
-                        $fnameSelect.html(fieldOptionsHtml);
-
-                        // Set values
-                        $fnameSelect.val(name);
-                        $c.find('input[name="fvalue[]"]').val(visualParamsObj.fvalue[idx]);
-
-                        // Set ftype (AND/OR connector)
-                        // ftype[idx] links this condition to the previous one if idx > 0.
-                        // The first condition (idx=0) doesn't use ftype from its own index.
-                        // The template #fieldClone has ftype[0] selected as 'AND' by default.
-                        // If it's not the first condition, set its ftype. Otherwise, template default is fine.
-                        if (idx > 0 && visualParamsObj.ftype[idx]) {
-                             $ftypeSelect.val(visualParamsObj.ftype[idx]);
-                        }
-                        // For idx === 0, the ftype in visualParamsObj.ftype[0] (if it exists from an old save)
-                        // is not used to prefix the very first condition. The template's default 'AND' for ftype
-                        // is usually hidden or only relevant if it's NOT the first visible condition.
-                        // The current logic for adding NEW rows also makes the first ftype non-impactful.
-                        // So, we only need to explicitly set ftype if idx > 0 and visualParamsObj.ftype[idx] is available.
-
-                        $('#btnAddWhere').after($c); // Add new condition row (note: after() adds it *after* #btnAddWhere,
-                                                     // which means conditions appear in reverse order of processing.
-                                                     // To maintain order, should use a container and .append() or .prepend() to container.)
-                                                     // For now, keeping existing .after() behavior.
-
-                        // Initialize Select2
-                        var fnamePlaceholder = $fnameSelect.data('placeholder') || 'Choose Field';
-                        $fnameSelect.select2({ placeholder: fnamePlaceholder, allowClear: true });
-                        $ftypeSelect.select2(); // Basic init for ftype
-
-                        // Trigger change for Select2 display and any dependent logic
-                        $fnameSelect.trigger('change');
-                        $ftypeSelect.trigger('change');
-                    }
+    // If we don't have the table options for joins, and we are on the dashboard (indicated by a valid dataSourceId), fetch them.
+    if (!_hasValidTableOptions(allTablesOptionsHTML) && dataSourceId) {
+        $.post(base + '/ajax/get_tables_for_data_source', { data_source_id: dataSourceId }, function (response) {
+            if (response.status === 'success' && response.tables) {
+                let optionsHtml = '<option value="">Choose Table</option>';
+                response.tables.forEach(function(table) {
+                    optionsHtml += '<option value="' + escapeHtml(table) + '">' + escapeHtml(table) + '</option>';
                 });
+                _populateAndShowModal(optionsHtml);
+            } else {
+                $.jGrowl('Failed to load table list for VQB.', { header: 'Error', theme: 'error' });
             }
-
-
-            // TODO: Populate Aggregated Fields (dynamic rows)
-             if (visualParamsObj.agg_field && Array.isArray(visualParamsObj.agg_field)) {
-                var $aggContainer = $('#aggregateFieldsContainer');
-                visualParamsObj.agg_field.forEach(function(fieldValue, idx) {
-                    if (fieldValue && visualParamsObj.agg_func[idx]) {
-                        var $aggClone = $('#fieldCloneAggregate').clone().removeAttr('id').show();
-                        var $aggFieldSelect = $aggClone.find('.agg_field');
-                        var $aggFuncSelect = $aggClone.find('.agg_func');
-
-                        // Destroy any select2 instance from the template clone
-                        if ($aggFieldSelect.data('select2')) $aggFieldSelect.select2('destroy');
-                        if ($aggFuncSelect.data('select2')) $aggFuncSelect.select2('destroy');
-
-                        // Populate options for the .agg_field select using fieldOptionsHtml
-                        $aggFieldSelect.html(fieldOptionsHtml);
-
-                        // Now set the values
-                        $aggFieldSelect.val(fieldValue);
-                        $aggFuncSelect.val(visualParamsObj.agg_func[idx]);
-                        $aggClone.find('.agg_alias').val(visualParamsObj.agg_alias[idx] || '');
-
-                        $aggContainer.append($aggClone);
-
-                        // Initialize Select2 for these specific dropdowns
-                        var aggFieldPlaceholder = $aggFieldSelect.data('placeholder') || 'Select Field';
-                        $aggFieldSelect.select2({ placeholder: aggFieldPlaceholder, allowClear: true });
-
-                        $aggFuncSelect.select2(); // Basic initialization for agg_func
-
-                        // Trigger change for Select2 to correctly render the selection
-                        // and for any dependent logic (like updateHavingFieldNameOptions)
-                        // Important to trigger *after* select2 is initialized
-                        $aggFieldSelect.trigger('change');
-                        $aggFuncSelect.trigger('change');
-                    }
-                });
-            }
-
-
-            // TODO: Populate GROUP BY fields
-            if (visualParamsObj.groupfields && Array.isArray(visualParamsObj.groupfields) && visualParamsObj.groupfields.length > 0) {
-                $modal.find('select.groupfields').val(visualParamsObj.groupfields).trigger('change.select2');
-                $('#group').show();
-            }
-
-            // TODO: Populate ORDER BY fields
-             if (visualParamsObj.orderfields && Array.isArray(visualParamsObj.orderfields) && visualParamsObj.orderfields.length > 0) {
-                $modal.find('select.orderfields').val(visualParamsObj.orderfields).trigger('change.select2');
-                if (visualParamsObj.chkDescending === 'on' || visualParamsObj.chkDescending === true) {
-                    $modal.find('input[name="chkDescending"]').prop('checked', true);
-                } else {
-                    $modal.find('input[name="chkDescending"]').prop('checked', false);
-                }
-                $('#orderby').show();
-            }
-
-            // TODO: Populate LIMIT
-            if (visualParamsObj.limitStart || visualParamsObj.limitNumRows) {
-                 $modal.find('input[name="limitStart"]').val(visualParamsObj.limitStart || '');
-                 $modal.find('input[name="limitNumRows"]').val(visualParamsObj.limitNumRows || '');
-                 $('#limit').show();
-            }
-
-            // TODO: Populate HAVING conditions (dynamic rows)
-            if (visualParamsObj.hfname && Array.isArray(visualParamsObj.hfname)) {
-                visualParamsObj.hfname.forEach(function(name, idx){
-                     if(name && visualParamsObj.hfvalue[idx]){
-                        var $hClone = $('#fieldCloneHaving').clone().removeAttr('id').show();
-                        $hClone.find('select.hfname').val(name); // Options for hfname are updated by updateHavingFieldNameOptions
-                        $hClone.find('input[name="hfvalue[]"]').val(visualParamsObj.hfvalue[idx]);
-                         if(idx > 0 && visualParamsObj.htype[idx]) {
-                             $hClone.find('select[name="htype[]"]').val(visualParamsObj.htype[idx]);
-                         }
-                        // Clean the clone before appending
-                        $hClone.find('.select2-container').remove();
-                        var $hfnameSelectInClone = $hClone.find('select.hfname');
-                        if ($hfnameSelectInClone.data('select2')) {
-                            $hfnameSelectInClone.select2('destroy');
-                        }
-                        // Note: Options for $hfnameSelectInClone will be set by the subsequent updateHavingFieldNameOptions call.
-                        // Store the intended value. updateHavingFieldNameOptions will use this after populating options.
-                        $hfnameSelectInClone.data('intended-value', name);
-                        // Do not set .val() here as options are not populated yet.
-
-                        $('#havingConditionsContainer').append($hClone);
-                        // DO NOT initialize Select2 here; updateHavingFieldNameOptions will handle all .hfname in the container.
-                    }
-                });
-            }
-            updateHavingFieldNameOptions(); // Call this after aggregates and groups are potentially populated
-
-        } else {
-            $.jGrowl('Warning: VQB fields may not be fully loaded.', { header: 'Warning' });
-        }
-        $modal.modal('show');
-    });
+        }, 'json').fail(function() {
+            $.jGrowl('AJAX error loading table list for VQB.', { header: 'Error', theme: 'error' });
+        });
+    } else {
+        // If we already have the table options, or are not on the dashboard, just proceed
+        _populateAndShowModal(allTablesOptionsHTML);
+    }
 }
 
 
