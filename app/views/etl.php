@@ -48,6 +48,21 @@
                             </div>
                         </div>
 
+                        <div class="form-group">
+                            <label for="etl_type" class="col-sm-3 control-label">ETL Type</label>
+                            <div class="col-sm-6">
+                                <select class="form-control" id="etl_type" name="etl_type">
+                                    <option value="insert_only" <?php echo (isset($etl_config['etl_type']) && $etl_config['etl_type'] == 'insert_only') ? 'selected' : ''; ?>>
+                                        Insert Only
+                                    </option>
+                                    <option value="update_or_insert" <?php echo (isset($etl_config['etl_type']) && $etl_config['etl_type'] == 'update_or_insert') ? 'selected' : ''; ?>>
+                                        Update or Insert
+                                    </option>
+                                </select>
+                                <p class="help-block">"Insert Only" adds new records. "Update or Insert" will update existing records based on a key or insert new ones.</p>
+                            </div>
+                        </div>
+
                         <hr>
                         <h4>Column Mapping:</h4>
                         <div id="column-mapping-container" class="col-sm-offset-1 col-sm-10">

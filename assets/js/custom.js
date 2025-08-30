@@ -1186,30 +1186,39 @@ $(document).ready(function() {
             dataType: 'json',
             success: function(response) {
                 if (response.status === 'success') {
-                    var html = '<div class="row">';
-                    html += '<div class="col-sm-6"><strong>Source Column (from Query)</strong></div>';
-                    html += '<div class="col-sm-6"><strong>Destination Column (from Table)</strong></div>';
+                    var html = '<div class="row mapping-header">';
+                    html += '<div class="col-sm-5"><strong>Source Column (from Query)</strong></div>';
+                    html += '<div class="col-sm-5"><strong>Destination Column (from Table)</strong></div>';
+                    html += '<div class="col-sm-2 key-column"><strong>Is Key?</strong></div>';
                     html += '</div><hr style="margin-top: 5px; margin-bottom: 10px;">';
 
                     response.source_columns.forEach(function(sourceCol) {
+                        var savedMapping = (typeof etlConfig !== 'undefined' && etlConfig.column_mapping) ? etlConfig.column_mapping[sourceCol] : null;
+                        var savedKeys = (typeof etlConfig !== 'undefined' && etlConfig.key_columns) ? etlConfig.key_columns : [];
+
                         html += '<div class="form-group row">';
-                        html += '  <div class="col-sm-6">';
+                        html += '  <div class="col-sm-5">';
                         html += '    <input type="text" class="form-control" value="' + escapeHtml(sourceCol) + '" readonly>';
                         html += '  </div>';
-                        html += '  <div class="col-sm-6">';
+                        html += '  <div class="col-sm-5">';
                         html += '    <select class="form-control" name="column_mapping[' + escapeHtml(sourceCol) + ']">';
                         html += '      <option value="">-- Do Not Map --</option>';
                         response.destination_columns.forEach(function(destCol) {
-                            var savedMapping = (typeof etlConfig !== 'undefined' && etlConfig.column_mapping) ? etlConfig.column_mapping[sourceCol] : null;
                             var selected = (destCol === savedMapping || destCol === sourceCol) ? ' selected' : '';
                             html += '<option value="' + escapeHtml(destCol) + '"' + selected + '>' + escapeHtml(destCol) + '</option>';
                         });
                         html += '    </select>';
                         html += '  </div>';
+                        html += '  <div class="col-sm-2 key-column">';
+                        var isChecked = savedKeys.includes(sourceCol) ? ' checked' : '';
+                        html += '    <input type="checkbox" name="key_columns[]" value="' + escapeHtml(sourceCol) + '"' + isChecked + '>';
+                        html += '  </div>';
                         html += '</div>';
                     });
 
                     $mappingContainer.html(html);
+                    // Trigger etl_type change to set initial visibility of key column
+                    $('#etl_type').trigger('change');
                 } else {
                     $mappingContainer.html('<p class="text-danger">Error: ' + response.message + '</p>');
                 }
@@ -1218,6 +1227,17 @@ $(document).ready(function() {
                 $mappingContainer.html('<p class="text-danger">An AJAX error occurred while fetching column data.</p>');
             }
         });
+    });
+
+    // ETL Page: Toggle key column visibility based on ETL type
+    $('body').on('change', '#etl_type', function() {
+        if ($(this).val() === 'update_or_insert') {
+            $('.key-column').show();
+        } else {
+            $('.key-column').hide();
+            // Uncheck all key columns when switching back to insert only
+            $('.key-column input[type="checkbox"]').prop('checked', false);
+        }
     });
 });
 
