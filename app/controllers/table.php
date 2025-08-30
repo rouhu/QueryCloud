@@ -156,29 +156,28 @@ class Table
         $connection_name = self::get_data_source_connection_name($source_connection_id);
         $db = ORM::get_db($connection_name);
 
-        // Extract table name from query
-        $matches = [];
-        preg_match('/from\s+`?([a-zA-Z0-9_]+)`?/i', $query, $matches);
-        $tableName = $matches[1] ?? null;
-
-        if (!$tableName) {
-            setFlashMessage('Error: Could not determine table name from the query.');
-            Flight::redirect('/dashboard');
-            return;
-        }
-
-        // Get table columns
+        $tableName = null;
+        $fields = [];
         try {
-            $stmt = $db->query("DESCRIBE `$tableName`");
-            $columns = $stmt->fetchAll(PDO::FETCH_ASSOC);
-            $fields = array_column($columns, 'Field');
+            // Extract table name from query
+            $matches = [];
+            preg_match('/from\s+`?([a-zA-Z0-9_]+)`?/i', $query, $matches);
+            $tableName = $matches[1] ?? null;
+
+            if ($tableName) {
+                // Get table columns
+                $stmt = $db->query("DESCRIBE `$tableName`");
+                $columns = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                $fields = array_column($columns, 'Field');
+            }
         } catch (PDOException $e) {
-            setFlashMessage('Error describing table: ' . $e->getMessage());
-            Flight::redirect('/dashboard');
-            return;
+            // Log the error but don't block execution.
+            // The field dropdowns on the results page might be empty, but the query result will show.
+            error_log("Could not pre-fetch table fields for VQB in run_saved_query: " . $e->getMessage());
+            $fields = []; // Ensure fields is an empty array on error
         }
 
-        Flight::set('lastSegment', $tableName);
+        Flight::set('lastSegment', $tableName ?? 'custom_query');
         self::runQueryWithView($query, $fields, '', null, $running_saved_query_name, $connection_name);
     }
 
