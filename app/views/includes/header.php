@@ -62,7 +62,6 @@
             </li>
 
             <li style="padding: 0 20px 0px 0px;">
-                <label for="table_select" style="color: #fff; font-weight: bold;">Select Table</label>
                 <select id="table_select" name="table_select" class="form-control" style="width: 100%;">
                     <option value="">-- Choose a Table --</option>
                     <?php echo Flight::get('table_options'); ?>
