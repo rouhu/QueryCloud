@@ -448,7 +448,8 @@ $('body').on('click', '.btn-run-saved-query', function(e) {
 });
 
 // --- Reusable function to open and populate VQB Modal ---
-function openVisualQueryBuilderModal(visualParamsObj, queryId, queryName, isEditingSaved) {
+// --- Reusable function to open and populate VQB Modal ---
+function openVisualQueryBuilderModal(visualParamsObj, queryId, queryName, isEditingSaved, dataSourceId) {
     var $modal = $('#modal-visual-query');
     
     // Clear/Reset VQB form elements (important before populating)
@@ -559,7 +560,7 @@ function openVisualQueryBuilderModal(visualParamsObj, queryId, queryName, isEdit
     }
 
     // Load options for all field dropdowns and then populate other VQB elements
-    addTablesToDropdown(function(success, fieldOptionsHtml) { // <-- Accept fieldOptionsHtml here
+    addTablesToDropdown(dataSourceId, function(success, fieldOptionsHtml) { // <-- Accept fieldOptionsHtml here
         if (success && fieldOptionsHtml) { // <-- Check if fieldOptionsHtml is valid
             // Non-aggregated fields - targeting specifically by name to avoid conflict with other selects that might have '.fields' class
             if (visualParamsObj.fields && Array.isArray(visualParamsObj.fields)) {
@@ -743,7 +744,7 @@ $('body').on('click', '.btn-edit-saved-query', function() {
         if (queryData.visual_params) {
             try {
                 var parsedParams = JSON.parse(queryData.visual_params);
-                openVisualQueryBuilderModal(parsedParams, queryId, queryName, true);
+                openVisualQueryBuilderModal(parsedParams, queryId, queryName, true, queryData.source_connection_id);
             } catch (e) {
                 console.error("Error parsing visual_params for saved query:", e);
                 $.jGrowl('Error loading visual query data. Opening as SQL.', { header: 'Error' });
@@ -1635,7 +1636,7 @@ $('#addjoinedtablefields').click(function(event) {
 
 // dynamically populate dropdowns for selected tables for visual query
 // Takes an optional callback function to execute after dropdowns are populated and initialized
-function addTablesToDropdown(callback) {
+function addTablesToDropdown(dataSourceId, callback) {
     // __table should be the primary table for the VQB context.
     // Ensure __table is defined and not empty. If not, we can't proceed.
     if (typeof __table === 'undefined' || !__table) {
@@ -1661,7 +1662,7 @@ function addTablesToDropdown(callback) {
     // console.log('Final Tables Sent for getselectfields:', selectedTables);
 
     if (selectedTables.length > 0) {
-        const postData = {"tables": JSON.stringify(selectedTables)};
+        const postData = {"tables": JSON.stringify(selectedTables), "data_source_id": dataSourceId};
 
         $.post(base + '/ajax/getselectfields', postData, function(response) {
             // console.log('Server Response for getselectfields:', response);
