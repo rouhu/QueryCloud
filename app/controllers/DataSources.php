@@ -27,6 +27,7 @@ class DataSources
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $source = ORM::for_table('data_sources')->create();
             $source->source_name = $_POST['source_name'];
+            $source->db_type = $_POST['db_type'];
             $source->db_host = $_POST['db_host'];
             $source->db_port = $_POST['db_port'];
             $source->db_name = $_POST['db_name'];

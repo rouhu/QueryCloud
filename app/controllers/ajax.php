@@ -32,13 +32,12 @@ class Ajax
                     $password = toggleEncryption($source->db_password);
 
                     // Create a temporary connection to the data source
-                    ORM::configure('mysql:host=' . $source->db_host . ';dbname=' . $source->db_name, null, 'temp_connection');
+                    ORM::configure(get_dsn($source), null, 'temp_connection');
                     ORM::configure('username', $source->db_user, 'temp_connection');
                     ORM::configure('password', $password, 'temp_connection');
 
                     $db = ORM::get_db('temp_connection');
-                    $stmt = $db->query('SHOW TABLES');
-                    $tables = $stmt->fetchAll(PDO::FETCH_COLUMN);
+                    $tables = get_tables($db, $source->db_type);
 
                     $response['status'] = 'success';
                     $response['message'] = 'Tables retrieved successfully.';
@@ -714,12 +713,11 @@ class Ajax
             }
 
             $decrypted_password = toggleEncryption($destination_db->db_password);
-            $dsn = "mysql:host={$destination_db->db_host};port={$destination_db->db_port};dbname={$destination_db->db_name};charset=utf8";
+            $dsn = get_dsn($destination_db);
             $pdo = new PDO($dsn, $destination_db->db_user, $decrypted_password);
             $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-            $stmt = $pdo->query("SHOW TABLES");
-            $tables = $stmt->fetchAll(PDO::FETCH_COLUMN);
+            $tables = get_tables($pdo, $destination_db->db_type);
 
             echo json_encode(array('status' => 'success', 'tables' => $tables));
 
@@ -755,7 +753,7 @@ class Ajax
             }
 
             $source_decrypted_password = toggleEncryption($source_db_details->db_password);
-            $source_dsn = "mysql:host={$source_db_details->db_host};port={$source_db_details->db_port};dbname={$source_db_details->db_name};charset=utf8";
+            $source_dsn = get_dsn($source_db_details);
             $source_pdo = new PDO($source_dsn, $source_db_details->db_user, $source_decrypted_password);
             $source_pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
@@ -774,7 +772,7 @@ class Ajax
                 throw new Exception("Destination database configuration not found.");
             }
             $decrypted_password = toggleEncryption($destination_db_details->db_password);
-            $dsn = "mysql:host={$destination_db_details->db_host};port={$destination_db_details->db_port};dbname={$destination_db_details->db_name};charset=utf8";
+            $dsn = get_dsn($destination_db_details);
             $dest_pdo = new PDO($dsn, $destination_db_details->db_user, $decrypted_password);
             $dest_pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 

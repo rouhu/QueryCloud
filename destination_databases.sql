@@ -1,6 +1,6 @@
-CREATE TABLE `data_sources` (
+CREATE TABLE `destination_databases` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
-  `source_name` varchar(255) NOT NULL,
+  `connection_name` varchar(255) NOT NULL,
   `db_type` varchar(255) NOT NULL,
   `db_host` varchar(255) NOT NULL,
   `db_port` varchar(255) DEFAULT NULL,
