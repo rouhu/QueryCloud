@@ -1012,6 +1012,7 @@ $('body').on('click', '#btnUpdateSavedQuery', function() {
         success: function(response) {
             if (response.status === 'success') {
                 $msgContainer.removeClass('alert-danger').addClass('alert-success').text(response.message).show();
+                var source = $('#modal-custom-query').data('source'); // Read source immediately
 
                 // Update cache for sql_query
                 var queryName = '';
@@ -1024,7 +1025,6 @@ $('body').on('click', '#btnUpdateSavedQuery', function() {
                 }
 
                 setTimeout(function() {
-                    var source = $('#modal-custom-query').data('source');
                     if (source === 'dashboard') {
                         location.reload(); // Just reload the dashboard
                     } else {
@@ -1039,8 +1039,8 @@ $('body').on('click', '#btnUpdateSavedQuery', function() {
                             'value': sqlQuery
                         })).append($('<input>', {
                             'type': 'hidden',
-                            'name': 'running_saved_query_name',
-                            'value': queryName
+                            'name': 'query_id',
+                            'value': queryId
                         }));
 
                         $('body').append($dynamicForm);
