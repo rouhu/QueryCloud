@@ -5,6 +5,7 @@ if (php_sapi_name() !== 'cli') {
 }
 
 require 'boot.php';
+require_once 'vendor/j4mie/idiorm/idiorm.php';
 
 // Set a default timezone if not set in php.ini
 date_default_timezone_set('UTC');
