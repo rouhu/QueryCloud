@@ -12,6 +12,13 @@
                             <input type="text" class="form-control" id="source_name" name="source_name" placeholder="e.g., Production OLTP" required>
                         </div>
                         <div class="form-group">
+                            <label for="db_type">Database Type</label>
+                            <select class="form-control" id="db_type" name="db_type" required>
+                                <option value="mysql">MySQL</option>
+                                <option value="postgresql">PostgreSQL</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
                             <label for="db_host">Host</label>
                             <input type="text" class="form-control" id="db_host" name="db_host" placeholder="e.g., 127.0.0.1" required>
                         </div>
@@ -44,6 +51,7 @@
                         <thead>
                             <tr>
                                 <th>Source Name</th>
+                                <th>Type</th>
                                 <th>Host</th>
                                 <th>Database</th>
                                 <th>User</th>
@@ -55,6 +63,7 @@
                                 <?php foreach ($sources as $source): ?>
                                     <tr>
                                         <td><?php echo htmlspecialchars($source->source_name, ENT_QUOTES, 'UTF-8'); ?></td>
+                                        <td><?php echo htmlspecialchars($source->db_type, ENT_QUOTES, 'UTF-8'); ?></td>
                                         <td><?php echo htmlspecialchars($source->db_host, ENT_QUOTES, 'UTF-8'); ?></td>
                                         <td><?php echo htmlspecialchars($source->db_name, ENT_QUOTES, 'UTF-8'); ?></td>
                                         <td><?php echo htmlspecialchars($source->db_user, ENT_QUOTES, 'UTF-8'); ?></td>

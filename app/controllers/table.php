@@ -22,7 +22,7 @@ class Table
                 try {
                     $password = toggleEncryption($source->db_password);
 
-                    ORM::configure('mysql:host=' . $source->db_host . ';dbname=' . $source->db_name, null, $connection_name);
+                    ORM::configure(get_dsn($source), null, $connection_name);
                     ORM::configure('username', $source->db_user, $connection_name);
                     ORM::configure('password', $password, $connection_name);
                     ORM::configure('logging', true, $connection_name);
@@ -43,11 +43,14 @@ class Table
         $connection_name = self::get_data_source_connection_name();
         $db = ORM::get_db($connection_name);
         $table = Flight::get('lastSegment',$name);
+
+        // Get data source type
+        $source = ORM::for_table('data_sources')->find_one($_SESSION['selected_data_source']);
+        $db_type = $source ? $source->db_type : 'mysql'; // Default to mysql if source not found
     
         try {
             // Get table structure
-            $stmt = $db->query("DESCRIBE `$table`");
-            $table_fields_data = $stmt->fetchAll(PDO::FETCH_ASSOC); // Renamed to avoid conflict with $fields later
+            $table_fields_data = get_table_columns($db, $db_type, $table);
             // Pass the table name to getOptions to generate qualified field names
             $fieldOptions = getOptions(array_column($table_fields_data, 'Field'), false, $table);
         } catch (PDOException $e) {
@@ -71,20 +74,25 @@ class Table
         // Checks whether or not user is logged in
         self::checkLogin();
 
-        // enable query profiling
-        $db->query('SET profiling = 1;');
+        $exec_time_row = [[null, 'N/A']]; // Default value
+        if ($db_type === 'mysql') {
+            // enable query profiling
+            $db->query('SET profiling = 1;');
 
-        // get specified table data as array
-        $records = ORM::for_table(Flight::get('lastSegment'), $connection_name)->find_array();
-        $the_query = ORM::get_last_query($connection_name);
-        //pretty_print($records);
+            // get specified table data as array
+            $records = ORM::for_table(Flight::get('lastSegment'), $connection_name)->find_array();
+            $the_query = ORM::get_last_query($connection_name);
 
-        // find out time above query was ran for
-        $exec_time_result = $db->query(
-           'SELECT query_id, SUM(duration) FROM information_schema.profiling GROUP BY query_id ORDER BY query_id DESC LIMIT 1;'
-        );
-
-        $exec_time_row = $exec_time_result->fetchAll(PDO::FETCH_NUM);
+            // find out time above query was ran for
+            $exec_time_result = $db->query(
+               'SELECT query_id, SUM(duration) FROM information_schema.profiling GROUP BY query_id ORDER BY query_id DESC LIMIT 1;'
+            );
+            $exec_time_row = $exec_time_result->fetchAll(PDO::FETCH_NUM);
+        } else {
+            // For other DBs, just get the data without profiling
+            $records = ORM::for_table(Flight::get('lastSegment'), $connection_name)->find_array();
+            $the_query = ORM::get_last_query($connection_name);
+        }
 
         // $fields_for_session is already populated from $table_fields_data earlier
         // No need for the second DESCRIBE query for $columns or re-populating $fields.
@@ -114,12 +122,8 @@ class Table
         $_db = Flight::get('db');
         $tablesOptionsHtmlForView = '<option value="">Error loading tables (Controller Default)</option>'; // Default
         try {
-            $allTablesStmt = $_db->query('SHOW TABLES');
-            $allTablesResult = $allTablesStmt->fetchAll(PDO::FETCH_NUM);
-            $tableNamesForOptions = [];
-            foreach ($allTablesResult as $row) {
-                $tableNamesForOptions[] = $row[0];
-            }
+            $source = ORM::for_table('data_sources')->find_one($_SESSION['selected_data_source']);
+            $tableNamesForOptions = get_tables($_db, $source->db_type);
             $currentTablesOptions = getOptions($tableNamesForOptions, true); // true for "Choose Table"
             if (!empty(trim($currentTablesOptions)) && strpos($currentTablesOptions, '<option') !== false) {
                 $tablesOptionsHtmlForView = $currentTablesOptions;
@@ -169,6 +173,10 @@ class Table
         $connection_name = self::get_data_source_connection_name($source_connection_id);
         $db = ORM::get_db($connection_name);
 
+        // Get data source type
+        $source = ORM::for_table('data_sources')->find_one($source_connection_id);
+        $db_type = $source ? $source->db_type : 'mysql';
+
         $tableName = null;
         $fields = [];
         try {
@@ -179,8 +187,7 @@ class Table
 
             if ($tableName) {
                 // Get table columns
-                $stmt = $db->query("DESCRIBE `$tableName`");
-                $columns = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                $columns = get_table_columns($db, $db_type, $tableName);
                 $fields = array_column($columns, 'Field');
             }
         } catch (PDOException $e) {
@@ -208,9 +215,12 @@ class Table
             $printArray = pretty_print($_POST, false, true);
         }
 
+        // Get data source type
+        $source = ORM::for_table('data_sources')->find_one($_SESSION['selected_data_source']);
+        $db_type = $source ? $source->db_type : 'mysql';
+
         // table columns
-        $stmt = $db->query("DESCRIBE " . Flight::get('lastSegment'));
-        $columns = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $columns = get_table_columns($db, $db_type, Flight::get('lastSegment'));
         //pretty_print($columns);
 
         $fields = array();
@@ -231,7 +241,7 @@ class Table
         else {
             // Use $primaryTableName which is Flight::get('lastSegment') in this context
             $primaryTableName = Flight::get('lastSegment');
-            $query = self::generateSqlFromVisualParams($_POST, $primaryTableName);
+            $query = self::generateSqlFromVisualParams($_POST, $primaryTableName, $db_type);
 
             // Collect visual parameters if this was a visual query build
             // Note: $_POST is passed directly to generateSqlFromVisualParams,
@@ -286,7 +296,7 @@ class Table
 
     }
 
-    public static function generateSqlFromVisualParams(array $params, string $primaryTableName): string
+    public static function generateSqlFromVisualParams(array $params, string $primaryTableName, string $db_type): string
     {
         $select_parts = [];
         $query = '';
@@ -324,26 +334,21 @@ class Table
                 }
 
                 $field_parts = explode('.', $field_name, 2);
-                $quoted_field_name = $field_name;
-                if (count($field_parts) == 2) {
-                    $quoted_field_name = "`" . str_replace("`", "``", $field_parts[0]) . "`.`" . str_replace("`", "``", $field_parts[1]) . "`";
-                } else {
-                    $quoted_field_name = "`" . str_replace("`", "``", $field_name) . "`";
-                }
+                $quoted_field_name = quote_identifier($field_name, $db_type);
 
                 $agg_string = $func . '(' . $quoted_field_name . ')';
 
                 if (!empty($alias)) {
                     $alias = preg_replace('/[^a-zA-Z0-9_]/', '', $alias);
                     if (!empty($alias)) {
-                        $agg_string .= ' AS `' . $alias . '`';
+                        $agg_string .= ' AS ' . quote_identifier($alias, $db_type);
                     } else {
                         $default_alias = strtolower($func . '_' . preg_replace('/[^a-zA-Z0-9_]/', '', $field_parts[1] ?? $field_name));
-                        $agg_string .= ' AS `' . $default_alias . '`';
+                        $agg_string .= ' AS ' . quote_identifier($default_alias, $db_type);
                     }
                 } else {
                     $default_alias = strtolower($func . '_' . preg_replace('/[^a-zA-Z0-9_]/', '', $field_parts[1] ?? $field_name));
-                    $agg_string .= ' AS `' . $default_alias . '`';
+                    $agg_string .= ' AS ' . quote_identifier($default_alias, $db_type);
                 }
                 $select_parts[] = $agg_string;
             }
@@ -355,7 +360,7 @@ class Table
             $query = 'SELECT ' . implode(', ', $select_parts);
         }
 
-        $query .= ' FROM `' . str_replace("`", "``", $primaryTableName) . '`';
+        $query .= ' FROM ' . quote_identifier($primaryTableName, $db_type);
 
         // Joins
         if (!empty($params['jointype']) && is_array($params['jointype'])) {
@@ -364,20 +369,14 @@ class Table
                     continue;
                 }
                 $query .= ' ' . $value . ' '; // $value is jointype
-                $query .= '`' . str_replace('`', '``', $params['jointable'][$key]) . '`';
+                $query .= quote_identifier($params['jointable'][$key], $db_type);
 
                 if (!empty($params['joinfieldp'][$key]) && !empty($params['joinfield'][$key])) {
                     $primary_join_field = $params['joinfieldp'][$key];
-                    if (strpos($primary_join_field, '.') !== false) {
-                        list($pt_table, $pt_col) = explode('.', $primary_join_field, 2);
-                        $primary_join_field_sql = '`' . str_replace('`', '``', $pt_table) . '`.`' . str_replace('`', '``', $pt_col) . '`';
-                    } else {
-                        $primary_join_field_sql = '`' . str_replace('`', '``', $primaryTableName) . '`.`' . str_replace('`', '``', $primary_join_field) . '`';
-                    }
+                    $primary_join_field_sql = quote_identifier($primary_join_field, $db_type);
 
                     $secondary_join_field = $params['joinfield'][$key];
-                    // Note: joinfield from VQB is usually not qualified, it's a field from jointable[$key]
-                     $secondary_join_field_sql = '`' . str_replace('`', '``', $params['jointable'][$key]) . '`.`' . str_replace('`', '``', $secondary_join_field) . '`';
+                    $secondary_join_field_sql = quote_identifier($params['jointable'][$key] . '.' . $secondary_join_field, $db_type);
 
                     $query .= ' ON ' . $primary_join_field_sql . ' = ' . $secondary_join_field_sql;
                 }
@@ -391,12 +390,6 @@ class Table
                 if (!empty($params['fvalue'][$key])) { // Ensure there's a value for the condition
                     $condition = $value . $params['fvalue'][$key]; // $value is field name, fvalue has operator + value
                     if (isset($params['ftype'][$key]) && $key > 0 && count($where_conditions) > 0) { // ftype is for condition linking (AND/OR)
-                         // ftype is actually for the *next* condition, so it should be used for $params['ftype'][$key] to link to previous
-                         // This part of original logic might be slightly off. For safety, let's assume ftype[$key] links the current to previous.
-                         // A more robust way is to ensure ftype array is correctly aligned or build conditions step-by-step.
-                         // The original code uses $params['ftype'][$key + 1] which is problematic if $key is the last one.
-                         // Let's assume $params['ftype'][$key] links the condition at $key to the one at $key-1.
-                         // The first condition won't have a preceding ftype.
                         if (isset($params['ftype'][$key]) && !empty($where_conditions) ) { // Check if ftype for current index exists
                             $where_conditions[] = ($params['ftype'][$key] ?? 'AND') . ' ' . $condition;
                         } else {
@@ -418,15 +411,7 @@ class Table
                         }
 
                         // Properly quote the field name ($value is fname)
-                        $quoted_field_name = $value;
-                        if (strpos($value, '.') !== false) {
-                            list($table_part, $column_part) = explode('.', $value, 2);
-                            $quoted_field_name = '`' . str_replace('`', '``', $table_part) . '`.`' . str_replace('`', '``', $column_part) . '`';
-                        } else {
-                            // If no table part, assume it's a column of the primary table or an alias that's already correctly named.
-                            // VQB usually provides qualified names (table.column) for fname.
-                            $quoted_field_name = '`' . str_replace('`', '``', $value) . '`';
-                        }
+                        $quoted_field_name = quote_identifier($value, $db_type);
 
                         // Append quoted field name, a space, and then the fvalue (which should contain operator + value)
                         $query .= $quoted_field_name . ' ' . $params['fvalue'][$key];
@@ -439,7 +424,9 @@ class Table
         // GROUP BY fields
         if (!empty($params['groupfields']) && is_array($params['groupfields']) && count(array_filter($params['groupfields'])) > 0) {
             $query .= ' GROUP BY ';
-            $query .= implode(', ', array_filter($params['groupfields']));
+            $query .= implode(', ', array_map(function($field) use ($db_type) {
+                return quote_identifier($field, $db_type);
+            }, array_filter($params['groupfields'])));
         }
 
         // HAVING clause
@@ -452,16 +439,7 @@ class Table
                         $hcondition_string .= ' ' . ($params['htype'][$key] ?? 'AND') . ' ';
                     }
 
-                    if (strpos($hfname_val, '.') === false) {
-                        $hcondition_string .= '`' . str_replace("`", "``", $hfname_val) . '`';
-                    } else {
-                        $hfield_parts = explode('.', $hfname_val, 2);
-                        if (count($hfield_parts) == 2) {
-                            $hcondition_string .= "`" . str_replace("`", "``", $hfield_parts[0]) . "`.`" . str_replace("`", "``", $hfield_parts[1]) . "`";
-                        } else {
-                            $hcondition_string .= "`" . str_replace("`", "``", $hfname_val) . "`";
-                        }
-                    }
+                    $hcondition_string .= quote_identifier($hfname_val, $db_type);
                     $hcondition_string .= ' ' . $params['hfvalue'][$key];
                     $having_conditions_parts[] = $hcondition_string;
                 }
@@ -474,17 +452,24 @@ class Table
         // ORDER BY fields
         if (!empty($params['orderfields']) && is_array($params['orderfields']) && count(array_filter($params['orderfields'])) > 0) {
             $query .= ' ORDER BY ';
-            $query .= implode(', ', array_filter($params['orderfields']));
+            $query .= implode(', ', array_map(function($field) use ($db_type) {
+                return quote_identifier($field, $db_type);
+            }, array_filter($params['orderfields'])));
             if (isset($params['chkDescending']) && ($params['chkDescending'] === 'on' || $params['chkDescending'] === true)) {
                 $query .= ' DESC ';
             }
         }
 
         // LIMIT clause
-        if (!empty($params['limitStart']) && is_numeric($params['limitStart'])) {
+        if ($db_type === 'mysql' && !empty($params['limitStart']) && is_numeric($params['limitStart'])) {
             $query .= ' LIMIT ' . (int)$params['limitStart'];
             if (!empty($params['limitNumRows']) && is_numeric($params['limitNumRows'])) {
                 $query .= ', ' . (int)$params['limitNumRows'];
+            }
+        } elseif ($db_type === 'postgresql' && !empty($params['limitNumRows']) && is_numeric($params['limitNumRows'])) {
+            $query .= ' LIMIT ' . (int)$params['limitNumRows'];
+            if (!empty($params['limitStart']) && is_numeric($params['limitStart'])) {
+                $query .= ' OFFSET ' . (int)$params['limitStart'];
             }
         }
 
@@ -504,16 +489,15 @@ class Table
         $exec_time_row = array();
         $records = '';
 
+        // Get data source type
+        $source = ORM::for_table('data_sources')->find_one($_SESSION['selected_data_source']);
+        $db_type = $source ? $source->db_type : 'mysql';
+
         // Ensure tablesOptions is available for the view context by generating it directly
         $_db = $db;
         $tablesOptionsHtmlForView = '<option value="">Error loading tables (Controller Default)</option>'; // Default
         try {
-            $allTablesStmt = $_db->query('SHOW TABLES');
-            $allTablesResult = $allTablesStmt->fetchAll(PDO::FETCH_NUM);
-            $tableNamesForOptions = [];
-            foreach ($allTablesResult as $row) {
-                $tableNamesForOptions[] = $row[0];
-            }
+            $tableNamesForOptions = get_tables($_db, $db_type);
             $currentTablesOptions = getOptions($tableNamesForOptions, true); // true for "Choose Table"
             if (!empty(trim($currentTablesOptions)) && strpos($currentTablesOptions, '<option') !== false) {
                 $tablesOptionsHtmlForView = $currentTablesOptions;
@@ -526,17 +510,24 @@ class Table
         }
 
         try {
-            // turn on query profiling
-            $db->query('SET profiling = 1;');
+            if ($db_type === 'mysql') {
+                // turn on query profiling
+                $db->query('SET profiling = 1;');
+            }
 
             $stmt = $db->query($query);
 
-            // find out time above query was ran for
-            $exec_time_result = $db->query(
-               'SELECT query_id, SUM(duration) FROM information_schema.profiling GROUP BY query_id ORDER BY query_id DESC LIMIT 1;'
-            );
+            if ($db_type === 'mysql') {
+                // find out time above query was ran for
+                $exec_time_result = $db->query(
+                   'SELECT query_id, SUM(duration) FROM information_schema.profiling GROUP BY query_id ORDER BY query_id DESC LIMIT 1;'
+                );
 
-            $exec_time_row = $exec_time_result->fetchAll(PDO::FETCH_NUM);
+                $exec_time_row = $exec_time_result->fetchAll(PDO::FETCH_NUM);
+            } else {
+                $exec_time_row = [[null, 'N/A']];
+            }
+
 
             // run query and fetch array
             $data = $stmt->fetchAll(PDO::FETCH_ASSOC);

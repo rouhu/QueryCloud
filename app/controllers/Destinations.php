@@ -27,6 +27,7 @@ class Destinations
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $destination = ORM::for_table('destination_databases')->create();
             $destination->connection_name = $_POST['connection_name'];
+            $destination->db_type = $_POST['db_type'];
             $destination->db_host = $_POST['db_host'];
             $destination->db_port = $_POST['db_port'];
             $destination->db_name = $_POST['db_name'];

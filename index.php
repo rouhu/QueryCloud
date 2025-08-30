@@ -107,7 +107,7 @@ if (isset($_SESSION['selected_data_source']) && $_SESSION['selected_data_source'
             $password = toggleEncryption($source->db_password);
 
             // Configure a temporary, distinct connection for fetching tables
-            ORM::configure('mysql:host=' . $source->db_host . ';dbname=' . $source->db_name, null, $connection_name);
+            ORM::configure(get_dsn($source), null, $connection_name);
             ORM::configure('username', $source->db_user, $connection_name);
             ORM::configure('password', $password, $connection_name);
             ORM::configure('logging', true, $connection_name);
@@ -115,8 +115,7 @@ if (isset($_SESSION['selected_data_source']) && $_SESSION['selected_data_source'
             $source_db = ORM::get_db($connection_name);
 
             // Fetch tables from the selected data source
-            $stmt = $source_db->query("SHOW TABLES");
-            $data = $stmt->fetchAll(PDO::FETCH_NUM);
+            $data = get_tables($source_db, $source->db_type);
             $data = arrayFlatten($data);
 
         } catch (PDOException $e) {

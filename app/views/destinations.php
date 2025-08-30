@@ -12,6 +12,13 @@
                             <input type="text" class="form-control" id="connection_name" name="connection_name" placeholder="e.g., Production DWH" required>
                         </div>
                         <div class="form-group">
+                            <label for="db_type">Database Type</label>
+                            <select class="form-control" id="db_type" name="db_type" required>
+                                <option value="mysql">MySQL</option>
+                                <option value="postgresql">PostgreSQL</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
                             <label for="db_host">Host</label>
                             <input type="text" class="form-control" id="db_host" name="db_host" placeholder="e.g., 127.0.0.1" required>
                         </div>
@@ -44,6 +51,7 @@
                         <thead>
                             <tr>
                                 <th>Connection Name</th>
+                                <th>Type</th>
                                 <th>Host</th>
                                 <th>Database</th>
                                 <th>User</th>
@@ -55,6 +63,7 @@
                                 <?php foreach ($destinations as $dest): ?>
                                     <tr>
                                         <td><?php echo htmlspecialchars($dest->connection_name, ENT_QUOTES, 'UTF-8'); ?></td>
+                                        <td><?php echo htmlspecialchars($dest->db_type, ENT_QUOTES, 'UTF-8'); ?></td>
                                         <td><?php echo htmlspecialchars($dest->db_host, ENT_QUOTES, 'UTF-8'); ?></td>
                                         <td><?php echo htmlspecialchars($dest->db_name, ENT_QUOTES, 'UTF-8'); ?></td>
                                         <td><?php echo htmlspecialchars($dest->db_user, ENT_QUOTES, 'UTF-8'); ?></td>

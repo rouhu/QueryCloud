@@ -446,3 +446,61 @@ function timeoutLogout($minutes)
     // update last activity time stamp with each request
     $_SESSION['LAST_ACTIVITY'] = time();
 }
+
+function get_dsn($source) {
+    $portString = '';
+    if (!empty($source->db_port)) {
+        $portString = ";port={$source->db_port}";
+    }
+
+    if ($source->db_type === 'postgresql') {
+        return "pgsql:host={$source->db_host}{$portString};dbname={$source->db_name}";
+    }
+    // Default to mysql
+    return "mysql:host={$source->db_host}{$portString};dbname={$source->db_name}";
+}
+
+function get_tables($db, $db_type) {
+    if ($db_type === 'postgresql') {
+        $stmt = $db->query("SELECT tablename FROM pg_catalog.pg_tables WHERE schemaname != 'pg_catalog' AND schemaname != 'information_schema'");
+        return $stmt->fetchAll(PDO::FETCH_COLUMN);
+    }
+    // Default to mysql
+    $stmt = $db->query('SHOW TABLES');
+    return $stmt->fetchAll(PDO::FETCH_COLUMN);
+}
+
+function get_table_columns($db, $db_type, $table_name) {
+    if ($db_type === 'postgresql') {
+        // For PostgreSQL, we query the information_schema. The column names are returned as "Field" and "Type" for compatibility with the existing code that processes MySQL's DESCRIBE output.
+        $stmt = $db->prepare("SELECT column_name AS \"Field\", data_type AS \"Type\", is_nullable AS \"Null\", column_default AS \"Default\" FROM information_schema.columns WHERE table_name = ?");
+        $stmt->execute([$table_name]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    // Default to mysql
+    $stmt = $db->query("DESCRIBE `$table_name`");
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+function quote_identifier($identifier, $db_type) {
+    if (strpos($identifier, '.') !== false) {
+        $parts = explode('.', $identifier);
+        $quoted_parts = [];
+        foreach ($parts as $part) {
+            if ($db_type === 'postgresql') {
+                $quoted_parts[] = '"' . str_replace('"', '""', $part) . '"';
+            } else {
+                $quoted_parts[] = '`' . str_replace('`', '``', $part) . '`';
+            }
+        }
+        return implode('.', $quoted_parts);
+    }
+
+    if ($db_type === 'postgresql') {
+        return '"' . str_replace('"', '""', $identifier) . '"';
+    }
+
+    // Default to mysql
+    return '`' . str_replace('`', '``', $identifier) . '`';
+}
