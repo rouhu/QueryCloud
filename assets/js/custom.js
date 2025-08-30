@@ -1008,22 +1008,34 @@ $('body').on('click', '#btnUpdateSavedQuery', function() {
                 $msgContainer.removeClass('alert-danger').addClass('alert-success').text(response.message).show();
 
                 // Update cache for sql_query
+                var queryName = '';
                 if (typeof savedQueriesCache !== 'undefined') {
                     var itemInCache = savedQueriesCache.find(function(q) { return q.id == queryId; });
                     if (itemInCache) {
-                        // itemInCache.query_name = queryName; // Name is not updated here
                         itemInCache.sql_query = sqlQuery;
+                        queryName = itemInCache.query_name;
                     }
                 }
-                // Update dashboard list item - only SQL changes, name display is not affected by this action.
-                // var $listItem = $('li[data-query-list-id="' + queryId + '"]');
-                // if ($listItem.length) {
-                //    $listItem.contents().filter(function() { return this.nodeType === 3; }).first().replaceWith(escapeHtml(queryName));
-                //    $listItem.find('.btn-edit-saved-query, .btn-delete-saved-query').data('query-name', queryName);
-                // }
 
                 setTimeout(function() {
-                    location.reload();
+                    // Instead of reloading, submit a form to run the updated query
+                    var $dynamicForm = $('<form>', {
+                        'action': base + '/table/run_saved_query',
+                        'method': 'POST',
+                        'style': 'display:none;'
+                    }).append($('<input>', {
+                        'type': 'hidden',
+                        'name': 'cquery',
+                        'value': sqlQuery
+                    })).append($('<input>', {
+                        'type': 'hidden',
+                        'name': 'running_saved_query_name',
+                        'value': queryName
+                    }));
+
+                    $('body').append($dynamicForm);
+                    $dynamicForm.submit();
+                    $dynamicForm.remove();
                 }, 1500);
             } else {
                 $msgContainer.removeClass('alert-success').addClass('alert-danger').text(response.message || 'An unknown error occurred.').show();
