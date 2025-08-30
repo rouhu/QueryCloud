@@ -45,15 +45,55 @@ $config['users'] = [
 
 // table to store saved queries
 /*
-CREATE TABLE saved_queries (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    query_name VARCHAR(255) NOT NULL,
-    sql_query TEXT NOT NULL,
-    is_visual_query TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'Flag to indicate if the query was created/saved via the visual builder',
-    visual_params TEXT NULL COMMENT 'JSON string representing the visual builder parameters',
-    table_formatting TEXT NULL COMMENT 'JSON string representing the table display formatting options',
-    share_token VARCHAR(64) NULL DEFAULT NULL UNIQUE COMMENT 'Unique token for sharing query results publicly',
-    share_requires_login TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'If true, accessing the share_token link requires user login',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+CREATE TABLE `saved_queries` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `query_name` varchar(255) NOT NULL,
+  `sql_query` text NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `is_visual_query` tinyint(1) NOT NULL DEFAULT 0 COMMENT 'Flag to indicate if the query was created/saved via the visual builder',
+  `visual_params` text DEFAULT NULL COMMENT 'JSON string representing the visual builder parameters',
+  `source_connection_id` int(11) DEFAULT NULL,
+  `table_formatting` text DEFAULT NULL,
+  `etl_config` text DEFAULT NULL,
+  `share_token` varchar(64) DEFAULT NULL,
+  `share_requires_login` tinyint(1) DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+CREATE TABLE `etl_logs` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `saved_query_id` INT NOT NULL,
+  `execution_time` DATETIME NOT NULL,
+  `ended_at` DATETIME,
+  `status` VARCHAR(50) NOT NULL,
+  `message` TEXT,
+  FOREIGN KEY (`saved_query_id`) REFERENCES `saved_queries`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+CREATE TABLE `destination_databases` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `connection_name` varchar(255) NOT NULL,
+  `db_type` varchar(255) NOT NULL,
+  `db_host` varchar(255) NOT NULL,
+  `db_port` varchar(255) DEFAULT NULL,
+  `db_name` varchar(255) NOT NULL,
+  `db_user` varchar(255) NOT NULL,
+  `db_password` varchar(255) NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+CREATE TABLE `data_sources` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `source_name` varchar(255) NOT NULL,
+  `db_type` varchar(255) NOT NULL,
+  `db_host` varchar(255) NOT NULL,
+  `db_port` varchar(255) DEFAULT NULL,
+  `db_name` varchar(255) NOT NULL,
+  `db_user` varchar(255) NOT NULL,
+  `db_password` varchar(255) NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
 */
