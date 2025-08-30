@@ -1139,6 +1139,11 @@ $(document).ready(function() {
                         var selected = (table === savedTableName) ? ' selected' : '';
                         $tableSelect.append('<option value="' + escapeHtml(table) + '"' + selected + '>' + escapeHtml(table) + '</option>');
                     });
+
+                    // If a table was selected (from saved config), trigger its change event to load the column mapper
+                    if ($tableSelect.val()) {
+                        $tableSelect.trigger('change');
+                    }
                 } else {
                     $tableSelect.html('<option value="">Could not load tables</option>');
                     $.jGrowl(response.message || 'An error occurred.', { header: 'Error', theme: 'error' });
@@ -1214,11 +1219,6 @@ $(document).ready(function() {
             }
         });
     });
-
-    // Trigger change on ETL page load if a destination table is already selected
-    if ($('#destination_table').val()) {
-        $('#destination_table').trigger('change');
-    }
 });
 
 function updateTableDropdown(dataSourceId, callback) {
