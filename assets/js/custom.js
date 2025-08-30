@@ -1155,6 +1155,70 @@ $(document).ready(function() {
     if ($('#destination_id').val()) {
         $('#destination_id').trigger('change');
     }
+
+    // ETL Page: Handle destination TABLE change to populate column mapping
+    $('#destination_table').on('change', function() {
+        var destinationTable = $(this).val();
+        var destinationId = $('#destination_id').val();
+        var queryId = $('input[name="query_id"]').val();
+        var $mappingContainer = $('#column-mapping-container');
+
+        if (!destinationTable) {
+            $mappingContainer.html('<p class="text-muted">Select a destination table to map columns.</p>');
+            return;
+        }
+
+        $mappingContainer.html('<p><i class="fa fa-spinner fa-spin"></i> Loading column mapping...</p>');
+
+        $.ajax({
+            url: base + '/ajax/get_etl_mapping_data',
+            type: 'POST',
+            data: {
+                query_id: queryId,
+                destination_table: destinationTable,
+                destination_id: destinationId
+            },
+            dataType: 'json',
+            success: function(response) {
+                if (response.status === 'success') {
+                    var html = '<div class="row">';
+                    html += '<div class="col-sm-6"><strong>Source Column (from Query)</strong></div>';
+                    html += '<div class="col-sm-6"><strong>Destination Column (from Table)</strong></div>';
+                    html += '</div><hr style="margin-top: 5px; margin-bottom: 10px;">';
+
+                    response.source_columns.forEach(function(sourceCol) {
+                        html += '<div class="form-group row">';
+                        html += '  <div class="col-sm-6">';
+                        html += '    <input type="text" class="form-control" value="' + escapeHtml(sourceCol) + '" readonly>';
+                        html += '  </div>';
+                        html += '  <div class="col-sm-6">';
+                        html += '    <select class="form-control" name="column_mapping[' + escapeHtml(sourceCol) + ']">';
+                        html += '      <option value="">-- Do Not Map --</option>';
+                        response.destination_columns.forEach(function(destCol) {
+                            var savedMapping = (typeof etlConfig !== 'undefined' && etlConfig.column_mapping) ? etlConfig.column_mapping[sourceCol] : null;
+                            var selected = (destCol === savedMapping || destCol === sourceCol) ? ' selected' : '';
+                            html += '<option value="' + escapeHtml(destCol) + '"' + selected + '>' + escapeHtml(destCol) + '</option>';
+                        });
+                        html += '    </select>';
+                        html += '  </div>';
+                        html += '</div>';
+                    });
+
+                    $mappingContainer.html(html);
+                } else {
+                    $mappingContainer.html('<p class="text-danger">Error: ' + response.message + '</p>');
+                }
+            },
+            error: function() {
+                $mappingContainer.html('<p class="text-danger">An AJAX error occurred while fetching column data.</p>');
+            }
+        });
+    });
+
+    // Trigger change on ETL page load if a destination table is already selected
+    if ($('#destination_table').val()) {
+        $('#destination_table').trigger('change');
+    }
 });
 
 function updateTableDropdown(dataSourceId, callback) {

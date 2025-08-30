@@ -36,6 +36,15 @@
                             </div>
                         </div>
 
+                        <hr>
+                        <h4>Column Mapping:</h4>
+                        <div id="column-mapping-container" class="col-sm-offset-1 col-sm-10">
+                            <p class="text-muted">Select a destination table to map columns.</p>
+                        </div>
+                        <div class="clearfix"></div>
+                        <hr>
+
+
                         <div class="form-group">
                             <label for="destination_table" class="col-sm-3 control-label">Destination Table Name</label>
                             <div class="col-sm-6">
@@ -64,5 +73,10 @@
         </div>
     </div>
 </div>
+
+<script>
+    // Pass the PHP etl_config to JavaScript
+    var etlConfig = <?php echo json_encode($etl_config); ?>;
+</script>
 
 <?php require_once 'includes/footer.php'; ?>

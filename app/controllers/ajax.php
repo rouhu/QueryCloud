@@ -727,4 +727,61 @@ class Ajax
             echo json_encode(array('status' => 'error', 'message' => 'Error: ' . $e->getMessage()));
         }
     }
+
+    public static function get_etl_mapping_data()
+    {
+        header('Content-Type: application/json');
+        $response = ['status' => 'error', 'message' => 'An unknown error occurred.'];
+
+        try {
+            if (!isset($_POST['query_id']) || !isset($_POST['destination_table']) || !isset($_POST['destination_id'])) {
+                throw new Exception("Missing required parameters: query_id, destination_table, and destination_id are required.");
+            }
+
+            $query_id = $_POST['query_id'];
+            $destination_table = $_POST['destination_table'];
+            $destination_id = $_POST['destination_id'];
+
+            // 1. Get Source Columns from the SQL query
+            $saved_query = ORM::for_table('saved_queries')->find_one($query_id);
+            if (!$saved_query) {
+                throw new Exception("Saved query not found.");
+            }
+
+            $source_pdo = Flight::get('db');
+            // Appending LIMIT 0 is a common trick to get metadata without fetching rows
+            $source_stmt = $source_pdo->prepare($saved_query->sql_query . " LIMIT 0");
+            $source_stmt->execute();
+            $source_columns = [];
+            for ($i = 0; $i < $source_stmt->columnCount(); $i++) {
+                $col_meta = $source_stmt->getColumnMeta($i);
+                $source_columns[] = $col_meta['name'];
+            }
+
+            // 2. Get Destination Columns from the destination table
+            $destination_db_details = ORM::for_table('destination_databases')->find_one($destination_id);
+            if (!$destination_db_details) {
+                throw new Exception("Destination database configuration not found.");
+            }
+            $decrypted_password = toggleEncryption($destination_db_details->db_password);
+            $dsn = "mysql:host={$destination_db_details->db_host};port={$destination_db_details->db_port};dbname={$destination_db_details->db_name};charset=utf8";
+            $dest_pdo = new PDO($dsn, $destination_db_details->db_user, $decrypted_password);
+            $dest_pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+
+            // Using DESCRIBE is a reliable way to get column names
+            $dest_stmt = $dest_pdo->query("DESCRIBE `{$destination_table}`");
+            $destination_columns = $dest_stmt->fetchAll(PDO::FETCH_COLUMN);
+
+            $response = [
+                'status' => 'success',
+                'source_columns' => $source_columns,
+                'destination_columns' => $destination_columns
+            ];
+
+        } catch (Exception $e) {
+            $response['message'] = 'Error: ' . $e->getMessage();
+        }
+
+        echo json_encode($response);
+    }
 }
