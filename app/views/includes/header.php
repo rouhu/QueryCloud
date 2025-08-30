@@ -54,15 +54,14 @@
             <li><a href="<?php echo Flight::get('base'); ?>/etllog"><i class="fa fa-history"></i> ETL Log</a></li>
 
             <li class="nav-heading" style="padding: 10px 15px; font-weight: bold; color: #000;">Create New Query</li>
-            <li style="padding: 0 1px 10px 15px;">
-                <label for="datasource" style="color: #fff; font-weight: bold;">Select Data Source</label>
-                <select name="datasource" id="datasource" class="form-control" style="width: 100%;">
+            <li style="padding: 0 20px 0px 0px;">
+                    <select name="datasource" id="datasource" class="form-control" style="width: 100%;">
                     <option value="">-- Choose a Data Source --</option>
                     <?php echo Flight::get('dataSourceOptions'); ?>
                 </select>
             </li>
 
-            <li style="padding: 0 1px 10px 15px;">
+            <li style="padding: 0 20px 0px 0px;">
                 <label for="table_select" style="color: #fff; font-weight: bold;">Select Table</label>
                 <select id="table_select" name="table_select" class="form-control" style="width: 100%;">
                     <option value="">-- Choose a Table --</option>
