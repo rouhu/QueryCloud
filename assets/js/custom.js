@@ -1112,40 +1112,40 @@ $(document).ready(function() {
             }
         });
     });
+});
 
-    function updateTableDropdown(dataSourceId, callback) {
-        var $tableSelect = $('#table_select');
-        $tableSelect.empty().append('<option value="">Loading tables...</option>');
+function updateTableDropdown(dataSourceId, callback) {
+    var $tableSelect = $('#table_select');
+    $tableSelect.empty().append('<option value="">Loading tables...</option>');
 
-        if (!dataSourceId) {
+    if (!dataSourceId) {
+        $tableSelect.empty().append('<option value="">-- Choose a Table --</option>');
+        if (typeof callback === 'function') {
+            callback();
+        }
+        return;
+    }
+
+    $.ajax({
+        url: base + '/ajax/get_tables_for_data_source',
+        type: 'POST',
+        data: { data_source_id: dataSourceId },
+        success: function (response) {
             $tableSelect.empty().append('<option value="">-- Choose a Table --</option>');
+            if (response.status === 'success' && response.tables) {
+                $.each(response.tables, function (index, table) {
+                    var url = base + '/table/' + table;
+                    $tableSelect.append('<option value="' + url + '">' + table + '</option>');
+                });
+            }
+        },
+        complete: function() {
             if (typeof callback === 'function') {
                 callback();
             }
-            return;
         }
-
-        $.ajax({
-            url: base + '/ajax/get_tables_for_data_source',
-            type: 'POST',
-            data: { data_source_id: dataSourceId },
-            success: function (response) {
-                $tableSelect.empty().append('<option value="">-- Choose a Table --</option>');
-                if (response.status === 'success' && response.tables) {
-                    $.each(response.tables, function (index, table) {
-                        var url = base + '/table/' + table;
-                        $tableSelect.append('<option value="' + url + '">' + table + '</option>');
-                    });
-                }
-            },
-            complete: function() {
-                if (typeof callback === 'function') {
-                    callback();
-                }
-            }
-        });
-    }
-});
+    });
+}
 
 function updateHavingFieldNameOptions() {
     var options = [];
