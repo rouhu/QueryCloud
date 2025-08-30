@@ -51,6 +51,7 @@
             <li><a href="<?php echo Flight::get('base'); ?>/dashboard"><i class="fa fa-dashboard"></i> Dashboard</a></li>
             <li><a href="<?php echo Flight::get('base'); ?>/datasources"><i class="fa fa-database"></i> Manage Data Sources</a></li>
             <li><a href="<?php echo Flight::get('base'); ?>/destinations"><i class="fa fa-rocket"></i> Manage Destinations</a></li>
+            <li><a href="<?php echo Flight::get('base'); ?>/etllog"><i class="fa fa-history"></i> ETL Log</a></li>
 
             <li style="padding: 10px 15px;">
                 <label for="datasource" style="color: #fff; font-weight: bold;">Select Data Source</label>

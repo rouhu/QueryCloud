@@ -59,13 +59,25 @@ class ETL
                     return $value !== '';
                 });
 
-                $etl_config = array(
-                    'destination_db_id' => $destination_id,
-                    'destination_table_name' => $destination_table,
-                    'etl_type' => $etl_type,
-                    'column_mapping' => $filtered_mapping,
-                    'key_columns' => $key_columns
-                );
+                $schedule_type = $_POST['schedule_type'] ?? 'inactive';
+                $schedule_interval = $_POST['schedule_interval'] ?? '5';
+
+                // Get existing config to preserve other settings like last_run_at
+                $etl_config = $saved_query->etl_config ? json_decode($saved_query->etl_config, true) : [];
+
+                $etl_config['destination_db_id'] = $destination_id;
+                $etl_config['destination_table_name'] = $destination_table;
+                $etl_config['etl_type'] = $etl_type;
+                $etl_config['column_mapping'] = $filtered_mapping;
+                $etl_config['key_columns'] = $key_columns;
+                $etl_config['schedule_type'] = $schedule_type;
+
+                if ($schedule_type === 'minutely') {
+                    $etl_config['schedule_interval'] = $schedule_interval;
+                } else {
+                    // Remove interval if not minutely to keep config clean
+                    unset($etl_config['schedule_interval']);
+                }
 
                 $saved_query->etl_config = json_encode($etl_config);
                 $saved_query->save();
@@ -93,15 +105,33 @@ class ETL
         $query_id = $_POST['query_id'];
         $redirect_url = Flight::get('base') . '/etl/' . $query_id;
 
-        try {
-            // 1. Fetch Query and Destination Details from the form POST
-            // This ensures we run with the config currently on the screen, even if not saved.
-            $destination_id = $_POST['destination_id'];
-            $destination_table = $_POST['destination_table'];
+        $saved_query = ORM::for_table('saved_queries')->find_one($query_id);
+        if (!$saved_query) {
+            setFlashMessage("Error: Saved query not found.", 'error');
+            Flight::redirect('/dashboard');
+            return;
+        }
 
-            $saved_query = ORM::for_table('saved_queries')->find_one($query_id);
-            if (!$saved_query) {
-                throw new Exception("Saved query not found.");
+        $result = self::executeEtlJob($saved_query);
+
+        setFlashMessage($result['message'], $result['status']);
+        Flight::redirect($redirect_url);
+    }
+
+    public static function executeEtlJob($saved_query)
+    {
+        $dest_pdo = null;
+        try {
+            $etl_config = json_decode($saved_query->etl_config, true);
+            if (json_last_error() !== JSON_ERROR_NONE || !is_array($etl_config)) {
+                throw new Exception("ETL configuration is missing or invalid for query ID {$saved_query->id}.");
+            }
+
+            $destination_id = $etl_config['destination_db_id'] ?? null;
+            $destination_table = $etl_config['destination_table_name'] ?? null;
+
+            if (!$destination_id || !$destination_table) {
+                throw new Exception("Destination DB or table not configured.");
             }
 
             $destination_db_details = ORM::for_table('destination_databases')->find_one($destination_id);
@@ -109,13 +139,11 @@ class ETL
                 throw new Exception("Destination database configuration not found.");
             }
 
-            // 2. Establish Destination Connection
             $decrypted_password = toggleEncryption($destination_db_details->db_password);
             $dsn = "mysql:host={$destination_db_details->db_host};port={$destination_db_details->db_port};dbname={$destination_db_details->db_name};charset=utf8";
             $dest_pdo = new PDO($dsn, $destination_db_details->db_user, $decrypted_password);
             $dest_pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-            // 3. Fetch Source Data
             $source_db_details = ORM::for_table('data_sources')->find_one($saved_query->source_connection_id);
             if (!$source_db_details) {
                 throw new Exception("Source database configuration for this query not found.");
@@ -131,19 +159,15 @@ class ETL
             $source_data = $source_stmt->fetchAll(PDO::FETCH_ASSOC);
 
             if (empty($source_data)) {
-                setFlashMessage('Source query returned no data. Nothing to insert.', 'info');
-                Flight::redirect($redirect_url);
-                return;
+                return ['status' => 'info', 'message' => 'Source query returned no data. Nothing to process.'];
             }
 
-            // 4. Prepare and Insert/Update Data into Destination
-            $etl_config = json_decode($saved_query->etl_config, true);
             $column_mapping = $etl_config['column_mapping'] ?? [];
             $etl_type = $etl_config['etl_type'] ?? 'insert_only';
             $key_columns_source = $etl_config['key_columns'] ?? [];
 
             if (empty($column_mapping)) {
-                throw new Exception("No column mapping defined. Please save a configuration.");
+                throw new Exception("No column mapping defined in the configuration.");
             }
             if ($etl_type === 'update_or_insert' && empty($key_columns_source)) {
                 throw new Exception("ETL type is 'Update or Insert' but no key columns are specified.");
@@ -155,7 +179,6 @@ class ETL
 
             if ($etl_type === 'update_or_insert') {
                 foreach ($source_data as $row) {
-                    // Build WHERE clause for SELECT/UPDATE
                     $where_clauses = [];
                     $where_values = [];
                     foreach ($key_columns_source as $source_key) {
@@ -165,13 +188,11 @@ class ETL
                     }
                     $where_sql = implode(' AND ', $where_clauses);
 
-                    // Check if record exists
                     $select_sql = "SELECT COUNT(*) FROM `{$destination_table}` WHERE {$where_sql}";
                     $select_stmt = $dest_pdo->prepare($select_sql);
                     $select_stmt->execute($where_values);
                     $record_exists = $select_stmt->fetchColumn() > 0;
 
-                    // Prepare data for insert/update
                     $update_clauses = [];
                     $update_values = [];
                     $insert_cols = [];
@@ -189,21 +210,18 @@ class ETL
                     }
 
                     if ($record_exists) {
-                        // UPDATE existing record
                         $update_sql = "UPDATE `{$destination_table}` SET " . implode(', ', $update_clauses) . " WHERE {$where_sql}";
                         $update_stmt = $dest_pdo->prepare($update_sql);
                         $update_stmt->execute(array_merge($update_values, $where_values));
                         $updated_count++;
                     } else {
-                        // INSERT new record
                         $insert_sql = "INSERT INTO `{$destination_table}` (" . implode(', ', $insert_cols) . ") VALUES (" . implode(', ', $insert_placeholders) . ")";
                         $insert_stmt = $dest_pdo->prepare($insert_sql);
                         $insert_stmt->execute($insert_values);
                         $inserted_count++;
                     }
                 }
-            } else {
-                // Original "Insert Only" logic
+            } else { // Insert Only
                 $mapped_source_columns = array_keys($column_mapping);
                 $destination_columns = array_values($column_mapping);
                 $column_list = '`' . implode('`, `', $destination_columns) . '`';
@@ -223,16 +241,17 @@ class ETL
 
             $dest_pdo->commit();
 
-            setFlashMessage("ETL process completed. Successfully inserted {$inserted_count} rows and updated {$updated_count} rows into `{$destination_table}`.");
+            return [
+                'status' => 'success',
+                'message' => "ETL process completed. Inserted {$inserted_count} rows, updated {$updated_count} rows."
+            ];
 
         } catch (Exception $e) {
             if (isset($dest_pdo) && $dest_pdo->inTransaction()) {
                 $dest_pdo->rollBack();
             }
-            setFlashMessage("ETL Error: " . $e->getMessage(), 'error');
+            return ['status' => 'error', 'message' => "ETL Error: " . $e->getMessage()];
         }
-
-        Flight::redirect($redirect_url);
     }
 
     private static function checkLogin()

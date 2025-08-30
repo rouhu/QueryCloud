@@ -64,6 +64,31 @@
                         </div>
 
                         <hr>
+
+                        <h4>Scheduling:</h4>
+                        <div class="form-group">
+                            <label for="schedule_type" class="col-sm-3 control-label">Schedule</label>
+                            <div class="col-sm-6">
+                                <select class="form-control" id="schedule_type" name="schedule_type">
+                                    <option value="inactive" <?php echo (!isset($etl_config['schedule_type']) || $etl_config['schedule_type'] == 'inactive') ? 'selected' : ''; ?>>Inactive</option>
+                                    <option value="minutely" <?php echo (isset($etl_config['schedule_type']) && $etl_config['schedule_type'] == 'minutely') ? 'selected' : ''; ?>>Minutely</option>
+                                    <option value="hourly" <?php echo (isset($etl_config['schedule_type']) && $etl_config['schedule_type'] == 'hourly') ? 'selected' : ''; ?>>Hourly</option>
+                                    <option value="daily" <?php echo (isset($etl_config['schedule_type']) && $etl_config['schedule_type'] == 'daily') ? 'selected' : ''; ?>>Daily</option>
+                                    <option value="weekly" <?php echo (isset($etl_config['schedule_type']) && $etl_config['schedule_type'] == 'weekly') ? 'selected' : ''; ?>>Weekly</option>
+                                    <option value="monthly" <?php echo (isset($etl_config['schedule_type']) && $etl_config['schedule_type'] == 'monthly') ? 'selected' : ''; ?>>Monthly</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-group" id="schedule_interval_group" style="display:none;">
+                            <label for="schedule_interval" class="col-sm-3 control-label">Minute Interval</label>
+                            <div class="col-sm-6">
+                                <input type="number" class="form-control" id="schedule_interval" name="schedule_interval" value="<?php echo isset($etl_config['schedule_interval']) ? htmlspecialchars($etl_config['schedule_interval'], ENT_QUOTES, 'UTF-8') : '5'; ?>" min="1">
+                                <p class="help-block">Run every X minutes.</p>
+                            </div>
+                        </div>
+
+                        <hr>
                         <h4>Column Mapping:</h4>
                         <div id="column-mapping-container" class="col-sm-offset-1 col-sm-10">
                             <p class="text-muted">Select a destination table to map columns.</p>
@@ -91,6 +116,21 @@
 <script>
     // Pass the PHP etl_config to JavaScript
     var etlConfig = <?php echo json_encode($etl_config); ?>;
+
+    $(document).ready(function() {
+        function toggleScheduleInterval() {
+            if ($('#schedule_type').val() === 'minutely') {
+                $('#schedule_interval_group').show();
+            } else {
+                $('#schedule_interval_group').hide();
+            }
+        }
+
+        $('#schedule_type').on('change', toggleScheduleInterval);
+
+        // Initial check on page load
+        toggleScheduleInterval();
+    });
 </script>
 
 <?php require_once 'includes/footer.php'; ?>
