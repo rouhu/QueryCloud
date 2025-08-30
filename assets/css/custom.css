@@ -428,3 +428,9 @@ pre {
 .btn .fa, .btn .glyphicon {
     margin-right: 0.3em;
 }
+
+/* Custom style for wider content pages like the ETL log */
+.page-content-wide {
+    margin: 15px 5px; /* Reduce side margins */
+    padding: 10px;    /* Reduce padding */
+}

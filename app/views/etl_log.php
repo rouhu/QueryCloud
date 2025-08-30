@@ -1,6 +1,6 @@
 <?php require_once 'includes/header.php'; ?>
 
-<div class="page-content inset">
+<div class="page-content page-content-wide inset">
     <div class="row">
         <div class="col-md-12">
             <div class="panel panel-default">
