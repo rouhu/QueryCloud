@@ -1239,6 +1239,38 @@ $(document).ready(function() {
             $('.key-column input[type="checkbox"]').prop('checked', false);
         }
     });
+
+    // ETL Page: Initialize select2 for scheduling options
+    if ($('#schedule_hours').length) {
+        $('#schedule_hours, #schedule_days').select2({
+            placeholder: 'Click to select options'
+        });
+    }
+
+    // ETL Page: Toggle visibility of detailed schedule options
+    function toggleScheduleOptions() {
+        if (!$('#schedule_type').length) {
+            return; // Don't run if not on ETL page
+        }
+        // Hide all schedule option groups
+        $('.schedule-options').hide();
+
+        var selectedType = $('#schedule_type').val();
+        if (selectedType === 'minutely') {
+            $('#schedule_minutely_options').show();
+        } else if (selectedType === 'hourly') {
+            $('#schedule_hourly_options').show();
+        } else if (selectedType === 'daily') {
+            $('#schedule_daily_options').show();
+        }
+    }
+
+    // Bind the event handler only if the element exists
+    if ($('#schedule_type').length) {
+        $('#schedule_type').on('change', toggleScheduleOptions);
+        // Trigger on page load to set initial state
+        toggleScheduleOptions();
+    }
 });
 
 function updateTableDropdown(dataSourceId, callback) {
