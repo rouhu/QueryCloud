@@ -7,6 +7,7 @@ if (php_sapi_name() !== 'cli') {
 require 'boot.php';
 require_once 'vendor/j4mie/idiorm/idiorm.php';
 require_once 'app/controllers/ETL.php';
+require_once 'func.php';
 
 // --- Database Configuration for Cron ---
 // The cron environment doesn't seem to pick up the DB config automatically.
