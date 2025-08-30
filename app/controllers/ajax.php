@@ -694,4 +694,37 @@ class Ajax
 
         echo json_encode($response);
     }
+
+    public static function get_destination_tables()
+    {
+        header('Content-Type: application/json');
+
+        if (!isset($_POST['destination_id']) || empty($_POST['destination_id'])) {
+            echo json_encode(array('status' => 'error', 'message' => 'Destination ID is required.'));
+            return;
+        }
+
+        $destination_id = $_POST['destination_id'];
+
+        try {
+            $destination_db = ORM::for_table('destination_databases')->find_one($destination_id);
+
+            if (!$destination_db) {
+                throw new Exception("Destination database not found.");
+            }
+
+            $decrypted_password = toggleEncryption($destination_db->db_password);
+            $dsn = "mysql:host={$destination_db->db_host};port={$destination_db->db_port};dbname={$destination_db->db_name};charset=utf8";
+            $pdo = new PDO($dsn, $destination_db->db_user, $decrypted_password);
+            $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+
+            $stmt = $pdo->query("SHOW TABLES");
+            $tables = $stmt->fetchAll(PDO::FETCH_COLUMN);
+
+            echo json_encode(array('status' => 'success', 'tables' => $tables));
+
+        } catch (Exception $e) {
+            echo json_encode(array('status' => 'error', 'message' => 'Error: ' . $e->getMessage()));
+        }
+    }
 }
