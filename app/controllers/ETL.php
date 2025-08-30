@@ -111,7 +111,16 @@ class ETL
             $dest_pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
             // 3. Fetch Source Data
-            $source_pdo = Flight::get('db');
+            $source_db_details = ORM::for_table('data_sources')->find_one($saved_query->source_connection_id);
+            if (!$source_db_details) {
+                throw new Exception("Source database configuration for this query not found.");
+            }
+
+            $source_decrypted_password = toggleEncryption($source_db_details->db_password);
+            $source_dsn = "mysql:host={$source_db_details->db_host};port={$source_db_details->db_port};dbname={$source_db_details->db_name};charset=utf8";
+            $source_pdo = new PDO($source_dsn, $source_db_details->db_user, $source_decrypted_password);
+            $source_pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+
             $source_stmt = $source_pdo->prepare($saved_query->sql_query);
             $source_stmt->execute();
             $source_data = $source_stmt->fetchAll(PDO::FETCH_ASSOC);
