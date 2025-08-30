@@ -33,10 +33,6 @@
                                         <td><pre><?php echo htmlspecialchars($log->message, ENT_QUOTES, 'UTF-8'); ?></pre></td>
                                     </tr>
                                 <?php endforeach; ?>
-                            <?php else: ?>
-                                <tr>
-                                    <td colspan="5" class="text-center">No ETL logs found.</td>
-                                </tr>
                             <?php endif; ?>
                         </tbody>
                     </table>
