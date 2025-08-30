@@ -1112,6 +1112,49 @@ $(document).ready(function() {
             }
         });
     });
+
+    // ETL Page: Handle destination change to populate tables
+    $('#destination_id').on('change', function() {
+        var destinationId = $(this).val();
+        var $tableSelect = $('#destination_table');
+        var savedTableName = $tableSelect.data('saved-table');
+
+        if (!destinationId) {
+            $tableSelect.html('<option value="">-- Select a Destination First --</option>').prop('disabled', true);
+            return;
+        }
+
+        $tableSelect.html('<option value="">Loading tables...</option>').prop('disabled', false);
+
+        $.ajax({
+            url: base + '/ajax/get_destination_tables',
+            type: 'POST',
+            data: { destination_id: destinationId },
+            dataType: 'json',
+            success: function(response) {
+                $tableSelect.empty();
+                if (response.status === 'success' && response.tables) {
+                    $tableSelect.append('<option value="">-- Select a Table --</option>');
+                    $.each(response.tables, function(index, table) {
+                        var selected = (table === savedTableName) ? ' selected' : '';
+                        $tableSelect.append('<option value="' + escapeHtml(table) + '"' + selected + '>' + escapeHtml(table) + '</option>');
+                    });
+                } else {
+                    $tableSelect.html('<option value="">Could not load tables</option>');
+                    $.jGrowl(response.message || 'An error occurred.', { header: 'Error', theme: 'error' });
+                }
+            },
+            error: function() {
+                $tableSelect.html('<option value="">Error loading tables</option>');
+                $.jGrowl('An AJAX error occurred while fetching tables.', { header: 'Error', theme: 'error' });
+            }
+        });
+    });
+
+    // Trigger change on page load if a destination is already selected
+    if ($('#destination_id').val()) {
+        $('#destination_id').trigger('change');
+    }
 });
 
 function updateTableDropdown(dataSourceId, callback) {

@@ -39,9 +39,11 @@
                         <div class="form-group">
                             <label for="destination_table" class="col-sm-3 control-label">Destination Table Name</label>
                             <div class="col-sm-6">
-                                <input type="text" class="form-control" id="destination_table" name="destination_table"
-                                       placeholder="e.g., daily_sales_summary"
-                                       value="<?php echo isset($etl_config['destination_table_name']) ? htmlspecialchars($etl_config['destination_table_name'], ENT_QUOTES, 'UTF-8') : ''; ?>" required>
+                                <select class="form-control" id="destination_table" name="destination_table"
+                                        data-saved-table="<?php echo isset($etl_config['destination_table_name']) ? htmlspecialchars($etl_config['destination_table_name'], ENT_QUOTES, 'UTF-8') : ''; ?>"
+                                        required disabled>
+                                    <option value="">-- Select a Destination First --</option>
+                                </select>
                                 <p class="help-block">The table where the query results will be inserted. The table must exist.</p>
                             </div>
                         </div>
