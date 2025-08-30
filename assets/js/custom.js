@@ -659,33 +659,72 @@ $('body').on('click', '.btn-edit-saved-query', function() {
         return;
     }
 
-    if (queryData.is_visual_query == '1' || queryData.is_visual_query === true) {
-        if (queryData.visual_params) {
-            try {
-                var parsedParams = JSON.parse(queryData.visual_params);
-                openVisualQueryBuilderModal(parsedParams, queryId, queryName, true, queryData.source_connection_id);
-            } catch (e) {
-                console.error("Error parsing visual_params for saved query:", e);
-                $.jGrowl('Error loading visual query data. Opening as SQL.', { header: 'Error' });
+    // Pre-select the data source and load its tables
+    if (queryData.source_connection_id) {
+        var $datasourceSelect = $('#datasource');
+
+        // Set the value
+        $datasourceSelect.val(queryData.source_connection_id);
+
+        // Manually trigger the logic that would normally run on 'change'
+        // This includes setting the session and updating the table dropdown.
+        // We do this manually to control the flow and open the modal after completion.
+        $.ajax({
+            url: base + '/ajax/set_data_source',
+            type: 'POST',
+            data: { data_source_id: queryData.source_connection_id },
+            dataType: 'json',
+            success: function(response) {
+                if (response.status === 'success') {
+                    // Now update the table dropdown, then open the modal
+                    updateTableDropdown(queryData.source_connection_id, function() {
+                        // This callback ensures the table dropdown is populated before the modal opens
+                        proceedToOpenModal();
+                    });
+                } else {
+                    $.jGrowl('Failed to set the data source for the query.', { header: 'Error', theme: 'error' });
+                    // Even if setting the source fails, we might still try to open the modal
+                    proceedToOpenModal();
+                }
+            },
+            error: function() {
+                $.jGrowl('AJAX error setting the data source.', { header: 'Error', theme: 'error' });
+                // In case of error, still proceed to open the modal
+                proceedToOpenModal();
+            }
+        });
+    } else {
+        // If no source_connection_id is available, open the modal immediately
+        proceedToOpenModal();
+    }
+
+    function proceedToOpenModal() {
+        if (queryData.is_visual_query == '1' || queryData.is_visual_query === true) {
+            if (queryData.visual_params) {
+                try {
+                    var parsedParams = JSON.parse(queryData.visual_params);
+                    openVisualQueryBuilderModal(parsedParams, queryId, queryName, true, queryData.source_connection_id);
+                } catch (e) {
+                    console.error("Error parsing visual_params for saved query:", e);
+                    $.jGrowl('Error loading visual query data. Opening as SQL.', { header: 'Error' });
+                    $('#sql').val(queryData.sql_query); // Fallback to SQL editor
+                    $('#modal-custom-query').modal('show');
+                }
+            } else {
+                $.jGrowl('Saved visual query has no parameters. Opening as SQL.', { header: 'Warning' });
                 $('#sql').val(queryData.sql_query); // Fallback to SQL editor
                 $('#modal-custom-query').modal('show');
             }
-        } else {
-            $.jGrowl('Saved visual query has no parameters. Opening as SQL.', { header: 'Warning' });
-            $('#sql').val(queryData.sql_query); // Fallback to SQL editor
+        } else { // Not a visual query, open in SQL editor
+            if (typeof editor !== 'undefined' && editor !== null) {
+                editor.setValue(queryData.sql_query, -1); // -1 moves cursor to the start
+            } else {
+                $('#sql').val(queryData.sql_query); // Fallback if ACE editor not ready
+            }
+            $('#custom_query_id_edit').val(queryId);
+            $('#modal-custom-query').data('source', 'dashboard');
             $('#modal-custom-query').modal('show');
         }
-    } else { // Not a visual query, open in SQL editor
-        if (typeof editor !== 'undefined' && editor !== null) {
-            editor.setValue(queryData.sql_query, -1); // -1 moves cursor to the start
-        } else {
-            $('#sql').val(queryData.sql_query); // Fallback if ACE editor not ready
-        }
-        // Populate fields for custom query modal if needed (e.g. queryId for update)
-        $('#custom_query_id_edit').val(queryId);
-        // Potentially clear name edit field if it exists: $('#custom_query_name_edit').val(queryName);
-        $('#modal-custom-query').data('source', 'dashboard'); // Set source for save handler
-        $('#modal-custom-query').modal('show');
     }
 });
 
@@ -1074,12 +1113,15 @@ $(document).ready(function() {
         });
     });
 
-    function updateTableDropdown(dataSourceId) {
+    function updateTableDropdown(dataSourceId, callback) {
         var $tableSelect = $('#table_select');
         $tableSelect.empty().append('<option value="">Loading tables...</option>');
 
         if (!dataSourceId) {
             $tableSelect.empty().append('<option value="">-- Choose a Table --</option>');
+            if (typeof callback === 'function') {
+                callback();
+            }
             return;
         }
 
@@ -1094,6 +1136,11 @@ $(document).ready(function() {
                         var url = base + '/table/' + table;
                         $tableSelect.append('<option value="' + url + '">' + table + '</option>');
                     });
+                }
+            },
+            complete: function() {
+                if (typeof callback === 'function') {
+                    callback();
                 }
             }
         });

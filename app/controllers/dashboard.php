@@ -19,6 +19,7 @@ class Dashboard
                             ->select('is_visual_query')
                             ->select('visual_params')
                             ->select('created_at')
+                            ->select('source_connection_id')
                             ->order_by_desc('created_at')
                             ->find_array();
             if ($queries !== false) {
