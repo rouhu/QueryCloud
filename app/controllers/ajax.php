@@ -64,13 +64,21 @@ class Ajax
     {
         header('Content-Type: application/json');
         $table = $_POST['table'] ?? null;
+        $dataSourceId = $_POST['data_source_id'] ?? null;
         $response = ['status' => 'error', 'message' => 'Table name not provided.', 'fields' => []];
 
         if ($table) {
             try {
+                $connection_name = Table::get_data_source_connection_name($dataSourceId);
+                $db = ORM::get_db($connection_name);
+
+                if (!$db) {
+                    throw new Exception("Could not establish database connection.");
+                }
+
                 // table columns
                 // Ensure table name is quoted to prevent SQL injection, though it comes from client-side VQB selections
-                $stmt = Flight::get('db')->query("DESCRIBE `$table`");
+                $stmt = $db->query("DESCRIBE `$table`");
                 $columns = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
                 $fields = array_column($columns, 'Field');
@@ -79,8 +87,8 @@ class Ajax
                 $response['message'] = 'Fields retrieved successfully.';
                 $response['fields'] = $fields;
 
-            } catch (PDOException $e) {
-                error_log("Error fetching fields for table $table: " . $e->getMessage());
+            } catch (Exception $e) {
+                error_log("Error in gettablefields for table '$table': " . $e->getMessage());
                 $response['message'] = "Database error fetching fields for table: " . htmlspecialchars($table);
             }
         }
