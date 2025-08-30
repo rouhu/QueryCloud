@@ -28,6 +28,9 @@ Flight::route('GET /etl/@query_id:[0-9]+', 'ETL::index');
 Flight::route('POST /etl/save', 'ETL::save');
 Flight::route('POST /etl/run', 'ETL::run');
 
+// ETL Log Page
+Flight::route('GET /etllog', 'EtlLog::index');
+
 Flight::route('GET /export/csv', 'Export::csv');
 Flight::route('GET /export/excel', 'Export::excel');
 Flight::route('GET /table/[a-zA-Z0-9-_?+]+', 'Table::index');
