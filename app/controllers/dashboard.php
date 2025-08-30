@@ -2,7 +2,7 @@
 
 class Dashboard
 {
-    public static $title = 'Welcome!';
+    public static $title = 'Query List';
     public static $icon = 'glyphicon-home';
 
     public static function index()
