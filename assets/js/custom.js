@@ -756,10 +756,15 @@ $('body').on('click', '.btn-edit-saved-query', function() {
             $('#modal-custom-query').modal('show');
         }
     } else { // Not a visual query, open in SQL editor
-        $('#sql').val(queryData.sql_query);
+        if (typeof editor !== 'undefined' && editor !== null) {
+            editor.setValue(queryData.sql_query, -1); // -1 moves cursor to the start
+        } else {
+            $('#sql').val(queryData.sql_query); // Fallback if ACE editor not ready
+        }
         // Populate fields for custom query modal if needed (e.g. queryId for update)
         $('#custom_query_id_edit').val(queryId);
         // Potentially clear name edit field if it exists: $('#custom_query_name_edit').val(queryName);
+        $('#modal-custom-query').data('source', 'dashboard'); // Set source for save handler
         $('#modal-custom-query').modal('show');
     }
 });
@@ -811,6 +816,7 @@ $('body').on('click', '#btnEditCustomSQL', function() {
     }
 
     // Show the modal
+    $('#modal-custom-query').data('source', 'results'); // Set source for save handler
     $('#modal-custom-query').modal('show');
 });
 
@@ -1018,24 +1024,29 @@ $('body').on('click', '#btnUpdateSavedQuery', function() {
                 }
 
                 setTimeout(function() {
-                    // Instead of reloading, submit a form to run the updated query
-                    var $dynamicForm = $('<form>', {
-                        'action': base + '/table/run_saved_query',
-                        'method': 'POST',
-                        'style': 'display:none;'
-                    }).append($('<input>', {
-                        'type': 'hidden',
-                        'name': 'cquery',
-                        'value': sqlQuery
-                    })).append($('<input>', {
-                        'type': 'hidden',
-                        'name': 'running_saved_query_name',
-                        'value': queryName
-                    }));
+                    var source = $('#modal-custom-query').data('source');
+                    if (source === 'dashboard') {
+                        location.reload(); // Just reload the dashboard
+                    } else {
+                        // Instead of reloading, submit a form to run the updated query
+                        var $dynamicForm = $('<form>', {
+                            'action': base + '/table/run_saved_query',
+                            'method': 'POST',
+                            'style': 'display:none;'
+                        }).append($('<input>', {
+                            'type': 'hidden',
+                            'name': 'cquery',
+                            'value': sqlQuery
+                        })).append($('<input>', {
+                            'type': 'hidden',
+                            'name': 'running_saved_query_name',
+                            'value': queryName
+                        }));
 
-                    $('body').append($dynamicForm);
-                    $dynamicForm.submit();
-                    $dynamicForm.remove();
+                        $('body').append($dynamicForm);
+                        $dynamicForm.submit();
+                        $dynamicForm.remove();
+                    }
                 }, 1500);
             } else {
                 $msgContainer.removeClass('alert-success').addClass('alert-danger').text(response.message || 'An unknown error occurred.').show();
@@ -1046,6 +1057,7 @@ $('body').on('click', '#btnUpdateSavedQuery', function() {
         },
         complete: function() {
             $thisButton.prop('disabled', false).find('i').removeClass('fa-spinner fa-spin').addClass('fa-save');
+            $('#modal-custom-query').removeData('source'); // Clean up the source flag
         }
     });
 });
