@@ -509,7 +509,8 @@ function openVisualQueryBuilderModal(visualParamsObj, queryId, queryName, isEdit
                 populateJoinFieldDropdown(
                     $clone.find('select.joinfieldselected'),
                     visualParamsObj.jointable[idx],
-                    visualParamsObj.joinfield[idx]
+                    visualParamsObj.joinfield[idx],
+                    dataSourceId
                 );
                 if (visualParamsObj.joinfieldp && visualParamsObj.joinfieldp[idx]) {
                     $clone.find('select.joinfieldmain').data('saved-value', visualParamsObj.joinfieldp[idx]);
@@ -1660,7 +1661,7 @@ function addTablesToDropdown(dataSourceId, callback) {
  * @param {string} [selectedValue] - Optional. The value to pre-select in the dropdown.
  * @param {function} [callback] - Optional. Callback function executed after population (receives true for success, false for failure).
  */
-function populateJoinFieldDropdown($selectElement, tableName, selectedValue, callback) {
+function populateJoinFieldDropdown($selectElement, tableName, selectedValue, dataSourceId, callback) {
     // console.log("populateJFD - Called. Table:", tableName, "SelectedVal:", selectedValue, "Element:", $selectElement.length ? $selectElement[0] : 'not found'); // DEBUG
     if (!tableName) {
         console.error("populateJoinFieldDropdown: tableName is required.");
@@ -1670,7 +1671,7 @@ function populateJoinFieldDropdown($selectElement, tableName, selectedValue, cal
 
     // console.log("Populating join field dropdown for table:", tableName, "Target select:", $selectElement);
 
-    $.post(base + '/ajax/gettablefields', { "table": tableName }, function (response) {
+    $.post(base + '/ajax/gettablefields', { "table": tableName, "data_source_id": dataSourceId }, function (response) {
         // console.log("populateJFD - AJAX Success. Table:", tableName, "Resp:", JSON.stringify(response)); // DEBUG
         if (response && response.status === 'success' && response.fields) {
             var optionsHtml = '<option value="">Choose Field</option>'; // Add a default empty option
