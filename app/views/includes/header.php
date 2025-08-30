@@ -53,19 +53,18 @@
             <li><a href="<?php echo Flight::get('base'); ?>/destinations"><i class="fa fa-rocket"></i> Manage Destinations</a></li>
             <li><a href="<?php echo Flight::get('base'); ?>/etllog"><i class="fa fa-history"></i> ETL Log</a></li>
 
-            <li style="padding: 10px 15px;">
+            <li class="nav-heading" style="padding: 10px 15px; font-weight: bold; color: #fff;">Create New Query</li>
+            <li style="padding: 0 15px 10px 15px;">
                 <label for="datasource" style="color: #fff; font-weight: bold;">Select Data Source</label>
-                <select name="datasource" id="datasource" class="form-control" style="width: 200px;">
+                <select name="datasource" id="datasource" class="form-control" style="width: 100%;">
                     <option value="">-- Choose a Data Source --</option>
                     <?php echo Flight::get('dataSourceOptions'); ?>
                 </select>
             </li>
-            <li class="nav-divider"></li>
 
-            <li class="nav-heading" style="padding: 10px 15px; font-weight: bold; color: #fff;">Select Table</li>
-
-            <li style="padding: 0 1px;">
-                <select id="table_select" name="table_select" class="form-control" style="width: 230px;">
+            <li style="padding: 0 15px 10px 15px;">
+                <label for="table_select" style="color: #fff; font-weight: bold;">Select Table</label>
+                <select id="table_select" name="table_select" class="form-control" style="width: 100%;">
                     <option value="">-- Choose a Table --</option>
                     <?php echo Flight::get('table_options'); ?>
                 </select>

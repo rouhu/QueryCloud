@@ -2,8 +2,6 @@
 
     <div class="page-content inset">
         <div class="row">
-            <h4><i class="fa fa-list-alt"></i> Saved Queries</h4>
-            <hr>
             <?php if (!empty($saved_queries)): ?>
                 <ul class="list-group" id="dashboardSavedQueriesList">
                     <?php foreach ($saved_queries as $query): ?>
@@ -37,11 +35,6 @@
                     <p><span class="fa fa-info-circle"></span> You have no saved queries yet. You can save a query after running it from the table view.</p>
                 </div>
             <?php endif; ?>
-        </div>
-        <div class="row" style="margin-top: 40px;">
-             <div class="alert alert-info">
-                <h3 style="margin: 0;"><span class="fa fa-table"></span> To build or run new queries, please select a table from the sidebar.</h3>
-            </div>
         </div>
     </div>
 
