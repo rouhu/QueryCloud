@@ -116,6 +116,47 @@ class Ajax
         echo $html;
     }
 
+    public static function getSqlFromVisualParams()
+    {
+        header('Content-Type: application/json');
+        $response = ['status' => 'error', 'message' => 'An unknown error occurred.'];
+
+        $visual_params_json = $_POST['visual_params'] ?? null;
+        $primary_table_name = $_POST['primary_table_name'] ?? null;
+
+        if (!$visual_params_json || !$primary_table_name) {
+            $response['message'] = 'Missing required parameters (visual_params or primary_table_name).';
+            echo json_encode($response);
+            return;
+        }
+
+        $params_array = json_decode($visual_params_json, true);
+
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            $response['message'] = 'Invalid JSON in visual_params.';
+            echo json_encode($response);
+            return;
+        }
+
+        try {
+            // Ensure Table class is available
+            if (class_exists('Table')) {
+                $generated_sql = Table::generateSqlFromVisualParams($params_array, $primary_table_name);
+                $response['status'] = 'success';
+                $response['message'] = 'SQL generated successfully.';
+                $response['sql_query'] = $generated_sql;
+            } else {
+                $response['message'] = 'Table class not found.';
+                error_log("Ajax::getSqlFromVisualParams - Table class not found.");
+            }
+        } catch (Exception $e) {
+            $response['message'] = 'Error during SQL generation: ' . $e->getMessage();
+            error_log("Ajax::getSqlFromVisualParams - Exception: " . $e->getMessage());
+        }
+
+        echo json_encode($response);
+    }
+
     public static function saveQuery()
     {
         header('Content-Type: application/json');
