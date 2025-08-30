@@ -38,6 +38,7 @@ $lastSegment = Flight::get('lastSegment');
 Flight::route('POST /ajax/set_data_source', 'Ajax::set_data_source');
 Flight::route('POST /ajax/get_tables_for_data_source', 'Ajax::get_tables_for_data_source');
 Flight::route('POST /ajax/get_destination_tables', 'Ajax::get_destination_tables');
+Flight::route('POST /ajax/get_etl_mapping_data', 'Ajax::get_etl_mapping_data');
 Flight::route('POST /ajax/getSqlFromVisualParams', 'Ajax::getSqlFromVisualParams');
 Flight::route('POST /ajax/[a-zA-Z0-9-_?+]+', 'Ajax::'.$lastSegment);
 Flight::route('GET /ajax/getSavedQueries', 'Ajax::getSavedQueries'); // Route for fetching saved queries
