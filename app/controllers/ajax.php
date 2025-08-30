@@ -94,12 +94,45 @@ class Ajax
      */
     public static function getselectfields() {
         $tablesJSON = $_POST['tables'] ?? '[]';
+        $dataSourceId = $_POST['data_source_id'] ?? null;
         $tables = json_decode($tablesJSON, true) ?: [];
         $html = '';
+        $db = null;
+
+        if ($dataSourceId) {
+            $source = ORM::for_table('data_sources')->find_one($dataSourceId);
+            if ($source) {
+                try {
+                    $password = toggleEncryption($source->db_password);
+                    $connection_name = 'temp_ds_' . $source->id;
+                    // Configure a temporary connection
+                    ORM::configure('mysql:host=' . $source->db_host . ';dbname=' . $source->db_name, null, $connection_name);
+                    ORM::configure('username', $source->db_user, $connection_name);
+                    ORM::configure('password', $password, $connection_name);
+                    $db = ORM::get_db($connection_name);
+                } catch (PDOException $e) {
+                    error_log("Failed to connect to data source $dataSourceId in getselectfields: " . $e->getMessage());
+                    // Fallback to default connection if specific one fails
+                    $db = Flight::get('db');
+                }
+            } else {
+                // Data source not found, use default
+                $db = Flight::get('db');
+            }
+        } else {
+            // No data source specified, use default
+            $db = Flight::get('db');
+        }
+
+        if (!$db) {
+            error_log("getselectfields: Could not establish a database connection.");
+            echo ''; // Return empty string on catastrophic failure
+            return;
+        }
     
         foreach ($tables as $table) {
             try {
-                $stmt = Flight::get('db')->query("DESCRIBE `$table`");
+                $stmt = $db->query("DESCRIBE `$table`");
                 $columns = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 $fields = array_column($columns, 'Field');
                 
@@ -109,7 +142,7 @@ class Ajax
                 }
                 $html .= '</optgroup>';
             } catch (PDOException $e) {
-                error_log("Field fetch error for $table: ".$e->getMessage());
+                error_log("Field fetch error for table '$table' in getselectfields: ".$e->getMessage());
             }
         }
     
@@ -329,6 +362,7 @@ class Ajax
                             ->select('id')
                             ->select('query_name')
                             ->select('sql_query')
+                            ->select('source_connection_id')
                             ->select('is_visual_query')
                             ->select('visual_params')
                             ->select('created_at')
