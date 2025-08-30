@@ -148,10 +148,23 @@ class Table
     public static function run_saved_query()
     {
         $query = $_POST['cquery'];
+        $query_id = $_POST['query_id'] ?? null;
         $running_saved_query_name = $_POST['running_saved_query_name'] ?? null;
+        $saved_query = null;
 
-        $saved_query = ORM::for_table('saved_queries')->where('query_name', $running_saved_query_name)->find_one();
-        $source_connection_id = $saved_query ? $saved_query->source_connection_id : null;
+        if ($query_id) {
+            $saved_query = ORM::for_table('saved_queries')->find_one($query_id);
+        } elseif ($running_saved_query_name) {
+            $saved_query = ORM::for_table('saved_queries')->where('query_name', $running_saved_query_name)->find_one();
+        }
+
+        // If we have a saved query model, we can derive the name and connection ID
+        if ($saved_query) {
+            $running_saved_query_name = $saved_query->query_name;
+            $source_connection_id = $saved_query->source_connection_id;
+        } else {
+            $source_connection_id = null;
+        }
 
         $connection_name = self::get_data_source_connection_name($source_connection_id);
         $db = ORM::get_db($connection_name);
