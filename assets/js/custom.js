@@ -8,7 +8,8 @@ $('.sidebar-nav a[href$="' + lastSegment + '"]').parents('li').addClass('activel
 
 // style tables
 if ($('table tr').length) {
-    $('.page-content table').not('table.nodatatable').dataTable({
+    // General datatable initialization with horizontal scroll
+    $('.page-content table').not('table.nodatatable, #etl_log_table').dataTable({
         sPaginationType: "full_numbers",
         bAutoWidth: false,
         autoWidth: false,
@@ -16,6 +17,18 @@ if ($('table tr').length) {
         iDisplayLength: 10,
         scrollX: 400
     });
+
+    // Specific initialization for ETL Log table without horizontal scroll
+    if ($('#etl_log_table').length) {
+        $('#etl_log_table').dataTable({
+            sPaginationType: "full_numbers",
+            bAutoWidth: false,
+            autoWidth: false,
+            bLengthChange: true,
+            iDisplayLength: 10
+            // No scrollX here
+        });
+    }
 }
 
 // replace selects with select2 - BEWARE: This global initializer might be problematic for hidden templates.

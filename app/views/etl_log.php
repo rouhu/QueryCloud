@@ -8,7 +8,7 @@
                     <h3 class="panel-title"><i class="<?php echo $icon; ?>"></i> <?php echo $title; ?></h3>
                 </div>
                 <div class="panel-body">
-                    <table class="table table-striped table-bordered">
+                    <table id="etl_log_table" class="table table-striped table-bordered">
                         <thead>
                             <tr>
                                 <th>Query Name</th>
