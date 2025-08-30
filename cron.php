@@ -7,6 +7,22 @@ if (php_sapi_name() !== 'cli') {
 require 'boot.php';
 require_once 'vendor/j4mie/idiorm/idiorm.php';
 
+// --- Database Configuration for Cron ---
+// The cron environment doesn't seem to pick up the DB config automatically.
+// We will explicitly configure it here using the values from config.php.
+if (file_exists('config.php')) {
+    require_once 'config.php';
+    if (isset($config) && !empty($config['database_host'])) {
+        ORM::configure('mysql:host=' . $config['database_host'] . ';dbname=' . $config['database_dbname']);
+        ORM::configure('username', $config['database_user']);
+        ORM::configure('password', $config['database_password']);
+    } else {
+        die("Database configuration not found or is empty in config.php. Cron job cannot continue.\n");
+    }
+} else {
+    die("config.php not found. Cron job cannot continue.\n");
+}
+
 // Set a default timezone if not set in php.ini
 date_default_timezone_set('UTC');
 
