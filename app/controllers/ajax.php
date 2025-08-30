@@ -748,7 +748,17 @@ class Ajax
                 throw new Exception("Saved query not found.");
             }
 
-            $source_pdo = Flight::get('db');
+            // Connect to the correct source database for the query
+            $source_db_details = ORM::for_table('data_sources')->find_one($saved_query->source_connection_id);
+            if (!$source_db_details) {
+                throw new Exception("Source database configuration for this query not found.");
+            }
+
+            $source_decrypted_password = toggleEncryption($source_db_details->db_password);
+            $source_dsn = "mysql:host={$source_db_details->db_host};port={$source_db_details->db_port};dbname={$source_db_details->db_name};charset=utf8";
+            $source_pdo = new PDO($source_dsn, $source_db_details->db_user, $source_decrypted_password);
+            $source_pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+
             // Appending LIMIT 0 is a common trick to get metadata without fetching rows
             $source_stmt = $source_pdo->prepare($saved_query->sql_query . " LIMIT 0");
             $source_stmt->execute();
