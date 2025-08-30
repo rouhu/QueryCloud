@@ -748,13 +748,19 @@ $('body').on('click', '#btnEditExecutedQuery', function() {
     var executedQueryId = $('#executed_query_id').val(); // Might be empty if not a saved query
     var executedQueryName = $('#executed_query_name').val(); // Might be empty
     var wasSavedVisual = $('#executed_query_was_saved_visual').val() === 'true';
+    var dataSourceId = $('#executed_query_source_connection_id').val(); // Get the data source ID
+
+    if (!dataSourceId) {
+        $.jGrowl('Error: Could not determine the data source for this query.', { header: 'Error', theme: 'error' });
+        return;
+    }
 
     if (visualParamsJsonString && visualParamsJsonString !== '{}' && visualParamsJsonString !== '[]') {
         try {
             var parsedParams = JSON.parse(visualParamsJsonString);
             // If it was a saved visual query, its ID and name are used.
             // Otherwise, queryId and queryName will be empty, VQB opens for a new/adhoc query state.
-            openVisualQueryBuilderModal(parsedParams, executedQueryId, executedQueryName, wasSavedVisual);
+            openVisualQueryBuilderModal(parsedParams, executedQueryId, executedQueryName, wasSavedVisual, dataSourceId);
         } catch (e) {
             console.error("Error parsing #current_visual_params for editing:", e);
             $.jGrowl('Could not parse visual parameters to edit this query.', { header: 'Error' });
