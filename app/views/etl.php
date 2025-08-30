@@ -152,32 +152,6 @@
 <script>
     // Pass the PHP etl_config to JavaScript
     var etlConfig = <?php echo json_encode($etl_config); ?>;
-
-    $(document).ready(function() {
-        // Initialize select2 for the new multi-select boxes
-        $('.select2-multiple').select2({
-            placeholder: 'Click to select options'
-        });
-
-        function toggleScheduleOptions() {
-            // Hide all schedule option groups
-            $('.schedule-options').hide();
-
-            var selectedType = $('#schedule_type').val();
-            if (selectedType === 'minutely') {
-                $('#schedule_minutely_options').show();
-            } else if (selectedType === 'hourly') {
-                $('#schedule_hourly_options').show();
-            } else if (selectedType === 'daily') {
-                $('#schedule_daily_options').show();
-            }
-        }
-
-        $('#schedule_type').on('change', toggleScheduleOptions);
-
-        // Initial check on page load
-        toggleScheduleOptions();
-    });
 </script>
 
 <?php require_once 'includes/footer.php'; ?>
