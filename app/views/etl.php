@@ -75,16 +75,52 @@
                                     <option value="hourly" <?php echo (isset($etl_config['schedule_type']) && $etl_config['schedule_type'] == 'hourly') ? 'selected' : ''; ?>>Hourly</option>
                                     <option value="daily" <?php echo (isset($etl_config['schedule_type']) && $etl_config['schedule_type'] == 'daily') ? 'selected' : ''; ?>>Daily</option>
                                     <option value="weekly" <?php echo (isset($etl_config['schedule_type']) && $etl_config['schedule_type'] == 'weekly') ? 'selected' : ''; ?>>Weekly</option>
-                                    <option value="monthly" <?php echo (isset($etl_config['schedule_type']) && $etl_config['schedule_type'] == 'monthly') ? 'selected' : ''; ?>>Monthly</option>
                                 </select>
                             </div>
                         </div>
 
-                        <div class="form-group" id="schedule_interval_group" style="display:none;">
-                            <label for="schedule_interval" class="col-sm-3 control-label">Minute Interval</label>
+                        <!-- Minutely Options -->
+                        <div class="form-group schedule-options" id="schedule_minutely_options" style="display:none;">
+                            <label for="schedule_interval" class="col-sm-3 control-label">Run Every</label>
                             <div class="col-sm-6">
-                                <input type="number" class="form-control" id="schedule_interval" name="schedule_interval" value="<?php echo isset($etl_config['schedule_interval']) ? htmlspecialchars($etl_config['schedule_interval'], ENT_QUOTES, 'UTF-8') : '5'; ?>" min="1">
-                                <p class="help-block">Run every X minutes.</p>
+                                <select class="form-control" id="schedule_interval" name="schedule_interval">
+                                    <?php $intervals = [1, 5, 10, 15, 20, 30, 45]; ?>
+                                    <?php foreach ($intervals as $interval): ?>
+                                        <option value="<?php echo $interval; ?>" <?php echo (isset($etl_config['schedule_interval']) && $etl_config['schedule_interval'] == $interval) ? 'selected' : ''; ?>>
+                                            <?php echo $interval; ?> minute(s)
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Hourly Options -->
+                        <div class="form-group schedule-options" id="schedule_hourly_options" style="display:none;">
+                            <label for="schedule_hours" class="col-sm-3 control-label">Run On The Hour(s)</label>
+                            <div class="col-sm-6">
+                                <select class="form-control select2-multiple" id="schedule_hours" name="schedule_hours[]" multiple>
+                                    <?php for ($i = 0; $i < 24; $i++): ?>
+                                        <option value="<?php echo $i; ?>" <?php echo (isset($etl_config['schedule_hours']) && in_array($i, (array)$etl_config['schedule_hours'])) ? 'selected' : ''; ?>>
+                                            <?php echo str_pad($i, 2, '0', STR_PAD_LEFT) . ':00'; ?>
+                                        </option>
+                                    <?php endfor; ?>
+                                </select>
+                                <p class="help-block">Select one or more hours. The job will run once within each selected hour.</p>
+                            </div>
+                        </div>
+
+                        <!-- Daily Options -->
+                        <div class="form-group schedule-options" id="schedule_daily_options" style="display:none;">
+                            <label for="schedule_days" class="col-sm-3 control-label">Run On Day(s) of Month</label>
+                            <div class="col-sm-6">
+                                <select class="form-control select2-multiple" id="schedule_days" name="schedule_days[]" multiple>
+                                    <?php for ($i = 1; $i <= 31; $i++): ?>
+                                        <option value="<?php echo $i; ?>" <?php echo (isset($etl_config['schedule_days']) && in_array($i, (array)$etl_config['schedule_days'])) ? 'selected' : ''; ?>>
+                                            Day <?php echo $i; ?>
+                                        </option>
+                                    <?php endfor; ?>
+                                </select>
+                                <p class="help-block">Select one or more days of the month. The job will run at midnight on these days.</p>
                             </div>
                         </div>
 
@@ -118,18 +154,29 @@
     var etlConfig = <?php echo json_encode($etl_config); ?>;
 
     $(document).ready(function() {
-        function toggleScheduleInterval() {
-            if ($('#schedule_type').val() === 'minutely') {
-                $('#schedule_interval_group').show();
-            } else {
-                $('#schedule_interval_group').hide();
+        // Initialize select2 for the new multi-select boxes
+        $('.select2-multiple').select2({
+            placeholder: 'Click to select options'
+        });
+
+        function toggleScheduleOptions() {
+            // Hide all schedule option groups
+            $('.schedule-options').hide();
+
+            var selectedType = $('#schedule_type').val();
+            if (selectedType === 'minutely') {
+                $('#schedule_minutely_options').show();
+            } else if (selectedType === 'hourly') {
+                $('#schedule_hourly_options').show();
+            } else if (selectedType === 'daily') {
+                $('#schedule_daily_options').show();
             }
         }
 
-        $('#schedule_type').on('change', toggleScheduleInterval);
+        $('#schedule_type').on('change', toggleScheduleOptions);
 
         // Initial check on page load
-        toggleScheduleInterval();
+        toggleScheduleOptions();
     });
 </script>
 

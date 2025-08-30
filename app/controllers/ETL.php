@@ -59,24 +59,37 @@ class ETL
                     return $value !== '';
                 });
 
-                $schedule_type = $_POST['schedule_type'] ?? 'inactive';
-                $schedule_interval = $_POST['schedule_interval'] ?? '5';
-
-                // Get existing config to preserve other settings like last_run_at
+                // Get existing config to preserve settings not on this form (like last_run_at)
                 $etl_config = $saved_query->etl_config ? json_decode($saved_query->etl_config, true) : [];
 
+                // Always save these base settings
                 $etl_config['destination_db_id'] = $destination_id;
                 $etl_config['destination_table_name'] = $destination_table;
                 $etl_config['etl_type'] = $etl_type;
                 $etl_config['column_mapping'] = $filtered_mapping;
                 $etl_config['key_columns'] = $key_columns;
+
+                // --- New Scheduling Logic ---
+                $schedule_type = $_POST['schedule_type'] ?? 'inactive';
                 $etl_config['schedule_type'] = $schedule_type;
 
-                if ($schedule_type === 'minutely') {
-                    $etl_config['schedule_interval'] = $schedule_interval;
-                } else {
-                    // Remove interval if not minutely to keep config clean
-                    unset($etl_config['schedule_interval']);
+                // Unset all possible schedule-specific keys to ensure a clean save
+                unset($etl_config['schedule_interval']);
+                unset($etl_config['schedule_hours']);
+                unset($etl_config['schedule_days']);
+
+                // Set the specific schedule options based on the selected type
+                switch ($schedule_type) {
+                    case 'minutely':
+                        $etl_config['schedule_interval'] = $_POST['schedule_interval'] ?? '5';
+                        break;
+                    case 'hourly':
+                        $etl_config['schedule_hours'] = $_POST['schedule_hours'] ?? [];
+                        break;
+                    case 'daily':
+                        $etl_config['schedule_days'] = $_POST['schedule_days'] ?? [];
+                        break;
+                    // For 'inactive' and 'weekly', no extra params are needed
                 }
 
                 $saved_query->etl_config = json_encode($etl_config);
