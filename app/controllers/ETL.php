@@ -209,6 +209,9 @@ class ETL
         try {
             // Load phpseclib classes
             require_once 'vendor/autoload.php';
+            if (file_exists('vendor/phpseclib/phpseclib/phpseclib/bootstrap.php')) {
+                require_once 'vendor/phpseclib/phpseclib/phpseclib/bootstrap.php';
+            }
             
             $csv_separator = $etl_config['csv_separator'] ?? ',';
             
