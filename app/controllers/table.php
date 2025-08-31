@@ -198,7 +198,7 @@ class Table
         }
 
         Flight::set('lastSegment', $tableName ?? 'custom_query');
-        self::runQueryWithView($query, $fields, '', null, $running_saved_query_name, $connection_name);
+        self::runQueryWithView($query, $fields, '', null, $running_saved_query_name, $connection_name, true);
     }
 
     /**
@@ -235,7 +235,7 @@ class Table
 
         // for custom query
         if ($query) {
-            self::runQueryWithView($query, $fields, $printArray, null, $running_saved_query_name, $connection_name);
+            self::runQueryWithView($query, $fields, $printArray, null, $running_saved_query_name, $connection_name, true);
 
         } // for visual query
         else {
@@ -291,7 +291,7 @@ class Table
                 }
             }
 
-            self::runQueryWithView($query, $fields, $printArray, $visual_params_for_view, $current_running_saved_query_name, $connection_name);
+            self::runQueryWithView($query, $fields, $printArray, $visual_params_for_view, $current_running_saved_query_name, $connection_name, true);
         }
 
     }
@@ -477,7 +477,7 @@ class Table
     }
 
 
-    private static function runQueryWithView($query, $fields, $printArray, $visual_query_params = null, $running_saved_query_name = null, $connection_name = null)
+    private static function runQueryWithView($query, $fields, $printArray, $visual_query_params = null, $running_saved_query_name = null, $connection_name = null, $apply_limit = false)
     {
         if (is_null($connection_name)) {
             $connection_name = self::get_data_source_connection_name();
@@ -485,6 +485,7 @@ class Table
         $db = ORM::get_db($connection_name);
 
         $_SESSION['tableData'] = array();
+        $_SESSION['unlimitedQuery'] = $query;
 
         $exec_time_row = array();
         $records = '';
@@ -515,7 +516,12 @@ class Table
                 $db->query('SET profiling = 1;');
             }
 
-            $stmt = $db->query($query);
+            $query_to_run = $query;
+            if ($apply_limit) {
+                $query_to_run = self::add_limit_to_query($query);
+            }
+
+            $stmt = $db->query($query_to_run);
 
             if ($db_type === 'mysql') {
                 // find out time above query was ran for
@@ -533,10 +539,6 @@ class Table
             $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
             // store table fields/columns + data rows in session for exporting later
-//           $_SESSION['tableData'] = array_merge($fields, $data);
-// With proper header + data structure:
-// Extract column names from DESCRIBE result
-//print_r($data);
             if (!empty($data) && isset($data[0])) {
                 $original_header = array_keys($data[0]); // <-- Keep the original headers
                 $display_header = $original_header; // By default, display header is the original
@@ -694,6 +696,14 @@ class Table
         $query = rtrim($query, ' FULL');
         $query = rtrim($query, ' FULL JOIN');
 
+        return $query;
+    }
+
+    private static function add_limit_to_query($query)
+    {
+        if (stristr($query, 'LIMIT') === false) {
+            return $query . ' LIMIT 100';
+        }
         return $query;
     }
 
