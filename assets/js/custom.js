@@ -1132,28 +1132,55 @@ $(document).ready(function () {
         });
     });
 
-    // ETL Page: Handle destination change to populate tables
+    // ETL Page: Handle destination change to populate tables and toggle fields
     $('#destination_id').on('change', function () {
         var destinationId = $(this).val();
         var $tableSelect = $('#destination_table');
         var savedTableName = $tableSelect.data('saved-table');
 
+        var $sftpFields = $('.sftp-etl-fields');
+        var $databaseFields = $('.database-etl-fields');
+
+        // Hide all fields and remove 'required' attributes if no destination is selected
         if (!destinationId) {
             $tableSelect.html('<option value="">-- Select a Destination First --</option>').prop('disabled', true);
+            $sftpFields.hide();
+            $databaseFields.hide();
+            // Clear required attributes from all fields
+            $('.sftp-etl-fields input, .sftp-etl-fields select, .database-etl-fields input, .database-etl-fields select').removeAttr('required');
             return;
         }
 
-        // Check destination type using data attribute from the selected option
-        var selectedOption = this.querySelector('option[value="' + destinationId + '"]');
-        var destType = selectedOption ? selectedOption.getAttribute('data-destination-type') : 'database';
+        // Get the destination type from the 'data-destination-type' attribute of the selected option
+        var selectedOption = $(this).find('option:selected');
+        var destType = selectedOption.data('destination-type') || 'database';
 
         if (destType === 'sftp') {
-            // For SFTP destinations, no tables are needed
+            // Show SFTP fields and hide database fields
+            $sftpFields.show();
+            $databaseFields.hide();
+
+            // Manage 'required' attributes
+            $('.database-etl-fields input, .database-etl-fields select').removeAttr('required');
+            $('#csv_separator').prop('required', true);
+
+            // Update the table select for SFTP
             $tableSelect.html('<option value="">-- SFTP destinations do not use tables --</option>').prop('disabled', true);
-            return;
+
+            return; // Stop here for SFTP
         }
 
-        // Only fetch tables for database destinations
+        // --- This part runs for 'database' destination types ---
+
+        // Show database fields and hide SFTP fields
+        $databaseFields.show();
+        $sftpFields.hide();
+
+        // Manage 'required' attributes
+        $('.sftp-etl-fields input, .sftp-etl-fields select').removeAttr('required');
+        $('#destination_table').prop('required', true);
+
+        // Fetch tables for the selected database destination
         $tableSelect.html('<option value="">Loading tables...</option>').prop('disabled', false);
 
         $.ajax({
@@ -1166,12 +1193,16 @@ $(document).ready(function () {
                 if (response.status === 'success' && response.tables) {
                     $tableSelect.append('<option value="">-- Select a Table --</option>');
                     $.each(response.tables, function (index, table) {
-                        var selected = (table === savedTableName) ? ' selected' : '';
-                        $tableSelect.append('<option value="' + escapeHtml(table) + '"' + selected + '>' + escapeHtml(table) + '</option>');
+                        var isSelected = (table === savedTableName);
+                        $tableSelect.append($('<option>', {
+                            value: table,
+                            text: table,
+                            selected: isSelected
+                        }));
                     });
 
-                    // If a table was selected (from saved config), trigger its change event to load the column mapper
-                    if ($tableSelect.val()) {
+                    // If a table was previously saved, trigger the change event to load column mappings
+                    if (savedTableName && $tableSelect.val()) {
                         $tableSelect.trigger('change');
                     }
                 } else {
