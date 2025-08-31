@@ -17,7 +17,7 @@
                                 <option value="">-- Select Type --</option>
                                 <option value="database">Database</option>
                                 <option value="sftp">SFTP</option>
-                                <option value="s3">AWS S3</option>
+                                <option value="s3">S3 Compatible Storage</option>
                             </select>
                         </div>
                         <div class="form-group database-fields" id="database_type_group" style="display: none;">
@@ -44,18 +44,9 @@
                             <input type="text" class="form-control" id="s3_bucket" name="s3_bucket" placeholder="e.g., my-etl-bucket">
                         </div>
                         <div class="form-group s3-fields" id="s3_region_group" style="display: none;">
-                            <label for="s3_region">AWS Region</label>
-                            <select class="form-control" id="s3_region" name="s3_region">
-                                <option value="us-east-1">US East (N. Virginia)</option>
-                                <option value="us-west-1">US West (N. California)</option>
-                                <option value="us-west-2">US West (Oregon)</option>
-                                <option value="eu-west-1">Europe (Ireland)</option>
-                                <option value="eu-west-2">Europe (London)</option>
-                                <option value="eu-central-1">Europe (Frankfurt)</option>
-                                <option value="ap-southeast-1">Asia Pacific (Singapore)</option>
-                                <option value="ap-southeast-2">Asia Pacific (Sydney)</option>
-                                <option value="ap-northeast-1">Asia Pacific (Tokyo)</option>
-                            </select>
+                            <label for="s3_region">S3 Region/Endpoint</label>
+                            <input type="text" class="form-control" id="s3_region" name="s3_region" placeholder="e.g., us-east-1, eu-central-1, or custom endpoint region">
+                            <p class="help-block">For AWS S3: use region code (e.g., us-east-1). For other providers: use their specified region/endpoint identifier.</p>
                         </div>
                         <div class="form-group database-fields" id="db_name_group" style="display: none;">
                             <label for="db_name">Database Name</label>
