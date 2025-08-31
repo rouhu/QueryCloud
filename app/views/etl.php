@@ -174,57 +174,93 @@
     // Pass destinations data to JavaScript for destination type checking
     var destinations = <?php echo json_encode($destinations); ?>;
     
-    $(document).ready(function() {
-        // Handle destination selection change
-        $('#destination_id').on('change', function() {
-            var selectedDestId = $(this).val();
-            var selectedDest = null;
-            
-            // Find the selected destination
-            if (selectedDestId) {
-                for (var i = 0; i < destinations.length; i++) {
-                    if (destinations[i].id == selectedDestId) {
-                        selectedDest = destinations[i];
-                        break;
-                    }
+    function handleDestinationChange() {
+        var destinationSelect = document.getElementById('destination_id');
+        var selectedDestId = destinationSelect.value;
+        var selectedDest = null;
+        
+        // Find the selected destination
+        if (selectedDestId) {
+            for (var i = 0; i < destinations.length; i++) {
+                if (destinations[i].id == selectedDestId) {
+                    selectedDest = destinations[i];
+                    break;
                 }
             }
+        }
+        
+        var sftpFields = document.querySelectorAll('.sftp-etl-fields');
+        var databaseFields = document.querySelectorAll('.database-etl-fields');
+        
+        if (selectedDest) {
+            var destType = selectedDest.destination_type || (selectedDest.db_type !== 'sftp' ? 'database' : 'sftp');
             
-            if (selectedDest) {
-                var destType = selectedDest.destination_type || (selectedDest.db_type !== 'sftp' ? 'database' : 'sftp');
+            if (destType === 'sftp') {
+                // Show SFTP fields, hide database fields
+                for (var i = 0; i < sftpFields.length; i++) {
+                    sftpFields[i].style.display = 'block';
+                }
+                for (var i = 0; i < databaseFields.length; i++) {
+                    databaseFields[i].style.display = 'none';
+                }
                 
-                if (destType === 'sftp') {
-                    // Show SFTP fields, hide database fields
-                    $('.sftp-etl-fields').show();
-                    $('.database-etl-fields').hide();
-                    
-                    // Remove required attribute from database fields
-                    $('.database-etl-fields input, .database-etl-fields select').removeAttr('required');
-                    
-                    // Add required attribute to CSV separator if needed
-                    $('#csv_separator').attr('required', 'required');
-                } else {
-                    // Show database fields, hide SFTP fields
-                    $('.database-etl-fields').show();
-                    $('.sftp-etl-fields').hide();
-                    
-                    // Remove required attribute from SFTP fields
-                    $('.sftp-etl-fields input, .sftp-etl-fields select').removeAttr('required');
-                    
-                    // Add required attribute to database fields
-                    $('#destination_table').attr('required', 'required');
+                // Remove required attribute from database fields
+                var dbInputs = document.querySelectorAll('.database-etl-fields input, .database-etl-fields select');
+                for (var i = 0; i < dbInputs.length; i++) {
+                    dbInputs[i].removeAttribute('required');
+                }
+                
+                // Add required attribute to CSV separator
+                var csvSeparator = document.getElementById('csv_separator');
+                if (csvSeparator) {
+                    csvSeparator.setAttribute('required', 'required');
                 }
             } else {
-                // No destination selected - hide all specific fields
-                $('.sftp-etl-fields').hide();
-                $('.database-etl-fields').show(); // Keep database as default
+                // Show database fields, hide SFTP fields
+                for (var i = 0; i < databaseFields.length; i++) {
+                    databaseFields[i].style.display = 'block';
+                }
+                for (var i = 0; i < sftpFields.length; i++) {
+                    sftpFields[i].style.display = 'none';
+                }
                 
-                $('.sftp-etl-fields input, .sftp-etl-fields select').removeAttr('required');
+                // Remove required attribute from SFTP fields
+                var sftpInputs = document.querySelectorAll('.sftp-etl-fields input, .sftp-etl-fields select');
+                for (var i = 0; i < sftpInputs.length; i++) {
+                    sftpInputs[i].removeAttribute('required');
+                }
+                
+                // Add required attribute to database fields
+                var destinationTable = document.getElementById('destination_table');
+                if (destinationTable) {
+                    destinationTable.setAttribute('required', 'required');
+                }
             }
-        });
-        
-        // Trigger the change event on page load to set initial state
-        $('#destination_id').trigger('change');
+        } else {
+            // No destination selected - hide SFTP fields, show database as default
+            for (var i = 0; i < sftpFields.length; i++) {
+                sftpFields[i].style.display = 'none';
+            }
+            for (var i = 0; i < databaseFields.length; i++) {
+                databaseFields[i].style.display = 'block';
+            }
+            
+            // Remove required attribute from SFTP fields
+            var sftpInputs = document.querySelectorAll('.sftp-etl-fields input, .sftp-etl-fields select');
+            for (var i = 0; i < sftpInputs.length; i++) {
+                sftpInputs[i].removeAttribute('required');
+            }
+        }
+    }
+    
+    // Wait for DOM to be ready and attach event listener
+    document.addEventListener('DOMContentLoaded', function() {
+        var destinationSelect = document.getElementById('destination_id');
+        if (destinationSelect) {
+            destinationSelect.addEventListener('change', handleDestinationChange);
+            // Trigger the change event on page load to set initial state
+            handleDestinationChange();
+        }
     });
 </script>
 
