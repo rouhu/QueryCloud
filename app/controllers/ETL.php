@@ -77,6 +77,15 @@ class ETL
                     unset($etl_config['etl_type']);
                     unset($etl_config['column_mapping']);
                     unset($etl_config['key_columns']);
+                } else if ($dest_type === 's3') {
+                    // For S3 destinations, save CSV separator and optional folder path
+                    $etl_config['csv_separator'] = $_POST['csv_separator'] ?? ',';
+                    $etl_config['s3_folder_path'] = $_POST['s3_folder_path'] ?? '';
+                    // Remove database-specific settings
+                    unset($etl_config['destination_table_name']);
+                    unset($etl_config['etl_type']);
+                    unset($etl_config['column_mapping']);
+                    unset($etl_config['key_columns']);
                 } else {
                     // For database destinations, save traditional settings
                     $etl_config['destination_table_name'] = $destination_table;
@@ -192,6 +201,8 @@ class ETL
 
             if ($dest_type === 'sftp') {
                 return self::executeEtlToSftp($source_data, $destination_db_details, $etl_config, $saved_query);
+            } else if ($dest_type === 's3') {
+                return self::executeEtlToS3($source_data, $destination_db_details, $etl_config, $saved_query);
             } else {
                 return self::executeEtlToDatabase($source_data, $destination_db_details, $etl_config, $saved_query);
             }
@@ -207,10 +218,30 @@ class ETL
     private static function executeEtlToSftp($source_data, $destination_db_details, $etl_config, $saved_query)
     {
         try {
-            // Load phpseclib classes
-            require_once 'vendor/autoload.php';
-            if (file_exists('vendor/phpseclib/phpseclib/phpseclib/bootstrap.php')) {
-                require_once 'vendor/phpseclib/phpseclib/phpseclib/bootstrap.php';
+            // Try to use built-in PHP SSH2 extension first (if available)
+            if (function_exists('ssh2_connect') && function_exists('ssh2_sftp')) {
+                return self::executeEtlToSftpNative($source_data, $destination_db_details, $etl_config, $saved_query);
+            }
+            
+            // Load phpseclib classes using autoloader
+            if (file_exists('vendor/autoload.php')) {
+                require_once 'vendor/autoload.php';
+            } else {
+                throw new Exception("Composer autoloader not found and PHP SSH2 extension not available. Please run 'composer install' or install php-ssh2 extension.");
+            }
+            
+            // Try different phpseclib versions
+            $sftpClass = null;
+            
+            // Check if classes are already loaded via autoloader
+            if (class_exists('\phpseclib3\Net\SFTP')) {
+                $sftpClass = '\phpseclib3\Net\SFTP';
+            } elseif (class_exists('\phpseclib\Net\SFTP')) {
+                $sftpClass = '\phpseclib\Net\SFTP';
+            } elseif (class_exists('Net_SFTP')) {
+                $sftpClass = 'Net_SFTP';
+            } else {
+                throw new Exception("No compatible SFTP library found. Please ensure phpseclib is properly installed via Composer or install the php-ssh2 extension.");
             }
             
             $csv_separator = $etl_config['csv_separator'] ?? ',';
@@ -239,7 +270,7 @@ class ETL
             }
 
             // Connect to SFTP server
-            $sftp = new \phpseclib3\Net\SFTP($destination_db_details->db_host, $destination_db_details->db_port ?: 22);
+            $sftp = new $sftpClass($destination_db_details->db_host, $destination_db_details->db_port ?: 22);
             
             $decrypted_password = toggleEncryption($destination_db_details->db_password);
             if (!$sftp->login($destination_db_details->db_user, $decrypted_password)) {
@@ -368,6 +399,198 @@ class ETL
                 $dest_pdo->rollBack();
             }
             throw $e;
+        }
+    }
+
+    private static function executeEtlToS3($source_data, $destination_db_details, $etl_config, $saved_query)
+    {
+        try {
+            // Load AWS SDK using correct relative path from app/controllers/ directory
+            $autoloader_path = __DIR__ . '/../../vendor/autoload.php';
+            if (file_exists($autoloader_path)) {
+                require $autoloader_path;
+            } else {
+                // Try alternative paths if the first one doesn't work
+                $alternative_paths = [
+                    dirname(dirname(dirname(__FILE__))) . '/vendor/autoload.php',
+                    realpath(dirname(__FILE__) . '/../../vendor/autoload.php'),
+                    'vendor/autoload.php'
+                ];
+                
+                $loaded = false;
+                foreach ($alternative_paths as $alt_path) {
+                    if (file_exists($alt_path)) {
+                        require $alt_path;
+                        $loaded = true;
+                        break;
+                    }
+                }
+                
+                if (!$loaded) {
+                    throw new Exception("Composer autoloader not found. Tried paths: $autoloader_path, " . implode(', ', $alternative_paths) . ". Please run 'composer install' to install AWS SDK.");
+                }
+            }
+
+            // Verify S3Client class is available
+            if (!class_exists('\Aws\S3\S3Client')) {
+                throw new Exception("AWS SDK S3Client class not found. Please ensure AWS SDK is properly installed and autoloader is working.");
+            }
+
+            $csv_separator = $etl_config['csv_separator'] ?? ',';
+            
+            // Generate CSV content
+            $csv_content = '';
+            if (!empty($source_data)) {
+                // Add header row
+                $headers = array_keys($source_data[0]);
+                $csv_content .= implode($csv_separator, $headers) . "\n";
+                
+                // Add data rows
+                foreach ($source_data as $row) {
+                    $csv_row = [];
+                    foreach ($row as $value) {
+                        // Escape quotes and wrap in quotes if necessary
+                        $escaped_value = str_replace('"', '""', $value);
+                        if (strpos($escaped_value, $csv_separator) !== false || strpos($escaped_value, '"') !== false || strpos($escaped_value, "\n") !== false) {
+                            $csv_row[] = '"' . $escaped_value . '"';
+                        } else {
+                            $csv_row[] = $escaped_value;
+                        }
+                    }
+                    $csv_content .= implode($csv_separator, $csv_row) . "\n";
+                }
+            }
+
+            // Get S3 configuration
+            $bucket_name = $destination_db_details->db_host; // Bucket name stored in db_host field
+            $region = $destination_db_details->db_name; // Region stored in db_name field
+            $access_key = $destination_db_details->db_user; // Access Key ID stored in db_user field
+            $secret_key = toggleEncryption($destination_db_details->db_password); // Secret Key stored in db_password field
+
+            // Create S3 client
+            $s3Client = new \Aws\S3\S3Client([
+                'version' => 'latest',
+                'region' => $region,
+                'credentials' => [
+                    'key' => $access_key,
+                    'secret' => $secret_key,
+                ],
+            ]);
+
+            // Generate filename with timestamp
+            $timestamp = date('Y-m-d_H-i-s');
+            $filename = "query_{$saved_query->id}_{$timestamp}.csv";
+            
+            // Add folder path if specified
+            $folder_path = trim($etl_config['s3_folder_path'] ?? '');
+            if (!empty($folder_path)) {
+                // Ensure folder path ends with /
+                $folder_path = rtrim($folder_path, '/') . '/';
+                $s3_key = $folder_path . $filename;
+            } else {
+                $s3_key = $filename;
+            }
+
+            // Upload CSV to S3
+            try {
+                $result = $s3Client->putObject([
+                    'Bucket' => $bucket_name,
+                    'Key' => $s3_key,
+                    'Body' => $csv_content,
+                    'ContentType' => 'text/csv',
+                    'Metadata' => [
+                        'query_id' => (string)$saved_query->id,
+                        'query_name' => $saved_query->query_name,
+                        'rows_count' => (string)count($source_data),
+                        'generated_at' => date('c'),
+                    ],
+                ]);
+
+                $s3_url = $result['ObjectURL'] ?? "s3://{$bucket_name}/{$s3_key}";
+
+                return [
+                    'status' => 'success',
+                    'message' => "ETL process completed. Generated CSV with " . count($source_data) . " rows and uploaded to S3 bucket '{$bucket_name}' as '{$s3_key}'."
+                ];
+
+            } catch (\Aws\Exception\AwsException $e) {
+                throw new Exception("AWS S3 Error: " . $e->getMessage());
+            }
+
+        } catch (Exception $e) {
+            return ['status' => 'error', 'message' => "S3 ETL Error: " . $e->getMessage()];
+        }
+    }
+
+    private static function executeEtlToSftpNative($source_data, $destination_db_details, $etl_config, $saved_query)
+    {
+        try {
+            $csv_separator = $etl_config['csv_separator'] ?? ',';
+            
+            // Generate CSV content
+            $csv_content = '';
+            if (!empty($source_data)) {
+                // Add header row
+                $headers = array_keys($source_data[0]);
+                $csv_content .= implode($csv_separator, $headers) . "\n";
+                
+                // Add data rows
+                foreach ($source_data as $row) {
+                    $csv_row = [];
+                    foreach ($row as $value) {
+                        // Escape quotes and wrap in quotes if necessary
+                        $escaped_value = str_replace('"', '""', $value);
+                        if (strpos($escaped_value, $csv_separator) !== false || strpos($escaped_value, '"') !== false || strpos($escaped_value, "\n") !== false) {
+                            $csv_row[] = '"' . $escaped_value . '"';
+                        } else {
+                            $csv_row[] = $escaped_value;
+                        }
+                    }
+                    $csv_content .= implode($csv_separator, $csv_row) . "\n";
+                }
+            }
+
+            // Connect to SSH server using native extension
+            $connection = ssh2_connect($destination_db_details->db_host, $destination_db_details->db_port ?: 22);
+            if (!$connection) {
+                throw new Exception("Failed to connect to SSH server.");
+            }
+
+            $decrypted_password = toggleEncryption($destination_db_details->db_password);
+            if (!ssh2_auth_password($connection, $destination_db_details->db_user, $decrypted_password)) {
+                throw new Exception("SSH authentication failed.");
+            }
+
+            // Initialize SFTP subsystem
+            $sftp = ssh2_sftp($connection);
+            if (!$sftp) {
+                throw new Exception("Failed to initialize SFTP subsystem.");
+            }
+
+            // Generate filename with timestamp
+            $timestamp = date('Y-m-d_H-i-s');
+            $filename = "query_{$saved_query->id}_{$timestamp}.csv";
+            
+            // Upload CSV file using native SSH2 functions
+            $stream = fopen("ssh2.sftp://{$sftp}/{$filename}", 'w');
+            if (!$stream) {
+                throw new Exception("Failed to open SFTP file stream for writing.");
+            }
+            
+            if (fwrite($stream, $csv_content) === false) {
+                fclose($stream);
+                throw new Exception("Failed to write CSV content to SFTP file.");
+            }
+            
+            fclose($stream);
+
+            return [
+                'status' => 'success',
+                'message' => "ETL process completed using native SSH2. Generated CSV with " . count($source_data) . " rows and uploaded to SFTP as '{$filename}'."
+            ];
+
+        } catch (Exception $e) {
+            return ['status' => 'error', 'message' => "Native SFTP ETL Error: " . $e->getMessage()];
         }
     }
 

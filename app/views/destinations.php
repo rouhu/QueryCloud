@@ -17,6 +17,7 @@
                                 <option value="">-- Select Type --</option>
                                 <option value="database">Database</option>
                                 <option value="sftp">SFTP</option>
+                                <option value="s3">AWS S3</option>
                             </select>
                         </div>
                         <div class="form-group database-fields" id="database_type_group" style="display: none;">
@@ -38,16 +39,34 @@
                             <label for="sftp_port">SFTP Port</label>
                             <input type="number" class="form-control" id="sftp_port" name="sftp_port" placeholder="e.g., 22" value="22">
                         </div>
+                        <div class="form-group s3-fields" id="s3_bucket_group" style="display: none;">
+                            <label for="s3_bucket">S3 Bucket Name</label>
+                            <input type="text" class="form-control" id="s3_bucket" name="s3_bucket" placeholder="e.g., my-etl-bucket">
+                        </div>
+                        <div class="form-group s3-fields" id="s3_region_group" style="display: none;">
+                            <label for="s3_region">AWS Region</label>
+                            <select class="form-control" id="s3_region" name="s3_region">
+                                <option value="us-east-1">US East (N. Virginia)</option>
+                                <option value="us-west-1">US West (N. California)</option>
+                                <option value="us-west-2">US West (Oregon)</option>
+                                <option value="eu-west-1">Europe (Ireland)</option>
+                                <option value="eu-west-2">Europe (London)</option>
+                                <option value="eu-central-1">Europe (Frankfurt)</option>
+                                <option value="ap-southeast-1">Asia Pacific (Singapore)</option>
+                                <option value="ap-southeast-2">Asia Pacific (Sydney)</option>
+                                <option value="ap-northeast-1">Asia Pacific (Tokyo)</option>
+                            </select>
+                        </div>
                         <div class="form-group database-fields" id="db_name_group" style="display: none;">
                             <label for="db_name">Database Name</label>
                             <input type="text" class="form-control" id="db_name" name="db_name">
                         </div>
                         <div class="form-group">
-                            <label for="db_user">Username</label>
+                            <label for="db_user"><span class="database-fields sftp-fields">Username</span><span class="s3-fields" style="display: none;">AWS Access Key ID</span></label>
                             <input type="text" class="form-control" id="db_user" name="db_user" required>
                         </div>
                         <div class="form-group">
-                            <label for="db_password">Password</label>
+                            <label for="db_password"><span class="database-fields sftp-fields">Password</span><span class="s3-fields" style="display: none;">AWS Secret Access Key</span></label>
                             <input type="password" class="form-control" id="db_password" name="db_password" required>
                         </div>
                         <button type="submit" class="btn btn-success"><i class="fa fa-plus"></i> Add Destination</button>
@@ -80,6 +99,8 @@
                                         <td>
                                             <?php if (isset($dest->destination_type) && $dest->destination_type == 'sftp'): ?>
                                                 Port: <?php echo htmlspecialchars($dest->db_port ?: '22', ENT_QUOTES, 'UTF-8'); ?>
+                                            <?php elseif (isset($dest->destination_type) && $dest->destination_type == 's3'): ?>
+                                                Region: <?php echo htmlspecialchars($dest->db_name, ENT_QUOTES, 'UTF-8'); ?>
                                             <?php else: ?>
                                                 <?php echo htmlspecialchars($dest->db_name, ENT_QUOTES, 'UTF-8'); ?>
                                             <?php endif; ?>
@@ -107,6 +128,7 @@ function toggleDestinationFields() {
     var destinationType = document.getElementById('destination_type').value;
     var databaseFields = document.querySelectorAll('.database-fields');
     var sftpFields = document.querySelectorAll('.sftp-fields');
+    var s3Fields = document.querySelectorAll('.s3-fields');
     
     // Hide all fields first
     databaseFields.forEach(function(field) {
@@ -118,6 +140,14 @@ function toggleDestinationFields() {
     });
     
     sftpFields.forEach(function(field) {
+        field.style.display = 'none';
+        var inputs = field.querySelectorAll('input, select');
+        inputs.forEach(function(input) {
+            input.removeAttribute('required');
+        });
+    });
+    
+    s3Fields.forEach(function(field) {
         field.style.display = 'none';
         var inputs = field.querySelectorAll('input, select');
         inputs.forEach(function(input) {
@@ -138,6 +168,13 @@ function toggleDestinationFields() {
         sftpFields.forEach(function(field) {
             field.style.display = 'block';
         });
+    } else if (destinationType === 's3') {
+        s3Fields.forEach(function(field) {
+            field.style.display = 'block';
+        });
+        // Make S3-specific fields required
+        document.getElementById('s3_bucket').setAttribute('required', 'required');
+        document.getElementById('s3_region').setAttribute('required', 'required');
     }
 }
 </script>

@@ -712,17 +712,23 @@ class Ajax
                 throw new Exception("Destination database not found.");
             }
 
-            // Check if this is an SFTP destination
+            // Check if this is an SFTP or S3 destination
             $dest_type = 'database'; // default
             if (property_exists($destination_db, 'destination_type')) {
                 $dest_type = $destination_db->destination_type ?: 'database';
-            } elseif (isset($destination_db->db_type) && $destination_db->db_type === 'sftp') {
-                $dest_type = 'sftp';
+            } elseif (isset($destination_db->db_type) && ($destination_db->db_type === 'sftp' || $destination_db->db_type === 's3')) {
+                $dest_type = $destination_db->db_type;
             }
 
             if ($dest_type === 'sftp') {
                 // SFTP destinations don't have tables
                 echo json_encode(array('status' => 'error', 'message' => 'SFTP destinations do not use database tables.'));
+                return;
+            }
+
+            if ($dest_type === 's3') {
+                // S3 destinations don't have tables
+                echo json_encode(array('status' => 'error', 'message' => 'S3 destinations do not use database tables.'));
                 return;
             }
 

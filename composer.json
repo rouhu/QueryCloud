@@ -1,9 +1,10 @@
 {
     "require": {
         "j4mie/idiorm": "*",
-        "phpseclib/phpseclib": "*"
+        "phpseclib/phpseclib": "*",
+        "aws/aws-sdk-php": "^3.0"
     },
     "autoload": {
-        "classmap": ["public/controllers/"]
+        "classmap": ["app/controllers/"]
     }
 }

@@ -1139,15 +1139,17 @@ $(document).ready(function () {
         var savedTableName = $tableSelect.data('saved-table');
 
         var $sftpFields = $('.sftp-etl-fields');
+        var $s3Fields = $('.s3-etl-fields');
         var $databaseFields = $('.database-etl-fields');
 
         // Hide all fields and remove 'required' attributes if no destination is selected
         if (!destinationId) {
             $tableSelect.html('<option value="">-- Select a Destination First --</option>').prop('disabled', true);
             $sftpFields.hide();
+            $s3Fields.hide();
             $databaseFields.hide();
             // Clear required attributes from all fields
-            $('.sftp-etl-fields input, .sftp-etl-fields select, .database-etl-fields input, .database-etl-fields select').removeAttr('required');
+            $('.sftp-etl-fields input, .sftp-etl-fields select, .s3-etl-fields input, .s3-etl-fields select, .database-etl-fields input, .database-etl-fields select').removeAttr('required');
             return;
         }
 
@@ -1156,18 +1158,37 @@ $(document).ready(function () {
         var destType = selectedOption.data('destination-type') || 'database';
 
         if (destType === 'sftp') {
-            // Show SFTP fields and hide database fields
+            // Show SFTP fields (including shared CSV separator) and hide others
             $sftpFields.show();
+            // Hide only S3-specific fields (not shared fields like CSV separator)
+            $('.s3-etl-fields:not(.sftp-etl-fields)').hide();
             $databaseFields.hide();
 
             // Manage 'required' attributes
-            $('.database-etl-fields input, .database-etl-fields select').removeAttr('required');
+            $('.database-etl-fields input, .database-etl-fields select, .s3-etl-fields:not(.sftp-etl-fields) input, .s3-etl-fields:not(.sftp-etl-fields) select').removeAttr('required');
             $('#csv_separator').prop('required', true);
 
             // Update the table select for SFTP
             $tableSelect.html('<option value="">-- SFTP destinations do not use tables --</option>').prop('disabled', true);
 
             return; // Stop here for SFTP
+        }
+
+        if (destType === 's3') {
+            // Show S3 fields (including shared CSV separator) and hide others
+            $s3Fields.show();
+            // Hide only SFTP-specific fields (not shared fields like CSV separator)
+            $('.sftp-etl-fields:not(.s3-etl-fields)').hide();
+            $databaseFields.hide();
+
+            // Manage 'required' attributes
+            $('.database-etl-fields input, .database-etl-fields select, .sftp-etl-fields:not(.s3-etl-fields) input, .sftp-etl-fields:not(.s3-etl-fields) select').removeAttr('required');
+            $('#csv_separator').prop('required', true);
+
+            // Update the table select for S3
+            $tableSelect.html('<option value="">-- S3 destinations do not use tables --</option>').prop('disabled', true);
+
+            return; // Stop here for S3
         }
 
         // --- This part runs for 'database' destination types ---

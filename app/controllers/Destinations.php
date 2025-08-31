@@ -40,6 +40,11 @@ class Destinations
                 $destination->db_type = 'sftp';
                 $destination->db_port = $_POST['sftp_port'] ?: '22';
                 $destination->db_name = null; // Not applicable for SFTP
+            } else if ($_POST['destination_type'] === 's3') {
+                $destination->db_type = 's3';
+                $destination->db_host = $_POST['s3_bucket']; // Use db_host field for bucket name
+                $destination->db_name = $_POST['s3_region']; // Use db_name field for region
+                $destination->db_port = null; // Not applicable for S3
             }
 
             $destination->save();

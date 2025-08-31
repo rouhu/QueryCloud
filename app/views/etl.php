@@ -65,7 +65,7 @@
                             </div>
                         </div>
 
-                        <div class="form-group sftp-etl-fields" style="display: none;">
+                        <div class="form-group sftp-etl-fields s3-etl-fields" style="display: none;">
                             <label for="csv_separator" class="col-sm-3 control-label">CSV Field Separator</label>
                             <div class="col-sm-6">
                                 <select class="form-control" id="csv_separator" name="csv_separator">
@@ -73,7 +73,17 @@
                                     <option value=";" <?php echo (isset($etl_config['csv_separator']) && $etl_config['csv_separator'] == ';') ? 'selected' : ''; ?>>Semicolon (;)</option>
                                     <option value="|" <?php echo (isset($etl_config['csv_separator']) && $etl_config['csv_separator'] == '|') ? 'selected' : ''; ?>>Pipe (|)</option>
                                 </select>
-                                <p class="help-block">Select the field separator for the CSV file that will be uploaded to SFTP.</p>
+                                <p class="help-block">Select the field separator for the CSV file that will be uploaded to <span class="sftp-etl-fields">SFTP</span><span class="s3-etl-fields">S3</span>.</p>
+                            </div>
+                        </div>
+
+                        <div class="form-group s3-etl-fields" style="display: none;">
+                            <label for="s3_folder_path" class="col-sm-3 control-label">S3 Folder Path (Optional)</label>
+                            <div class="col-sm-6">
+                                <input type="text" class="form-control" id="s3_folder_path" name="s3_folder_path" 
+                                       value="<?php echo isset($etl_config['s3_folder_path']) ? htmlspecialchars($etl_config['s3_folder_path'], ENT_QUOTES, 'UTF-8') : ''; ?>"
+                                       placeholder="e.g., etl-exports/ or reports/2024/">
+                                <p class="help-block">Optional path within the S3 bucket where files will be stored. Leave empty to upload to bucket root.</p>
                             </div>
                         </div>
 
@@ -146,6 +156,10 @@
                         <div class="sftp-etl-fields col-sm-offset-1 col-sm-10" style="display: none;">
                             <h4>SFTP File Information:</h4>
                             <p class="text-muted">For SFTP destinations, the query results will be exported as a CSV file and uploaded to the SFTP server. Column names from your query will be used as CSV headers.</p>
+                        </div>
+                        <div class="s3-etl-fields col-sm-offset-1 col-sm-10" style="display: none;">
+                            <h4>S3 File Information:</h4>
+                            <p class="text-muted">For S3 destinations, the query results will be exported as a CSV file and uploaded to your AWS S3 bucket. Column names from your query will be used as CSV headers. Files will be named with timestamp for uniqueness.</p>
                         </div>
                         <div class="clearfix"></div>
                         <hr>
