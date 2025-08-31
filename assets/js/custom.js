@@ -1143,25 +1143,14 @@ $(document).ready(function () {
             return;
         }
 
-        // Check if this is an SFTP destination - skip table fetching
-        var selectedDest = null;
-        if (typeof destinations !== 'undefined' && destinations) {
-            for (var i = 0; i < destinations.length; i++) {
-                if (destinations[i].id == destinationId) {
-                    selectedDest = destinations[i];
-                    break;
-                }
-            }
-        }
+        // Check destination type using data attribute from the selected option
+        var selectedOption = this.querySelector('option[value="' + destinationId + '"]');
+        var destType = selectedOption ? selectedOption.getAttribute('data-destination-type') : 'database';
 
-        if (selectedDest) {
-            var destType = selectedDest.destination_type || (selectedDest.db_type !== 'sftp' ? 'database' : 'sftp');
-
-            if (destType === 'sftp') {
-                // For SFTP destinations, no tables are needed
-                $tableSelect.html('<option value="">-- SFTP destinations do not use tables --</option>').prop('disabled', true);
-                return;
-            }
+        if (destType === 'sftp') {
+            // For SFTP destinations, no tables are needed
+            $tableSelect.html('<option value="">-- SFTP destinations do not use tables --</option>').prop('disabled', true);
+            return;
         }
 
         // Only fetch tables for database destinations

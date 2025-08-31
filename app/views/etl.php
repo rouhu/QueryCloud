@@ -27,7 +27,9 @@
                                     <option value="">-- Select a Destination --</option>
                                     <?php if (isset($destinations)): ?>
                                         <?php foreach ($destinations as $dest): ?>
-                                            <option value="<?php echo $dest->id; ?>" <?php echo (isset($etl_config['destination_db_id']) && $etl_config['destination_db_id'] == $dest->id) ? 'selected' : ''; ?>>
+                                            <option value="<?php echo $dest->id; ?>" 
+                                                    data-destination-type="<?php echo htmlspecialchars($dest->destination_type ?? 'database', ENT_QUOTES, 'UTF-8'); ?>"
+                                                    <?php echo (isset($etl_config['destination_db_id']) && $etl_config['destination_db_id'] == $dest->id) ? 'selected' : ''; ?>>
                                                 <?php echo htmlspecialchars($dest->connection_name, ENT_QUOTES, 'UTF-8'); ?> (<?php echo htmlspecialchars($dest->db_host, ENT_QUOTES, 'UTF-8'); ?>)
                                             </option>
                                         <?php endforeach; ?>
@@ -36,7 +38,7 @@
                             </div>
                         </div>
 
-                        <div class="form-group database-etl-fields">
+                        <div class="form-group database-etl-fields" style="display: none;">
                             <label for="destination_table" class="col-sm-3 control-label">Destination Table Name</label>
                             <div class="col-sm-6">
                                 <select class="form-control" id="destination_table" name="destination_table"
@@ -48,7 +50,7 @@
                             </div>
                         </div>
 
-                        <div class="form-group database-etl-fields">
+                        <div class="form-group database-etl-fields" style="display: none;">
                             <label for="etl_type" class="col-sm-3 control-label">ETL Type</label>
                             <div class="col-sm-6">
                                 <select class="form-control" id="etl_type" name="etl_type">
@@ -137,8 +139,8 @@
                         </div>
 
                         <hr>
-                        <h4 class="database-etl-fields">Column Mapping:</h4>
-                        <div id="column-mapping-container" class="col-sm-offset-1 col-sm-10 database-etl-fields">
+                        <h4 class="database-etl-fields" style="display: none;">Column Mapping:</h4>
+                        <div id="column-mapping-container" class="col-sm-offset-1 col-sm-10 database-etl-fields" style="display: none;">
                             <p class="text-muted">Select a destination table to map columns.</p>
                         </div>
                         <div class="sftp-etl-fields col-sm-offset-1 col-sm-10" style="display: none;">
@@ -177,23 +179,14 @@
     function handleDestinationChange() {
         var destinationSelect = document.getElementById('destination_id');
         var selectedDestId = destinationSelect.value;
-        var selectedDest = null;
-        
-        // Find the selected destination
-        if (selectedDestId) {
-            for (var i = 0; i < destinations.length; i++) {
-                if (destinations[i].id == selectedDestId) {
-                    selectedDest = destinations[i];
-                    break;
-                }
-            }
-        }
         
         var sftpFields = document.querySelectorAll('.sftp-etl-fields');
         var databaseFields = document.querySelectorAll('.database-etl-fields');
         
-        if (selectedDest) {
-            var destType = selectedDest.destination_type || (selectedDest.db_type !== 'sftp' ? 'database' : 'sftp');
+        if (selectedDestId) {
+            // Get destination type from the selected option's data attribute
+            var selectedOption = destinationSelect.querySelector('option[value="' + selectedDestId + '"]');
+            var destType = selectedOption ? selectedOption.getAttribute('data-destination-type') : 'database';
             
             if (destType === 'sftp') {
                 // Show SFTP fields, hide database fields
@@ -237,18 +230,18 @@
                 }
             }
         } else {
-            // No destination selected - hide SFTP fields, show database as default
+            // No destination selected - hide all type-specific fields
             for (var i = 0; i < sftpFields.length; i++) {
                 sftpFields[i].style.display = 'none';
             }
             for (var i = 0; i < databaseFields.length; i++) {
-                databaseFields[i].style.display = 'block';
+                databaseFields[i].style.display = 'none';
             }
             
-            // Remove required attribute from SFTP fields
-            var sftpInputs = document.querySelectorAll('.sftp-etl-fields input, .sftp-etl-fields select');
-            for (var i = 0; i < sftpInputs.length; i++) {
-                sftpInputs[i].removeAttribute('required');
+            // Remove required attribute from all type-specific fields
+            var allInputs = document.querySelectorAll('.sftp-etl-fields input, .sftp-etl-fields select, .database-etl-fields input, .database-etl-fields select');
+            for (var i = 0; i < allInputs.length; i++) {
+                allInputs[i].removeAttribute('required');
             }
         }
     }
