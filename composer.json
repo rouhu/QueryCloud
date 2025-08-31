@@ -1,6 +1,7 @@
 {
     "require": {
-        "j4mie/idiorm": "*"
+        "j4mie/idiorm": "*",
+        "phpseclib/phpseclib": "*"
     },
     "autoload": {
         "classmap": ["public/controllers/"]
