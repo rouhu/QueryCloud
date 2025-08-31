@@ -74,13 +74,15 @@ class Table
         // Checks whether or not user is logged in
         self::checkLogin();
 
+        $_SESSION['unlimitedQuery'] = "SELECT * FROM `$table`";
+
         $exec_time_row = [[null, 'N/A']]; // Default value
         if ($db_type === 'mysql') {
             // enable query profiling
             $db->query('SET profiling = 1;');
 
             // get specified table data as array
-            $records = ORM::for_table(Flight::get('lastSegment'), $connection_name)->find_array();
+            $records = ORM::for_table($table, $connection_name)->limit(100)->find_array();
             $the_query = ORM::get_last_query($connection_name);
 
             // find out time above query was ran for
@@ -90,7 +92,7 @@ class Table
             $exec_time_row = $exec_time_result->fetchAll(PDO::FETCH_NUM);
         } else {
             // For other DBs, just get the data without profiling
-            $records = ORM::for_table(Flight::get('lastSegment'), $connection_name)->find_array();
+            $records = ORM::for_table($table, $connection_name)->limit(100)->find_array();
             $the_query = ORM::get_last_query($connection_name);
         }
 
