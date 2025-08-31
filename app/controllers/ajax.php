@@ -712,6 +712,21 @@ class Ajax
                 throw new Exception("Destination database not found.");
             }
 
+            // Check if this is an SFTP destination
+            $dest_type = 'database'; // default
+            if (property_exists($destination_db, 'destination_type')) {
+                $dest_type = $destination_db->destination_type ?: 'database';
+            } elseif (isset($destination_db->db_type) && $destination_db->db_type === 'sftp') {
+                $dest_type = 'sftp';
+            }
+
+            if ($dest_type === 'sftp') {
+                // SFTP destinations don't have tables
+                echo json_encode(array('status' => 'error', 'message' => 'SFTP destinations do not use database tables.'));
+                return;
+            }
+
+            // Only proceed with database connection for database destinations
             $decrypted_password = toggleEncryption($destination_db->db_password);
             $dsn = get_dsn($destination_db);
             $pdo = new PDO($dsn, $destination_db->db_user, $decrypted_password);
