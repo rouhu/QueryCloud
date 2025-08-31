@@ -7,9 +7,11 @@ Installation:
 - Schedule /cron.php with crontab to run ETLs with a schedule
 
 Supported source databases and ETL destinations:
+
 Sources:
 - MySQL/MariaDB
 - PostgreSQL
+
 Destinations:
 - MySQL/MariaDB
 - PostgreSQL
