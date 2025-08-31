@@ -12,8 +12,16 @@
                             <input type="text" class="form-control" id="connection_name" name="connection_name" placeholder="e.g., Production DWH" required>
                         </div>
                         <div class="form-group">
+                            <label for="destination_type">Destination Type</label>
+                            <select class="form-control" id="destination_type" name="destination_type" required onchange="toggleDestinationFields()">
+                                <option value="">-- Select Type --</option>
+                                <option value="database">Database</option>
+                                <option value="sftp">SFTP</option>
+                            </select>
+                        </div>
+                        <div class="form-group database-fields" id="database_type_group" style="display: none;">
                             <label for="db_type">Database Type</label>
-                            <select class="form-control" id="db_type" name="db_type" required>
+                            <select class="form-control" id="db_type" name="db_type">
                                 <option value="mysql">MySQL</option>
                                 <option value="postgresql">PostgreSQL</option>
                             </select>
@@ -22,13 +30,17 @@
                             <label for="db_host">Host</label>
                             <input type="text" class="form-control" id="db_host" name="db_host" placeholder="e.g., 127.0.0.1" required>
                         </div>
-                        <div class="form-group">
+                        <div class="form-group database-fields" id="db_port_group" style="display: none;">
                             <label for="db_port">Port</label>
-                            <input type="number" class="form-control" id="db_port" name="db_port" placeholder="e.g., 3306" required>
+                            <input type="number" class="form-control" id="db_port" name="db_port" placeholder="e.g., 3306">
                         </div>
-                        <div class="form-group">
+                        <div class="form-group sftp-fields" id="sftp_port_group" style="display: none;">
+                            <label for="sftp_port">SFTP Port</label>
+                            <input type="number" class="form-control" id="sftp_port" name="sftp_port" placeholder="e.g., 22" value="22">
+                        </div>
+                        <div class="form-group database-fields" id="db_name_group" style="display: none;">
                             <label for="db_name">Database Name</label>
-                            <input type="text" class="form-control" id="db_name" name="db_name" required>
+                            <input type="text" class="form-control" id="db_name" name="db_name">
                         </div>
                         <div class="form-group">
                             <label for="db_user">Username</label>
@@ -51,9 +63,9 @@
                         <thead>
                             <tr>
                                 <th>Connection Name</th>
-                                <th>Type</th>
+                                <th>Destination Type</th>
                                 <th>Host</th>
-                                <th>Database</th>
+                                <th>Database/Port</th>
                                 <th>User</th>
                                 <th>Action</th>
                             </tr>
@@ -63,9 +75,15 @@
                                 <?php foreach ($destinations as $dest): ?>
                                     <tr>
                                         <td><?php echo htmlspecialchars($dest->connection_name, ENT_QUOTES, 'UTF-8'); ?></td>
-                                        <td><?php echo htmlspecialchars($dest->db_type, ENT_QUOTES, 'UTF-8'); ?></td>
+                                        <td><?php echo htmlspecialchars(isset($dest->destination_type) ? ucfirst($dest->destination_type) : ucfirst($dest->db_type), ENT_QUOTES, 'UTF-8'); ?></td>
                                         <td><?php echo htmlspecialchars($dest->db_host, ENT_QUOTES, 'UTF-8'); ?></td>
-                                        <td><?php echo htmlspecialchars($dest->db_name, ENT_QUOTES, 'UTF-8'); ?></td>
+                                        <td>
+                                            <?php if (isset($dest->destination_type) && $dest->destination_type == 'sftp'): ?>
+                                                Port: <?php echo htmlspecialchars($dest->db_port ?: '22', ENT_QUOTES, 'UTF-8'); ?>
+                                            <?php else: ?>
+                                                <?php echo htmlspecialchars($dest->db_name, ENT_QUOTES, 'UTF-8'); ?>
+                                            <?php endif; ?>
+                                        </td>
                                         <td><?php echo htmlspecialchars($dest->db_user, ENT_QUOTES, 'UTF-8'); ?></td>
                                         <td>
                                             <form action="<?php echo Flight::get('base'); ?>/destinations/delete" method="post" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete this destination?');">
@@ -83,5 +101,45 @@
         </div>
     </div>
 </div>
+
+<script>
+function toggleDestinationFields() {
+    var destinationType = document.getElementById('destination_type').value;
+    var databaseFields = document.querySelectorAll('.database-fields');
+    var sftpFields = document.querySelectorAll('.sftp-fields');
+    
+    // Hide all fields first
+    databaseFields.forEach(function(field) {
+        field.style.display = 'none';
+        var inputs = field.querySelectorAll('input, select');
+        inputs.forEach(function(input) {
+            input.removeAttribute('required');
+        });
+    });
+    
+    sftpFields.forEach(function(field) {
+        field.style.display = 'none';
+        var inputs = field.querySelectorAll('input, select');
+        inputs.forEach(function(input) {
+            input.removeAttribute('required');
+        });
+    });
+    
+    // Show relevant fields based on selection
+    if (destinationType === 'database') {
+        databaseFields.forEach(function(field) {
+            field.style.display = 'block';
+        });
+        // Make database-specific fields required
+        document.getElementById('db_type').setAttribute('required', 'required');
+        document.getElementById('db_port').setAttribute('required', 'required');
+        document.getElementById('db_name').setAttribute('required', 'required');
+    } else if (destinationType === 'sftp') {
+        sftpFields.forEach(function(field) {
+            field.style.display = 'block';
+        });
+    }
+}
+</script>
 
 <?php require_once 'includes/footer.php'; ?>

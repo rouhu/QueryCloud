@@ -36,7 +36,7 @@
                             </div>
                         </div>
 
-                        <div class="form-group">
+                        <div class="form-group database-etl-fields">
                             <label for="destination_table" class="col-sm-3 control-label">Destination Table Name</label>
                             <div class="col-sm-6">
                                 <select class="form-control" id="destination_table" name="destination_table"
@@ -48,7 +48,7 @@
                             </div>
                         </div>
 
-                        <div class="form-group">
+                        <div class="form-group database-etl-fields">
                             <label for="etl_type" class="col-sm-3 control-label">ETL Type</label>
                             <div class="col-sm-6">
                                 <select class="form-control" id="etl_type" name="etl_type">
@@ -60,6 +60,18 @@
                                     </option>
                                 </select>
                                 <p class="help-block">"Insert Only" adds new records. "Update or Insert" will update existing records based on a key or insert new ones.</p>
+                            </div>
+                        </div>
+
+                        <div class="form-group sftp-etl-fields" style="display: none;">
+                            <label for="csv_separator" class="col-sm-3 control-label">CSV Field Separator</label>
+                            <div class="col-sm-6">
+                                <select class="form-control" id="csv_separator" name="csv_separator">
+                                    <option value="," <?php echo (isset($etl_config['csv_separator']) && $etl_config['csv_separator'] == ',') ? 'selected' : ''; ?>>Comma (,)</option>
+                                    <option value=";" <?php echo (isset($etl_config['csv_separator']) && $etl_config['csv_separator'] == ';') ? 'selected' : ''; ?>>Semicolon (;)</option>
+                                    <option value="|" <?php echo (isset($etl_config['csv_separator']) && $etl_config['csv_separator'] == '|') ? 'selected' : ''; ?>>Pipe (|)</option>
+                                </select>
+                                <p class="help-block">Select the field separator for the CSV file that will be uploaded to SFTP.</p>
                             </div>
                         </div>
 
@@ -125,9 +137,13 @@
                         </div>
 
                         <hr>
-                        <h4>Column Mapping:</h4>
-                        <div id="column-mapping-container" class="col-sm-offset-1 col-sm-10">
+                        <h4 class="database-etl-fields">Column Mapping:</h4>
+                        <div id="column-mapping-container" class="col-sm-offset-1 col-sm-10 database-etl-fields">
                             <p class="text-muted">Select a destination table to map columns.</p>
+                        </div>
+                        <div class="sftp-etl-fields col-sm-offset-1 col-sm-10" style="display: none;">
+                            <h4>SFTP File Information:</h4>
+                            <p class="text-muted">For SFTP destinations, the query results will be exported as a CSV file and uploaded to the SFTP server. Column names from your query will be used as CSV headers.</p>
                         </div>
                         <div class="clearfix"></div>
                         <hr>
@@ -135,8 +151,10 @@
                         <div class="form-group">
                             <div class="col-sm-offset-3 col-sm-6">
                                 <button type="submit" class="btn btn-primary" formaction="<?php echo Flight::get('base'); ?>/etl/save"><i class="fa fa-save"></i> Save Configuration</button>
-                                <?php if (!empty($etl_config['destination_db_id']) && !empty($etl_config['destination_table_name'])): ?>
-                                    <button type="submit" class="btn btn-success" formaction="<?php echo Flight::get('base'); ?>/etl/run"><i class="fa fa-play"></i> Run ETL Now</button>
+                                <?php if (!empty($etl_config['destination_db_id'])): ?>
+                                    <?php if (!empty($etl_config['destination_table_name']) || (isset($etl_config['csv_separator']))): ?>
+                                        <button type="submit" class="btn btn-success" formaction="<?php echo Flight::get('base'); ?>/etl/run"><i class="fa fa-play"></i> Run ETL Now</button>
+                                    <?php endif; ?>
                                 <?php endif; ?>
                                 <a href="<?php echo Flight::get('base'); ?>/dashboard" class="btn btn-default">Cancel</a>
                             </div>
@@ -152,6 +170,62 @@
 <script>
     // Pass the PHP etl_config to JavaScript
     var etlConfig = <?php echo json_encode($etl_config); ?>;
+    
+    // Pass destinations data to JavaScript for destination type checking
+    var destinations = <?php echo json_encode($destinations); ?>;
+    
+    $(document).ready(function() {
+        // Handle destination selection change
+        $('#destination_id').on('change', function() {
+            var selectedDestId = $(this).val();
+            var selectedDest = null;
+            
+            // Find the selected destination
+            if (selectedDestId) {
+                for (var i = 0; i < destinations.length; i++) {
+                    if (destinations[i].id == selectedDestId) {
+                        selectedDest = destinations[i];
+                        break;
+                    }
+                }
+            }
+            
+            if (selectedDest) {
+                var destType = selectedDest.destination_type || (selectedDest.db_type !== 'sftp' ? 'database' : 'sftp');
+                
+                if (destType === 'sftp') {
+                    // Show SFTP fields, hide database fields
+                    $('.sftp-etl-fields').show();
+                    $('.database-etl-fields').hide();
+                    
+                    // Remove required attribute from database fields
+                    $('.database-etl-fields input, .database-etl-fields select').removeAttr('required');
+                    
+                    // Add required attribute to CSV separator if needed
+                    $('#csv_separator').attr('required', 'required');
+                } else {
+                    // Show database fields, hide SFTP fields
+                    $('.database-etl-fields').show();
+                    $('.sftp-etl-fields').hide();
+                    
+                    // Remove required attribute from SFTP fields
+                    $('.sftp-etl-fields input, .sftp-etl-fields select').removeAttr('required');
+                    
+                    // Add required attribute to database fields
+                    $('#destination_table').attr('required', 'required');
+                }
+            } else {
+                // No destination selected - hide all specific fields
+                $('.sftp-etl-fields').hide();
+                $('.database-etl-fields').show(); // Keep database as default
+                
+                $('.sftp-etl-fields input, .sftp-etl-fields select').removeAttr('required');
+            }
+        });
+        
+        // Trigger the change event on page load to set initial state
+        $('#destination_id').trigger('change');
+    });
 </script>
 
 <?php require_once 'includes/footer.php'; ?>

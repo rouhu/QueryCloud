@@ -62,12 +62,30 @@ class ETL
                 // Get existing config to preserve settings not on this form (like last_run_at)
                 $etl_config = $saved_query->etl_config ? json_decode($saved_query->etl_config, true) : [];
 
+                // Get destination details to determine type
+                $destination_db_details = ORM::for_table('destination_databases')->find_one($destination_id);
+                $dest_type = isset($destination_db_details->destination_type) ? $destination_db_details->destination_type : 'database';
+
                 // Always save these base settings
                 $etl_config['destination_db_id'] = $destination_id;
-                $etl_config['destination_table_name'] = $destination_table;
-                $etl_config['etl_type'] = $etl_type;
-                $etl_config['column_mapping'] = $filtered_mapping;
-                $etl_config['key_columns'] = $key_columns;
+                
+                if ($dest_type === 'sftp') {
+                    // For SFTP destinations, save CSV separator instead of table/mapping
+                    $etl_config['csv_separator'] = $_POST['csv_separator'] ?? ',';
+                    // Remove database-specific settings
+                    unset($etl_config['destination_table_name']);
+                    unset($etl_config['etl_type']);
+                    unset($etl_config['column_mapping']);
+                    unset($etl_config['key_columns']);
+                } else {
+                    // For database destinations, save traditional settings
+                    $etl_config['destination_table_name'] = $destination_table;
+                    $etl_config['etl_type'] = $etl_type;
+                    $etl_config['column_mapping'] = $filtered_mapping;
+                    $etl_config['key_columns'] = $key_columns;
+                    // Remove SFTP-specific settings
+                    unset($etl_config['csv_separator']);
+                }
 
                 // --- New Scheduling Logic ---
                 $schedule_type = $_POST['schedule_type'] ?? 'inactive';
@@ -141,22 +159,16 @@ class ETL
             }
 
             $destination_id = $etl_config['destination_db_id'] ?? null;
-            $destination_table = $etl_config['destination_table_name'] ?? null;
-
-            if (!$destination_id || !$destination_table) {
-                throw new Exception("Destination DB or table not configured.");
+            if (!$destination_id) {
+                throw new Exception("Destination not configured.");
             }
 
             $destination_db_details = ORM::for_table('destination_databases')->find_one($destination_id);
             if (!$destination_db_details) {
-                throw new Exception("Destination database configuration not found.");
+                throw new Exception("Destination configuration not found.");
             }
 
-            $decrypted_password = toggleEncryption($destination_db_details->db_password);
-            $dsn = "mysql:host={$destination_db_details->db_host};port={$destination_db_details->db_port};dbname={$destination_db_details->db_name};charset=utf8";
-            $dest_pdo = new PDO($dsn, $destination_db_details->db_user, $decrypted_password);
-            $dest_pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-
+            // Get source data first (common for both database and SFTP)
             $source_db_details = ORM::for_table('data_sources')->find_one($saved_query->source_connection_id);
             if (!$source_db_details) {
                 throw new Exception("Source database configuration for this query not found.");
@@ -174,6 +186,95 @@ class ETL
             if (empty($source_data)) {
                 return ['status' => 'info', 'message' => 'Source query returned no data. Nothing to process.'];
             }
+
+            // Determine destination type
+            $dest_type = isset($destination_db_details->destination_type) ? $destination_db_details->destination_type : 'database';
+
+            if ($dest_type === 'sftp') {
+                return self::executeEtlToSftp($source_data, $destination_db_details, $etl_config, $saved_query);
+            } else {
+                return self::executeEtlToDatabase($source_data, $destination_db_details, $etl_config, $saved_query);
+            }
+
+        } catch (Exception $e) {
+            if (isset($dest_pdo) && $dest_pdo->inTransaction()) {
+                $dest_pdo->rollBack();
+            }
+            return ['status' => 'error', 'message' => "ETL Error: " . $e->getMessage()];
+        }
+    }
+
+    private static function executeEtlToSftp($source_data, $destination_db_details, $etl_config, $saved_query)
+    {
+        try {
+            // Load phpseclib classes
+            require_once 'vendor/autoload.php';
+            
+            $csv_separator = $etl_config['csv_separator'] ?? ',';
+            
+            // Generate CSV content
+            $csv_content = '';
+            if (!empty($source_data)) {
+                // Add header row
+                $headers = array_keys($source_data[0]);
+                $csv_content .= implode($csv_separator, $headers) . "\n";
+                
+                // Add data rows
+                foreach ($source_data as $row) {
+                    $csv_row = [];
+                    foreach ($row as $value) {
+                        // Escape quotes and wrap in quotes if necessary
+                        $escaped_value = str_replace('"', '""', $value);
+                        if (strpos($escaped_value, $csv_separator) !== false || strpos($escaped_value, '"') !== false || strpos($escaped_value, "\n") !== false) {
+                            $csv_row[] = '"' . $escaped_value . '"';
+                        } else {
+                            $csv_row[] = $escaped_value;
+                        }
+                    }
+                    $csv_content .= implode($csv_separator, $csv_row) . "\n";
+                }
+            }
+
+            // Connect to SFTP server
+            $sftp = new \phpseclib3\Net\SFTP($destination_db_details->db_host, $destination_db_details->db_port ?: 22);
+            
+            $decrypted_password = toggleEncryption($destination_db_details->db_password);
+            if (!$sftp->login($destination_db_details->db_user, $decrypted_password)) {
+                throw new Exception("SFTP login failed.");
+            }
+
+            // Generate filename with timestamp
+            $timestamp = date('Y-m-d_H-i-s');
+            $filename = "query_{$saved_query->id}_{$timestamp}.csv";
+            
+            // Upload CSV file
+            if (!$sftp->put($filename, $csv_content)) {
+                throw new Exception("Failed to upload CSV file to SFTP server.");
+            }
+
+            return [
+                'status' => 'success',
+                'message' => "ETL process completed. Generated CSV with " . count($source_data) . " rows and uploaded to SFTP as '{$filename}'."
+            ];
+
+        } catch (Exception $e) {
+            return ['status' => 'error', 'message' => "SFTP ETL Error: " . $e->getMessage()];
+        }
+    }
+
+    private static function executeEtlToDatabase($source_data, $destination_db_details, $etl_config, $saved_query)
+    {
+        $dest_pdo = null;
+        try {
+            $destination_table = $etl_config['destination_table_name'] ?? null;
+            if (!$destination_table) {
+                throw new Exception("Destination table not configured.");
+            }
+
+            $decrypted_password = toggleEncryption($destination_db_details->db_password);
+            $dsn = "mysql:host={$destination_db_details->db_host};port={$destination_db_details->db_port};dbname={$destination_db_details->db_name};charset=utf8";
+            $dest_pdo = new PDO($dsn, $destination_db_details->db_user, $decrypted_password);
+            $dest_pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
             $column_mapping = $etl_config['column_mapping'] ?? [];
             $etl_type = $etl_config['etl_type'] ?? 'insert_only';
@@ -263,7 +364,7 @@ class ETL
             if (isset($dest_pdo) && $dest_pdo->inTransaction()) {
                 $dest_pdo->rollBack();
             }
-            return ['status' => 'error', 'message' => "ETL Error: " . $e->getMessage()];
+            throw $e;
         }
     }
 

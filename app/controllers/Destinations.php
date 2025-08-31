@@ -27,12 +27,21 @@ class Destinations
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $destination = ORM::for_table('destination_databases')->create();
             $destination->connection_name = $_POST['connection_name'];
-            $destination->db_type = $_POST['db_type'];
+            $destination->destination_type = $_POST['destination_type'];
             $destination->db_host = $_POST['db_host'];
-            $destination->db_port = $_POST['db_port'];
-            $destination->db_name = $_POST['db_name'];
             $destination->db_user = $_POST['db_user'];
             $destination->db_password = toggleEncryption($_POST['db_password']);
+
+            if ($_POST['destination_type'] === 'database') {
+                $destination->db_type = $_POST['db_type'];
+                $destination->db_port = $_POST['db_port'];
+                $destination->db_name = $_POST['db_name'];
+            } else if ($_POST['destination_type'] === 'sftp') {
+                $destination->db_type = 'sftp';
+                $destination->db_port = $_POST['sftp_port'] ?: '22';
+                $destination->db_name = null; // Not applicable for SFTP
+            }
+
             $destination->save();
 
             setFlashMessage('Destination added successfully!');
