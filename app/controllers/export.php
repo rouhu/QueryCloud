@@ -11,8 +11,25 @@ class Export
     {
         header("Content-Type: text/csv");
         header("Content-Disposition: attachment; filename=export.csv");
+
+        $tableData = $_SESSION['tableData'];
+
+        if (isset($_SESSION['unlimitedQuery']) && !empty($_SESSION['unlimitedQuery'])) {
+            $connection_name = Table::get_data_source_connection_name();
+            $db = ORM::get_db($connection_name);
+            $stmt = $db->query($_SESSION['unlimitedQuery']);
+            $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            if (!empty($data)) {
+                $header = array_keys($data[0]);
+                $tableData = array($header);
+                foreach ($data as $row) {
+                    $tableData[] = array_values($row);
+                }
+            }
+        }
         
-        if (empty($_SESSION['tableData'])) {
+        if (empty($tableData)) {
             die("No data to export");
         }
 
@@ -20,19 +37,20 @@ class Export
         $tab = ",";
         $rows = '';
 
-        foreach ($_SESSION['tableData'] as $rowArray) {
+        foreach ($tableData as $rowArray) {
             if (is_array($rowArray)) {
                 $rows .= $nl;
 
                 foreach ($rowArray as $field) {
-                    $rows .= $field . $tab;
+                    $rows .= '"' . str_replace('"', '""', $field) . '"' . $tab;
                 }
+                $rows = rtrim($rows, $tab);
             } else {
-                $rows .= $rowArray . $tab;
+                $rows .= '"' . str_replace('"', '""', $rowArray) . '"' . $tab;
             }
         }
 
-        echo $rows;
+        echo ltrim($rows, $nl);
         exit;
     }
 
@@ -46,7 +64,24 @@ class Export
         header("Content-Type: application/vnd.ms-excel");
         header("Content-disposition: attachment; filename=export.xls");
 
-        if (! count($_SESSION['tableData'])) {
+        $tableData = $_SESSION['tableData'];
+
+        if (isset($_SESSION['unlimitedQuery']) && !empty($_SESSION['unlimitedQuery'])) {
+            $connection_name = Table::get_data_source_connection_name();
+            $db = ORM::get_db($connection_name);
+            $stmt = $db->query($_SESSION['unlimitedQuery']);
+            $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            if (!empty($data)) {
+                $header = array_keys($data[0]);
+                $tableData = array($header);
+                foreach ($data as $row) {
+                    $tableData[] = array_values($row);
+                }
+            }
+        }
+
+        if (! count($tableData)) {
             return false;
         }
 
@@ -54,7 +89,7 @@ class Export
         $tab = "\t";
         $rows = '';
 
-        foreach ($_SESSION['tableData'] as $rowArray) {
+        foreach ($tableData as $rowArray) {
             if (is_array($rowArray)) {
                 $rows .= $nl;
 
