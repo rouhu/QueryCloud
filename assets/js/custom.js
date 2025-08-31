@@ -51,7 +51,7 @@ $('a.editable').editable({
 });
 
 // --- Table Formatting Modal ---
-$('body').on('click', '#btnShowTableFormatModal', function() {
+$('body').on('click', '#btnShowTableFormatModal', function () {
     var queryId = $(this).data('query-id');
     if (!queryId) {
         $.jGrowl('Error: Query ID is missing. Cannot open formatting modal.', { header: 'Error', theme: 'error' });
@@ -82,7 +82,7 @@ $('body').on('click', '#btnShowTableFormatModal', function() {
     }
 
     if ($thElements && $thElements.length > 0) {
-        $thElements.each(function() {
+        $thElements.each(function () {
             var $th = $(this);
             columns.push({
                 originalName: $th.data('original-name'),
@@ -102,17 +102,17 @@ $('body').on('click', '#btnShowTableFormatModal', function() {
         url: base + '/ajax/getTableFormatting/' + queryId,
         type: 'GET',
         dataType: 'json',
-        success: function(response) {
+        success: function (response) {
             $fieldsContainer.empty(); // Clear "Loading..."
             var existingColumnTitles = {};
             if (response.status === 'success' && response.table_formatting && response.table_formatting.column_titles) {
                 existingColumnTitles = response.table_formatting.column_titles;
-                 $msgContainer.addClass('alert-info').text('Loaded existing formatting.').show().delay(2000).fadeOut();
+                $msgContainer.addClass('alert-info').text('Loaded existing formatting.').show().delay(2000).fadeOut();
             } else if (response.status !== 'success' && response.message) {
-                 $msgContainer.addClass('alert-warning').text(response.message).show();
+                $msgContainer.addClass('alert-warning').text(response.message).show();
             }
 
-            columns.forEach(function(column, index) {
+            columns.forEach(function (column, index) {
                 if (!column.originalName) {
                     console.warn("Skipping a column in formatting modal because it's missing 'data-original-name' attribute.");
                     return; // a th without the attribute cannot be formatted
@@ -123,16 +123,16 @@ $('body').on('click', '#btnShowTableFormatModal', function() {
                 var savedTitle = existingColumnTitles[column.originalName] || '';
 
                 var fieldHtml = '<div class="form-group col-md-4">' +
-                                // The label shows the *currently displayed* name for user context
-                                '<label for="' + inputId + '">Current: ' + escapeHtml(column.displayName) + '</label>' +
-                                // The input's name attribute is the *original* name, which is the key for saving
-                                '<input type="text" class="form-control" id="' + inputId + '" name="header_titles[' + escapeHtml(column.originalName) + ']" value="' + escapeHtml(savedTitle) + '" placeholder="New Title (default: ' + escapeHtml(column.originalName) + ')">' +
-                                '</div>';
+                    // The label shows the *currently displayed* name for user context
+                    '<label for="' + inputId + '">Current: ' + escapeHtml(column.displayName) + '</label>' +
+                    // The input's name attribute is the *original* name, which is the key for saving
+                    '<input type="text" class="form-control" id="' + inputId + '" name="header_titles[' + escapeHtml(column.originalName) + ']" value="' + escapeHtml(savedTitle) + '" placeholder="New Title (default: ' + escapeHtml(column.originalName) + ')">' +
+                    '</div>';
                 $fieldsContainer.append(fieldHtml);
             });
             $modal.modal('show');
         },
-        error: function(jqXHR, textStatus, errorThrown) {
+        error: function (jqXHR, textStatus, errorThrown) {
             $fieldsContainer.empty();
             $msgContainer.addClass('alert-danger').text('AJAX Error fetching formatting: ' + textStatus + ' - ' + errorThrown).show();
             $modal.modal('show'); // Still show modal but with error
@@ -141,7 +141,7 @@ $('body').on('click', '#btnShowTableFormatModal', function() {
 });
 
 // --- Share Query Modal Functionality ---
-$('body').on('click', '.btn-share-query', function() {
+$('body').on('click', '.btn-share-query', function () {
     var queryId = $(this).data('query-id');
     var queryName = $(this).data('query-name'); // Assuming query name is also available on the button
 
@@ -167,7 +167,7 @@ $('body').on('click', '.btn-share-query', function() {
         url: base + '/ajax/getShareToken/' + queryId,
         type: 'GET',
         dataType: 'json',
-        success: function(response) {
+        success: function (response) {
             if (response.status === 'success') {
                 if (response.share_url) {
                     $linkInput.val(response.share_url);
@@ -183,18 +183,18 @@ $('body').on('click', '.btn-share-query', function() {
                 $.jGrowl(response.message || 'Error fetching share link.', { header: 'Error', theme: 'error' });
             }
         },
-        error: function(jqXHR, textStatus, errorThrown) {
+        error: function (jqXHR, textStatus, errorThrown) {
             $linkInput.val('Error fetching link.');
             $.jGrowl('AJAX Error: ' + textStatus + ' - ' + errorThrown, { header: 'AJAX Error', theme: 'error' });
         },
-        complete: function() {
+        complete: function () {
             $requireLoginCheckbox.prop('disabled', false); // Enable checkbox after loading
         }
     });
 });
 
 // Handler for the "Require Login" checkbox change
-$('body').on('change', '#shareRequireLoginCheckbox', function() {
+$('body').on('change', '#shareRequireLoginCheckbox', function () {
     var queryId = $('#modal-share-query').data('current-query-id');
     var requireLogin = $(this).is(':checked');
     var $shareSettingsMsg = $('#shareSettingsMsg');
@@ -211,7 +211,7 @@ $('body').on('change', '#shareRequireLoginCheckbox', function() {
             require_login: requireLogin
         },
         dataType: 'json',
-        success: function(response) {
+        success: function (response) {
             if (response.status === 'success') {
                 $shareSettingsMsg.addClass('text-success').text(response.message || 'Settings saved!').fadeIn().delay(2000).fadeOut();
                 // Update checkbox state based on server response for consistency, though it should match user's click
@@ -230,8 +230,8 @@ $('body').on('change', '#shareRequireLoginCheckbox', function() {
                     $linkInput.val('Error: Link should be active but was not provided.');
                     $copyBtn.prop('disabled', true);
                 } else { // Fallback, e.g. if requires_login true but no token
-                     $linkInput.val('Link status unclear. Refresh modal.');
-                     $copyBtn.prop('disabled', true);
+                    $linkInput.val('Link status unclear. Refresh modal.');
+                    $copyBtn.prop('disabled', true);
                 }
             } else {
                 $shareSettingsMsg.addClass('text-danger').text(response.message || 'Failed to save settings.').fadeIn();
@@ -239,28 +239,28 @@ $('body').on('change', '#shareRequireLoginCheckbox', function() {
                 // For now, leave as is. User can try again.
             }
         },
-        error: function(jqXHR, textStatus, errorThrown) {
+        error: function (jqXHR, textStatus, errorThrown) {
             $shareSettingsMsg.addClass('text-danger').text('AJAX Error: Could not save settings. ' + textStatus).fadeIn();
         }
     });
 });
 
 
-$('body').on('click', '#btnCopyShareLink', function() {
+$('body').on('click', '#btnCopyShareLink', function () {
     var $linkInput = $('#shareableLinkInput');
     var $shareLinkMsg = $('#shareLinkMsg');
 
     if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText($linkInput.val()).then(function() {
+        navigator.clipboard.writeText($linkInput.val()).then(function () {
             $shareLinkMsg.text('Link copied to clipboard!').fadeIn().delay(2000).fadeOut();
-        }).catch(function(err) {
+        }).catch(function (err) {
             // Fallback for older browsers or if permission denied
             try {
                 $linkInput[0].select();
                 document.execCommand('copy');
                 $shareLinkMsg.text('Link copied to clipboard! (fallback method)').fadeIn().delay(2000).fadeOut();
             } catch (e) {
-                $shareLinkMsg.text('Failed to copy. Please copy manually.').removeClass('alert-success').addClass('alert-danger').fadeIn().delay(3000).fadeOut(function(){
+                $shareLinkMsg.text('Failed to copy. Please copy manually.').removeClass('alert-success').addClass('alert-danger').fadeIn().delay(3000).fadeOut(function () {
                     $(this).removeClass('alert-danger').addClass('alert-success'); // Reset class
                 });
             }
@@ -271,7 +271,7 @@ $('body').on('click', '#btnCopyShareLink', function() {
             document.execCommand('copy');
             $shareLinkMsg.text('Link copied to clipboard! (fallback method)').fadeIn().delay(2000).fadeOut();
         } catch (e) {
-             $shareLinkMsg.text('Failed to copy. Please copy manually.').removeClass('alert-success').addClass('alert-danger').fadeIn().delay(3000).fadeOut(function(){
+            $shareLinkMsg.text('Failed to copy. Please copy manually.').removeClass('alert-success').addClass('alert-danger').fadeIn().delay(3000).fadeOut(function () {
                 $(this).removeClass('alert-danger').addClass('alert-success'); // Reset class
             });
         }
@@ -279,7 +279,7 @@ $('body').on('click', '#btnCopyShareLink', function() {
 });
 
 
-$('body').on('click', '#btnSaveTableFormatting', function() {
+$('body').on('click', '#btnSaveTableFormatting', function () {
     var queryId = $('#table_format_query_id').val();
     var $msgContainer = $('#tableFormatMsg');
     var $thisButton = $(this);
@@ -290,7 +290,7 @@ $('body').on('click', '#btnSaveTableFormatting', function() {
     }
 
     var columnTitles = {};
-    $('#tableFormatFieldsContainer .form-control').each(function() {
+    $('#tableFormatFieldsContainer .form-control').each(function () {
         var originalHeaderKey = $(this).attr('name').match(/header_titles\[(.*?)\]/)[1];
         var newTitle = $(this).val();
         if ($.trim(newTitle) !== '') { // Only save non-empty titles
@@ -311,10 +311,10 @@ $('body').on('click', '#btnSaveTableFormatting', function() {
             table_formatting: tableFormattingJson
         },
         dataType: 'json',
-        success: function(response) {
+        success: function (response) {
             if (response.status === 'success') {
                 $msgContainer.removeClass('alert-danger alert-info').addClass('alert-success').text(response.message).show();
-                setTimeout(function() {
+                setTimeout(function () {
                     $('#modal-table-format').modal('hide');
                     // Optionally, inform user to re-run query to see changes or try to apply dynamically (more complex)
                     $.jGrowl('Formatting saved. Re-run the query to see changes.', { header: 'Info', theme: 'info', life: 4000 });
@@ -323,10 +323,10 @@ $('body').on('click', '#btnSaveTableFormatting', function() {
                 $msgContainer.removeClass('alert-success alert-info').addClass('alert-danger').text(response.message || 'An unknown error occurred.').show();
             }
         },
-        error: function(jqXHR, textStatus, errorThrown) {
+        error: function (jqXHR, textStatus, errorThrown) {
             $msgContainer.removeClass('alert-success alert-info').addClass('alert-danger').text('AJAX Error: ' + textStatus + ' - ' + errorThrown).show();
         },
-        complete: function() {
+        complete: function () {
             $thisButton.prop('disabled', false).find('i').removeClass('fa-spinner fa-spin').addClass('fa-save');
         }
     });
@@ -336,8 +336,8 @@ $('body').on('click', '#btnSaveTableFormatting', function() {
 $('a.editable').editable();
 
 // for popover
-$('#modal-visual-query [rel=hover_popover]').popover({ "trigger": "hover", "placement": "right"});
-$('[rel=hover_popover]').popover({ "trigger": "hover", "placement": "bottom"});
+$('#modal-visual-query [rel=hover_popover]').popover({ "trigger": "hover", "placement": "right" });
+$('[rel=hover_popover]').popover({ "trigger": "hover", "placement": "bottom" });
 
 // run custom query
 $('#btnCustomQuery').click(function () {
@@ -401,23 +401,23 @@ $('#btnAddHavingCondition').click(function () {
 
     $('#havingConditionsContainer').append($clone);
     // $clone.slideDown('fast'); // slideDown can happen after options are set.
-                               // For now, keep original behavior of sliding then updating.
+    // For now, keep original behavior of sliding then updating.
 
     // updateHavingFieldNameOptions will find this new row and initialize Select2 on its .hfname
     // with the correct options. No need to initialize Select2 on $hfnameSelect here.
     updateHavingFieldNameOptions();
     $clone.slideDown('fast'); // Ensure it's visible and then options are updated & Select2 initialized by the call above.
-                              // Or, call slideDown after updateHavingFieldNameOptions if preferred.
-                              // The original order was slideDown then update.
+    // Or, call slideDown after updateHavingFieldNameOptions if preferred.
+    // The original order was slideDown then update.
 });
 
 // When aggregate alias or group by fields change, update HAVING field name options
-$('body').on('change', '.agg_alias, .groupfields', function() {
+$('body').on('change', '.agg_alias, .groupfields', function () {
     updateHavingFieldNameOptions();
 });
 
 // Run Saved Query
-$('body').on('click', '.btn-run-saved-query', function(e) {
+$('body').on('click', '.btn-run-saved-query', function (e) {
     e.preventDefault();
     var queryId = $(this).data('query-id');
     var queryToRun = null;
@@ -505,7 +505,7 @@ function openVisualQueryBuilderModal(visualParamsObj, queryId, queryName, isEdit
         // Populate Joins
         if (visualParamsObj.jointype && Array.isArray(visualParamsObj.jointype)) {
             var $joinTemplate = $('#fieldCloneTable');
-            visualParamsObj.jointype.forEach(function(type, idx) {
+            visualParamsObj.jointype.forEach(function (type, idx) {
                 var $clone = $joinTemplate.clone().removeAttr('id').addClass('cloned-join-row');
                 $clone.find('select.jointype').val(type);
                 var $tableSelect = $clone.find('select.jointable');
@@ -513,7 +513,7 @@ function openVisualQueryBuilderModal(visualParamsObj, queryId, queryName, isEdit
 
                 $('#btnJoinTable').before($clone);
 
-                $clone.find('select').each(function() {
+                $clone.find('select').each(function () {
                     if ($(this).data('select2')) $(this).select2('destroy');
                     $(this).select2({ placeholder: 'Choose', allowClear: true });
                 });
@@ -532,12 +532,12 @@ function openVisualQueryBuilderModal(visualParamsObj, queryId, queryName, isEdit
         }
 
         // Load options for all field dropdowns and then populate other VQB elements
-        addTablesToDropdown(dataSourceId, function(success, fieldOptionsHtml) {
+        addTablesToDropdown(dataSourceId, function (success, fieldOptionsHtml) {
             if (success && fieldOptionsHtml) {
                 if (visualParamsObj.fields && Array.isArray(visualParamsObj.fields)) {
                     $modal.find('select[name="fields[]"]').val(visualParamsObj.fields).trigger('change.select2');
                 }
-                $modal.find('.cloned-join-row').each(function() {
+                $modal.find('.cloned-join-row').each(function () {
                     var $clonedJoinRow = $(this);
                     var $joinfieldmainSelect = $clonedJoinRow.find('select.joinfieldmain');
                     var savedValue = $joinfieldmainSelect.data('saved-value');
@@ -547,8 +547,8 @@ function openVisualQueryBuilderModal(visualParamsObj, queryId, queryName, isEdit
                 });
 
                 if (visualParamsObj.fname && Array.isArray(visualParamsObj.fname)) {
-                    visualParamsObj.fname.forEach(function(name, idx){
-                        if(name && visualParamsObj.fvalue[idx]){
+                    visualParamsObj.fname.forEach(function (name, idx) {
+                        if (name && visualParamsObj.fvalue[idx]) {
                             var $c = $('#fieldClone').clone().removeAttr('id').show();
                             var $fnameSelect = $c.find('select.fname');
                             var $ftypeSelect = $c.find('select[name="ftype[]"]');
@@ -558,7 +558,7 @@ function openVisualQueryBuilderModal(visualParamsObj, queryId, queryName, isEdit
                             $fnameSelect.val(name);
                             $c.find('input[name="fvalue[]"]').val(visualParamsObj.fvalue[idx]);
                             if (idx > 0 && visualParamsObj.ftype[idx]) {
-                                 $ftypeSelect.val(visualParamsObj.ftype[idx]);
+                                $ftypeSelect.val(visualParamsObj.ftype[idx]);
                             }
                             $('#btnAddWhere').after($c);
                             $fnameSelect.select2({ placeholder: 'Choose Field', allowClear: true });
@@ -569,9 +569,9 @@ function openVisualQueryBuilderModal(visualParamsObj, queryId, queryName, isEdit
                     });
                 }
 
-                 if (visualParamsObj.agg_field && Array.isArray(visualParamsObj.agg_field)) {
+                if (visualParamsObj.agg_field && Array.isArray(visualParamsObj.agg_field)) {
                     var $aggContainer = $('#aggregateFieldsContainer');
-                    visualParamsObj.agg_field.forEach(function(fieldValue, idx) {
+                    visualParamsObj.agg_field.forEach(function (fieldValue, idx) {
                         if (fieldValue && visualParamsObj.agg_func[idx]) {
                             var $aggClone = $('#fieldCloneAggregate').clone().removeAttr('id').show();
                             var $aggFieldSelect = $aggClone.find('.agg_field');
@@ -596,7 +596,7 @@ function openVisualQueryBuilderModal(visualParamsObj, queryId, queryName, isEdit
                     $('#group').show();
                 }
 
-                 if (visualParamsObj.orderfields && Array.isArray(visualParamsObj.orderfields) && visualParamsObj.orderfields.length > 0) {
+                if (visualParamsObj.orderfields && Array.isArray(visualParamsObj.orderfields) && visualParamsObj.orderfields.length > 0) {
                     $modal.find('select.orderfields').val(visualParamsObj.orderfields).trigger('change.select2');
                     if (visualParamsObj.chkDescending === 'on' || visualParamsObj.chkDescending === true) {
                         $modal.find('input[name="chkDescending"]').prop('checked', true);
@@ -607,20 +607,20 @@ function openVisualQueryBuilderModal(visualParamsObj, queryId, queryName, isEdit
                 }
 
                 if (visualParamsObj.limitStart || visualParamsObj.limitNumRows) {
-                     $modal.find('input[name="limitStart"]').val(visualParamsObj.limitStart || '');
-                     $modal.find('input[name="limitNumRows"]').val(visualParamsObj.limitNumRows || '');
-                     $('#limit').show();
+                    $modal.find('input[name="limitStart"]').val(visualParamsObj.limitStart || '');
+                    $modal.find('input[name="limitNumRows"]').val(visualParamsObj.limitNumRows || '');
+                    $('#limit').show();
                 }
 
                 if (visualParamsObj.hfname && Array.isArray(visualParamsObj.hfname)) {
-                    visualParamsObj.hfname.forEach(function(name, idx){
-                         if(name && visualParamsObj.hfvalue[idx]){
+                    visualParamsObj.hfname.forEach(function (name, idx) {
+                        if (name && visualParamsObj.hfvalue[idx]) {
                             var $hClone = $('#fieldCloneHaving').clone().removeAttr('id').show();
                             $hClone.find('select.hfname').val(name);
                             $hClone.find('input[name="hfvalue[]"]').val(visualParamsObj.hfvalue[idx]);
-                             if(idx > 0 && visualParamsObj.htype[idx]) {
-                                 $hClone.find('select[name="htype[]"]').val(visualParamsObj.htype[idx]);
-                             }
+                            if (idx > 0 && visualParamsObj.htype[idx]) {
+                                $hClone.find('select[name="htype[]"]').val(visualParamsObj.htype[idx]);
+                            }
                             $hClone.find('.select2-container').remove();
                             var $hfnameSelectInClone = $hClone.find('select.hfname');
                             if ($hfnameSelectInClone.data('select2')) {
@@ -644,14 +644,14 @@ function openVisualQueryBuilderModal(visualParamsObj, queryId, queryName, isEdit
         $.post(base + '/ajax/get_tables_for_data_source', { data_source_id: dataSourceId }, function (response) {
             if (response.status === 'success' && response.tables) {
                 let optionsHtml = '<option value="">Choose Table</option>';
-                response.tables.forEach(function(table) {
+                response.tables.forEach(function (table) {
                     optionsHtml += '<option value="' + escapeHtml(table) + '">' + escapeHtml(table) + '</option>';
                 });
                 _populateAndShowModal(optionsHtml);
             } else {
                 $.jGrowl('Failed to load table list for VQB.', { header: 'Error', theme: 'error' });
             }
-        }, 'json').fail(function() {
+        }, 'json').fail(function () {
             $.jGrowl('AJAX error loading table list for VQB.', { header: 'Error', theme: 'error' });
         });
     } else {
@@ -662,7 +662,7 @@ function openVisualQueryBuilderModal(visualParamsObj, queryId, queryName, isEdit
 
 
 // --- Edit Saved Query Functionality ---
-$('body').on('click', '.btn-edit-saved-query', function() {
+$('body').on('click', '.btn-edit-saved-query', function () {
     var queryId = $(this).data('query-id');
     var queryName = $(this).data('query-name');
 
@@ -687,10 +687,10 @@ $('body').on('click', '.btn-edit-saved-query', function() {
             type: 'POST',
             data: { data_source_id: queryData.source_connection_id },
             dataType: 'json',
-            success: function(response) {
+            success: function (response) {
                 if (response.status === 'success') {
                     // Now update the table dropdown, then open the modal
-                    updateTableDropdown(queryData.source_connection_id, function() {
+                    updateTableDropdown(queryData.source_connection_id, function () {
                         // This callback ensures the table dropdown is populated before the modal opens
                         proceedToOpenModal();
                     });
@@ -700,7 +700,7 @@ $('body').on('click', '.btn-edit-saved-query', function() {
                     proceedToOpenModal();
                 }
             },
-            error: function() {
+            error: function () {
                 $.jGrowl('AJAX error setting the data source.', { header: 'Error', theme: 'error' });
                 // In case of error, still proceed to open the modal
                 proceedToOpenModal();
@@ -743,7 +743,7 @@ $('body').on('click', '.btn-edit-saved-query', function() {
 
 
 // --- Edit Executed Query Button ---
-$('body').on('click', '#btnEditExecutedQuery', function() {
+$('body').on('click', '#btnEditExecutedQuery', function () {
     var visualParamsJsonString = $('#current_visual_params').val();
     var executedQueryId = $('#executed_query_id').val(); // Might be empty if not a saved query
     var executedQueryName = $('#executed_query_name').val(); // Might be empty
@@ -771,7 +771,7 @@ $('body').on('click', '#btnEditExecutedQuery', function() {
 });
 
 // --- Edit Custom SQL Query Button (from query results page) ---
-$('body').on('click', '#btnEditCustomSQL', function() {
+$('body').on('click', '#btnEditCustomSQL', function () {
     var executedQueryId = $('#executed_query_id').val();
     var sqlQueryText = $('#generatedQueryDisplay pre').text();
 
@@ -824,7 +824,7 @@ function initializeVisualQueryBuilder(parsedParams, sqlQuery, queryName) {
 
 
 // --- Update Visual Query (from VQB Modal) ---
-$('body').on('click', '#btnUpdateVisualQuery', function() {
+$('body').on('click', '#btnUpdateVisualQuery', function () {
     var $modal = $('#modal-visual-query');
     var queryId = $modal.find('#visual_query_id_edit').val();
     var $thisButton = $(this);
@@ -832,7 +832,7 @@ $('body').on('click', '#btnUpdateVisualQuery', function() {
     // Collect form data into a structured object
     var formData = $modal.find('form').serializeArray();
     var visualParamsData = {};
-    formData.forEach(function(item) {
+    formData.forEach(function (item) {
         if (item.name.endsWith('[]')) {
             var name = item.name.substring(0, item.name.length - 2);
             if (!visualParamsData[name]) {
@@ -843,14 +843,14 @@ $('body').on('click', '#btnUpdateVisualQuery', function() {
             }
         } else {
             if (item.value || item.name === 'chkDescending' || item.name === 'limitStart' || item.name === 'limitNumRows') {
-                if(item.name === 'chkDescending' && !$modal.find('input[name="chkDescending"]').is(':checked')){} else {
+                if (item.name === 'chkDescending' && !$modal.find('input[name="chkDescending"]').is(':checked')) { } else {
                     visualParamsData[item.name] = item.value;
                 }
             }
         }
     });
     var arrayFields = ['fields', 'agg_field', 'agg_func', 'agg_alias', 'jointype', 'jointable', 'joinfield', 'joinfieldp', 'ftype', 'fname', 'fvalue', 'groupfields', 'orderfields', 'htype', 'hfname', 'hfvalue'];
-    arrayFields.forEach(function(fieldName) {
+    arrayFields.forEach(function (fieldName) {
         if (!visualParamsData[fieldName]) {
             visualParamsData[fieldName] = [];
         }
@@ -863,10 +863,10 @@ $('body').on('click', '#btnUpdateVisualQuery', function() {
     if (typeof __table !== 'undefined' && __table) {
         visualParamsData.primaryTable = __table;
     }
-    if ('visual_query_id_edit' in visualParamsData){
+    if ('visual_query_id_edit' in visualParamsData) {
         delete visualParamsData.visual_query_id_edit;
     }
-    if ('visual_query_id_edit_submit' in visualParamsData){
+    if ('visual_query_id_edit_submit' in visualParamsData) {
         delete visualParamsData.visual_query_id_edit_submit;
     }
     var visualParamsJsonString = JSON.stringify(visualParamsData);
@@ -883,27 +883,27 @@ $('body').on('click', '#btnUpdateVisualQuery', function() {
                 is_visual_query: true
             },
             dataType: 'json',
-            success: function(response) {
+            success: function (response) {
                 if (response.status === 'success') {
                     $.jGrowl(response.message || 'Visual query updated successfully!', { header: 'Success', theme: 'success', life: 3000 });
                     if (typeof savedQueriesCache !== 'undefined' && savedQueriesCache.find) {
-                        var itemInCache = savedQueriesCache.find(function(q) { return q.id == queryId; });
+                        var itemInCache = savedQueriesCache.find(function (q) { return q.id == queryId; });
                         if (itemInCache) {
                             itemInCache.visual_params = visualParamsJsonString;
                             itemInCache.is_visual_query = true;
                         }
                     }
-                    setTimeout(function() {
+                    setTimeout(function () {
                         location.reload();
                     }, 1500);
                 } else {
                     $.jGrowl(response.message || 'An error occurred while updating the query.', { header: 'Error', theme: 'error', life: 5000 });
                 }
             },
-            error: function(jqXHR, textStatus, errorThrown) {
+            error: function (jqXHR, textStatus, errorThrown) {
                 $.jGrowl('AJAX Error: ' + textStatus + ' - ' + errorThrown, { header: 'AJAX Error', theme: 'error', life: 5000 });
             },
-            complete: function() {
+            complete: function () {
                 $thisButton.prop('disabled', false).find('i').removeClass('fa-spinner fa-spin').addClass('fa-save');
             }
         });
@@ -918,7 +918,7 @@ $('body').on('click', '#btnUpdateVisualQuery', function() {
                 primary_table_name: visualParamsData.primaryTable
             },
             dataType: 'json',
-            success: function(response) {
+            success: function (response) {
                 if (response.status === 'success' && response.sql_query) {
                     // Hide VQB modal
                     $modal.modal('hide');
@@ -932,11 +932,11 @@ $('body').on('click', '#btnUpdateVisualQuery', function() {
                     $.jGrowl(response.message || 'Could not generate SQL for this visual query.', { header: 'Error', theme: 'error' });
                 }
             },
-            error: function(jqXHR, textStatus, errorThrown) {
+            error: function (jqXHR, textStatus, errorThrown) {
                 $.jGrowl('AJAX Error generating SQL: ' + textStatus, { header: 'AJAX Error', theme: 'error' });
             },
-            complete: function() {
-                 $thisButton.prop('disabled', false).find('i').removeClass('fa-spinner fa-spin').addClass('fa-save');
+            complete: function () {
+                $thisButton.prop('disabled', false).find('i').removeClass('fa-spinner fa-spin').addClass('fa-save');
             }
         });
     }
@@ -945,7 +945,7 @@ $('body').on('click', '#btnUpdateVisualQuery', function() {
 // --- Update Saved Query (from Custom Query Modal) ---
 // This button is now primarily for updating the SQL of an existing query.
 // Name editing is handled by the new Rename modal.
-$('body').on('click', '#btnUpdateSavedQuery', function() {
+$('body').on('click', '#btnUpdateSavedQuery', function () {
     var queryId = $('#custom_query_id_edit').val();
     // var queryName = $('#custom_query_name_edit').val(); // Field removed from modal
     var sqlQuery = (typeof editor !== 'undefined' && editor !== null) ? editor.getValue() : $('#cquery').val(); // Get SQL from ACE or fallback
@@ -981,7 +981,7 @@ $('body').on('click', '#btnUpdateSavedQuery', function() {
         type: 'POST',
         data: ajaxData,
         dataType: 'json',
-        success: function(response) {
+        success: function (response) {
             if (response.status === 'success') {
                 $msgContainer.removeClass('alert-danger').addClass('alert-success').text(response.message).show();
                 var source = $('#modal-custom-query').data('source'); // Read source immediately
@@ -989,14 +989,14 @@ $('body').on('click', '#btnUpdateSavedQuery', function() {
                 // Update cache for sql_query
                 var queryName = '';
                 if (typeof savedQueriesCache !== 'undefined') {
-                    var itemInCache = savedQueriesCache.find(function(q) { return q.id == queryId; });
+                    var itemInCache = savedQueriesCache.find(function (q) { return q.id == queryId; });
                     if (itemInCache) {
                         itemInCache.sql_query = sqlQuery;
                         queryName = itemInCache.query_name;
                     }
                 }
 
-                setTimeout(function() {
+                setTimeout(function () {
                     if (source === 'dashboard') {
                         location.reload(); // Just reload the dashboard
                     } else {
@@ -1024,10 +1024,10 @@ $('body').on('click', '#btnUpdateSavedQuery', function() {
                 $msgContainer.removeClass('alert-success').addClass('alert-danger').text(response.message || 'An unknown error occurred.').show();
             }
         },
-        error: function(jqXHR, textStatus, errorThrown) {
+        error: function (jqXHR, textStatus, errorThrown) {
             $msgContainer.removeClass('alert-success').addClass('alert-danger').text('AJAX Error: ' + textStatus + ' - ' + errorThrown).show();
         },
-        complete: function() {
+        complete: function () {
             $thisButton.prop('disabled', false).find('i').removeClass('fa-spinner fa-spin').addClass('fa-save');
             $('#modal-custom-query').removeData('source'); // Clean up the source flag
         }
@@ -1037,7 +1037,7 @@ $('body').on('click', '#btnUpdateSavedQuery', function() {
 
 // --- Delete Saved Query Functionality (for dashboard and potentially modals if reused) ---
 // Delegated click handler for the delete button on a saved query item
-$('body').on('click', '.btn-delete-saved-query', function() {
+$('body').on('click', '.btn-delete-saved-query', function () {
     var queryId = $(this).data('query-id');
     var queryName = $(this).data('query-name');
 
@@ -1049,7 +1049,7 @@ $('body').on('click', '.btn-delete-saved-query', function() {
 });
 
 // Click handler for the final delete confirmation button inside #modal-delete-confirm
-$('#modal-delete-confirm').on('click', '.btnDelete', function() {
+$('#modal-delete-confirm').on('click', '.btnDelete', function () {
     var queryIdToDelete = $('#modal-delete-confirm').data('query-id-to-delete');
 
     if (!queryIdToDelete) {
@@ -1066,12 +1066,12 @@ $('#modal-delete-confirm').on('click', '.btnDelete', function() {
         type: 'POST',
         data: { query_id: queryIdToDelete },
         dataType: 'json',
-        success: function(response) {
+        success: function (response) {
             if (response.status === 'success') {
                 $.jGrowl(response.message || 'Query deleted successfully!', { header: 'Success', theme: 'success' });
 
                 // Remove the item from the list (works for both dashboard and previous modal list)
-                $('li[data-query-list-id="' + queryIdToDelete + '"]').fadeOut(function() {
+                $('li[data-query-list-id="' + queryIdToDelete + '"]').fadeOut(function () {
                     $(this).remove();
                     // Check if the list is empty on the dashboard specifically
                     if ($('#dashboardSavedQueriesList li').length === 0 && $('#dashboardSavedQueriesList').length > 0) {
@@ -1079,12 +1079,12 @@ $('#modal-delete-confirm').on('click', '.btnDelete', function() {
                     }
                     // Check if the list is empty in the (now removed) modal list container
                     if ($('#savedQueriesListContainer li').length === 0 && $('#savedQueriesListContainer').length > 0) {
-                         $('#savedQueriesListContainer').html('<p class="text-muted">No saved queries found.</p>');
+                        $('#savedQueriesListContainer').html('<p class="text-muted">No saved queries found.</p>');
                     }
                 });
 
                 // Remove from cache
-                savedQueriesCache = savedQueriesCache.filter(function(query) {
+                savedQueriesCache = savedQueriesCache.filter(function (query) {
                     return query.id != queryIdToDelete; // Use loose equality as data attributes can be strings
                 });
 
@@ -1092,10 +1092,10 @@ $('#modal-delete-confirm').on('click', '.btnDelete', function() {
                 $.jGrowl(response.message || 'Could not delete the query.', { header: 'Error', theme: 'error' });
             }
         },
-        error: function(jqXHR, textStatus, errorThrown) {
+        error: function (jqXHR, textStatus, errorThrown) {
             $.jGrowl('AJAX Error: Could not delete query. ' + textStatus, { header: 'Error', theme: 'error' });
         },
-        complete: function() {
+        complete: function () {
             $('#modal-delete-confirm').modal('hide');
             $thisButton.prop('disabled', false).find('i').removeClass('fa-spinner fa-spin').addClass('fa-trash-o');
             $('#modal-delete-confirm').removeData('query-id-to-delete');
@@ -1103,7 +1103,7 @@ $('#modal-delete-confirm').on('click', '.btnDelete', function() {
     });
 });
 
-$(document).ready(function() {
+$(document).ready(function () {
     // Populate savedQueriesCache if initialSavedQueries is available (from dashboard.php)
     if (typeof initialSavedQueries !== 'undefined' && Array.isArray(initialSavedQueries)) {
         savedQueriesCache = initialSavedQueries;
@@ -1133,7 +1133,7 @@ $(document).ready(function() {
     });
 
     // ETL Page: Handle destination change to populate tables
-    $('#destination_id').on('change', function() {
+    $('#destination_id').on('change', function () {
         var destinationId = $(this).val();
         var $tableSelect = $('#destination_table');
         var savedTableName = $tableSelect.data('saved-table');
@@ -1143,6 +1143,28 @@ $(document).ready(function() {
             return;
         }
 
+        // Check if this is an SFTP destination - skip table fetching
+        var selectedDest = null;
+        if (typeof destinations !== 'undefined' && destinations) {
+            for (var i = 0; i < destinations.length; i++) {
+                if (destinations[i].id == destinationId) {
+                    selectedDest = destinations[i];
+                    break;
+                }
+            }
+        }
+
+        if (selectedDest) {
+            var destType = selectedDest.destination_type || (selectedDest.db_type !== 'sftp' ? 'database' : 'sftp');
+
+            if (destType === 'sftp') {
+                // For SFTP destinations, no tables are needed
+                $tableSelect.html('<option value="">-- SFTP destinations do not use tables --</option>').prop('disabled', true);
+                return;
+            }
+        }
+
+        // Only fetch tables for database destinations
         $tableSelect.html('<option value="">Loading tables...</option>').prop('disabled', false);
 
         $.ajax({
@@ -1150,11 +1172,11 @@ $(document).ready(function() {
             type: 'POST',
             data: { destination_id: destinationId },
             dataType: 'json',
-            success: function(response) {
+            success: function (response) {
                 $tableSelect.empty();
                 if (response.status === 'success' && response.tables) {
                     $tableSelect.append('<option value="">-- Select a Table --</option>');
-                    $.each(response.tables, function(index, table) {
+                    $.each(response.tables, function (index, table) {
                         var selected = (table === savedTableName) ? ' selected' : '';
                         $tableSelect.append('<option value="' + escapeHtml(table) + '"' + selected + '>' + escapeHtml(table) + '</option>');
                     });
@@ -1168,7 +1190,7 @@ $(document).ready(function() {
                     $.jGrowl(response.message || 'An error occurred.', { header: 'Error', theme: 'error' });
                 }
             },
-            error: function() {
+            error: function () {
                 $tableSelect.html('<option value="">Error loading tables</option>');
                 $.jGrowl('An AJAX error occurred while fetching tables.', { header: 'Error', theme: 'error' });
             }
@@ -1181,7 +1203,7 @@ $(document).ready(function() {
     }
 
     // ETL Page: Handle destination TABLE change to populate column mapping
-    $('#destination_table').on('change', function() {
+    $('#destination_table').on('change', function () {
         var destinationTable = $(this).val();
         var destinationId = $('#destination_id').val();
         var queryId = $('input[name="query_id"]').val();
@@ -1203,7 +1225,7 @@ $(document).ready(function() {
                 destination_id: destinationId
             },
             dataType: 'json',
-            success: function(response) {
+            success: function (response) {
                 if (response.status === 'success') {
                     var html = '<div class="row mapping-header">';
                     html += '<div class="col-sm-5"><strong>Source Column (from Query)</strong></div>';
@@ -1211,7 +1233,7 @@ $(document).ready(function() {
                     html += '<div class="col-sm-2 key-column"><strong>Is Key?</strong></div>';
                     html += '</div><hr style="margin-top: 5px; margin-bottom: 10px;">';
 
-                    response.source_columns.forEach(function(sourceCol) {
+                    response.source_columns.forEach(function (sourceCol) {
                         var savedMapping = (typeof etlConfig !== 'undefined' && etlConfig.column_mapping) ? etlConfig.column_mapping[sourceCol] : null;
                         var savedKeys = (typeof etlConfig !== 'undefined' && etlConfig.key_columns) ? etlConfig.key_columns : [];
 
@@ -1222,7 +1244,7 @@ $(document).ready(function() {
                         html += '  <div class="col-sm-5">';
                         html += '    <select class="form-control" name="column_mapping[' + escapeHtml(sourceCol) + ']">';
                         html += '      <option value="">-- Do Not Map --</option>';
-                        response.destination_columns.forEach(function(destCol) {
+                        response.destination_columns.forEach(function (destCol) {
                             var selected = (destCol === savedMapping || destCol === sourceCol) ? ' selected' : '';
                             html += '<option value="' + escapeHtml(destCol) + '"' + selected + '>' + escapeHtml(destCol) + '</option>';
                         });
@@ -1242,14 +1264,14 @@ $(document).ready(function() {
                     $mappingContainer.html('<p class="text-danger">Error: ' + response.message + '</p>');
                 }
             },
-            error: function() {
+            error: function () {
                 $mappingContainer.html('<p class="text-danger">An AJAX error occurred while fetching column data.</p>');
             }
         });
     });
 
     // ETL Page: Toggle key column visibility based on ETL type
-    $('body').on('change', '#etl_type', function() {
+    $('body').on('change', '#etl_type', function () {
         if ($(this).val() === 'update_or_insert') {
             $('.key-column').show();
         } else {
@@ -1317,7 +1339,7 @@ function updateTableDropdown(dataSourceId, callback) {
                 });
             }
         },
-        complete: function() {
+        complete: function () {
             if (typeof callback === 'function') {
                 callback();
             }
@@ -1334,10 +1356,10 @@ function updateHavingFieldNameOptions() {
     // and adapting it. This is a bit of a workaround. A cleaner way might be to have a dedicated source for these options.
     var generalFieldsHtml = $('select.fields').first().html(); // Get HTML of options from a representative 'fields' select
     if (generalFieldsHtml) {
-        $(generalFieldsHtml).filter('optgroup').each(function() {
+        $(generalFieldsHtml).filter('optgroup').each(function () {
             var optgroupLabel = $(this).attr('label');
             var groupOptions = [];
-            $(this).find('option').each(function() {
+            $(this).find('option').each(function () {
                 var val = $(this).val();
                 var text = $(this).text();
                 if (!existingOptions[val]) {
@@ -1349,7 +1371,7 @@ function updateHavingFieldNameOptions() {
                 options.push({ label: optgroupLabel, options: groupOptions });
             }
         });
-         $(generalFieldsHtml).filter('option').each(function() {
+        $(generalFieldsHtml).filter('option').each(function () {
             var val = $(this).val();
             var text = $(this).text();
             if (!existingOptions[val]) {
@@ -1361,7 +1383,7 @@ function updateHavingFieldNameOptions() {
 
 
     // Get aliases from aggregated fields
-    $('#aggregateFieldsContainer .parent').each(function() {
+    $('#aggregateFieldsContainer .parent').each(function () {
         var alias = $(this).find('.agg_alias').val();
         var field = $(this).find('.agg_field').val();
         var func = $(this).find('.agg_func').val();
@@ -1369,7 +1391,7 @@ function updateHavingFieldNameOptions() {
         if (func && field) { // Only consider if function and field are selected
             var val = alias;
             if (!val) { // Generate default alias if not provided by user
-                val = func.toLowerCase() + '_' + (field.includes('.') ? field.split('.')[1] : field) ;
+                val = func.toLowerCase() + '_' + (field.includes('.') ? field.split('.')[1] : field);
             }
             var text = alias ? alias + ' (Alias)' : val + ' (Auto-Alias)';
             if (val && !existingOptions[val]) {
@@ -1380,7 +1402,7 @@ function updateHavingFieldNameOptions() {
     });
 
     // Get fields from GROUP BY clause
-    $('select.groupfields').find('option:selected').each(function() {
+    $('select.groupfields').find('option:selected').each(function () {
         var val = $(this).val();
         var text = $(this).text() + ' (Group By)';
         if (val && !existingOptions[val]) {
@@ -1393,24 +1415,24 @@ function updateHavingFieldNameOptions() {
     var newHtml = '<option value=""></option>'; // Add a blank option for placeholder
 
     // Build HTML for options, handling optgroups if present in the initial set
-    options.forEach(function(opt) {
+    options.forEach(function (opt) {
         if (opt.label) { // This is an optgroup
             newHtml += '<optgroup label="' + opt.label + '">';
-            opt.options.forEach(function(innerOpt) {
+            opt.options.forEach(function (innerOpt) {
                 newHtml += '<option value="' + innerOpt.val + '">' + innerOpt.text + '</option>';
             });
             newHtml += '</optgroup>';
         } else if (opt.isAlias) {
-             newHtml += '<option value="' + opt.val + '">' + opt.text + '</option>';
+            newHtml += '<option value="' + opt.val + '">' + opt.text + '</option>';
         } else if (opt.isGroupBy) {
-             newHtml += '<option value="' + opt.val + '">' + opt.text + '</option>';
+            newHtml += '<option value="' + opt.val + '">' + opt.text + '</option>';
         } else { // These are general fields that might not be in an optgroup
             newHtml += '<option value="' + opt.val + '">' + opt.text + '</option>';
         }
     });
 
 
-    $hfnameSelects.each(function() {
+    $hfnameSelects.each(function () {
         var $select = $(this);
         var intendedValue = $select.data('intended-value'); // Get the stored intended value
 
@@ -1468,7 +1490,7 @@ $('body').on('click', '.remove', function () {
 
 // join table for visual query
 $('#btnJoinTable').click(function () {
-    console.log("DEBUG: #btnJoinTable click - allTablesOptionsHTML content (first 200 chars):", typeof allTablesOptionsHTML !== 'undefined' ? allTablesOptionsHTML.substring(0,200) : 'NOT DEFINED');
+    console.log("DEBUG: #btnJoinTable click - allTablesOptionsHTML content (first 200 chars):", typeof allTablesOptionsHTML !== 'undefined' ? allTablesOptionsHTML.substring(0, 200) : 'NOT DEFINED');
     // Ensure the template's jointable select has fresh options before cloning
     if (typeof allTablesOptionsHTML !== 'undefined') {
         $('#fieldCloneTable').find('select.jointable').html(allTablesOptionsHTML);
@@ -1502,10 +1524,10 @@ $('body').on('change', 'select.jointable', function () {
     if (value) {
         var $this = $(this);
         var $targetSelect = $this.closest('.parent').find('select.joinfieldselected');
-       // console.log("Manual Join: Selected table:", value, "Target select:", $targetSelect);
+        // console.log("Manual Join: Selected table:", value, "Target select:", $targetSelect);
 
         // Use the new populateJoinFieldDropdown function
-        populateJoinFieldDropdown($targetSelect, value, null, function(success) {
+        populateJoinFieldDropdown($targetSelect, value, null, function (success) {
             if (success) {
                 // Optional: Trigger change on the populated select if other elements depend on its value
                 // $targetSelect.trigger('change');
@@ -1522,7 +1544,7 @@ $('body').on('change', 'select.jointable', function () {
 
 // --- Save Query Functionality (Handles NEW saves only now) ---
 // Show Save Query Modal
-$('body').on('click', '#btnShowSaveQueryModal', function() {
+$('body').on('click', '#btnShowSaveQueryModal', function () {
     var sqlQueryText = $('#generatedQueryDisplay pre').text();
     if (!sqlQueryText || $.trim(sqlQueryText) === '') {
         $.jGrowl('No query generated yet to save!', { sticky: false, header: 'Error', theme: 'error' });
@@ -1579,7 +1601,7 @@ $('body').on('click', '#btnShowSaveQueryModal', function() {
 });
 
 // Confirm and Save NEW Query (AJAX)
-$('body').on('click', '#btnSaveQueryConfirm', function() {
+$('body').on('click', '#btnSaveQueryConfirm', function () {
     var queryName = $('#query_name_save').val();
     var sqlQuery = $('#sql_query_save').val();
     var sourceConnectionId = $('#source_connection_id_save').val();
@@ -1617,7 +1639,7 @@ $('body').on('click', '#btnSaveQueryConfirm', function() {
         type: 'POST',
         data: ajaxData,
         dataType: 'json',
-        success: function(response) {
+        success: function (response) {
             if (response.status === 'success') {
                 $saveQueryMsg.removeClass('alert-danger').addClass('alert-success').text(response.message).show();
                 $('#query_name_save').val('');
@@ -1630,21 +1652,21 @@ $('body').on('click', '#btnSaveQueryConfirm', function() {
                     // savedQueriesCache.unshift({id: response.new_query_id, query_name: queryName, sql_query: sqlQuery, is_visual_query: ajaxData.is_visual_query, visual_params: ajaxData.visual_params, created_at: new Date().toISOString()});
                     // 2. Re-render the list on dashboard or prepend the new item.
                     // This part can be complex, for now, we'll rely on user refreshing dashboard or a success message.
-                     $.jGrowl('New query saved! Refresh dashboard to see it in the list.', { header: 'Info', theme: 'info', life: 5000 });
+                    $.jGrowl('New query saved! Refresh dashboard to see it in the list.', { header: 'Info', theme: 'info', life: 5000 });
                 }
 
 
-                setTimeout(function() {
+                setTimeout(function () {
                     location.reload();
                 }, 1500);
             } else {
                 $saveQueryMsg.removeClass('alert-success').addClass('alert-danger').text(response.message || 'An unknown error occurred.').show();
             }
         },
-        error: function(jqXHR, textStatus, errorThrown) {
+        error: function (jqXHR, textStatus, errorThrown) {
             $saveQueryMsg.removeClass('alert-success').addClass('alert-danger').text('AJAX Error: ' + textStatus + ' - ' + errorThrown).show();
         },
-        complete: function() {
+        complete: function () {
             $thisButton.prop('disabled', false).find('i').removeClass('fa-spinner fa-spin').addClass('fa-save');
             $('#modal-save-query').removeData('visual-params'); // Clean up
         }
@@ -1662,16 +1684,16 @@ function escapeHtml(unsafe) {
         return ''; // Or handle other types as needed
     }
     return unsafe
-         .replace(/&/g, "&amp;")
-         .replace(/</g, "&lt;")
-         .replace(/>/g, "&gt;")
-         .replace(/"/g, "&quot;")
-         .replace(/'/g, "&#039;");
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
 }
 
 // --- Rename Saved Query ---
 // Show Rename Query Modal
-$('body').on('click', '.btn-rename-query', function() {
+$('body').on('click', '.btn-rename-query', function () {
     var queryId = $(this).data('query-id');
     var currentQueryName = $(this).data('query-name');
 
@@ -1682,7 +1704,7 @@ $('body').on('click', '.btn-rename-query', function() {
 });
 
 // Handle saving the renamed query
-$('body').on('click', '#btnSaveRenameQuery', function() {
+$('body').on('click', '#btnSaveRenameQuery', function () {
     var queryId = $('#rename_query_id').val();
     var newQueryName = $('#rename_query_name').val();
     var $msgContainer = $('#renameQueryMsg');
@@ -1706,13 +1728,13 @@ $('body').on('click', '#btnSaveRenameQuery', function() {
         type: 'POST',
         data: ajaxData,
         dataType: 'json',
-        success: function(response) {
+        success: function (response) {
             if (response.status === 'success') {
                 $msgContainer.removeClass('alert-danger').addClass('alert-success').text(response.message || 'Query renamed successfully!').show();
 
                 // Update cache
                 if (typeof savedQueriesCache !== 'undefined') {
-                    var itemInCache = savedQueriesCache.find(function(q) { return q.id == queryId; });
+                    var itemInCache = savedQueriesCache.find(function (q) { return q.id == queryId; });
                     if (itemInCache) {
                         itemInCache.query_name = newQueryName;
                     }
@@ -1722,7 +1744,7 @@ $('body').on('click', '#btnSaveRenameQuery', function() {
                 var $listItem = $('li[data-query-list-id="' + queryId + '"]');
                 if ($listItem.length) {
                     // Update the text node directly
-                    $listItem.contents().filter(function() {
+                    $listItem.contents().filter(function () {
                         return this.nodeType === 3; // Node.TEXT_NODE
                     }).first().replaceWith(escapeHtml(newQueryName));
 
@@ -1730,18 +1752,18 @@ $('body').on('click', '#btnSaveRenameQuery', function() {
                     $listItem.find('.btn-edit-saved-query, .btn-delete-saved-query, .btn-rename-query').data('query-name', newQueryName);
                 }
 
-                setTimeout(function() {
-                    $msgContainer.fadeOut(function() { $(this).hide().text(''); });
+                setTimeout(function () {
+                    $msgContainer.fadeOut(function () { $(this).hide().text(''); });
                     $('#modal-rename-query').modal('hide');
                 }, 1500);
             } else {
                 $msgContainer.removeClass('alert-success').addClass('alert-danger').text(response.message || 'An unknown error occurred while renaming.').show();
             }
         },
-        error: function(jqXHR, textStatus, errorThrown) {
+        error: function (jqXHR, textStatus, errorThrown) {
             $msgContainer.removeClass('alert-success').addClass('alert-danger').text('AJAX Error: ' + textStatus + ' - ' + errorThrown).show();
         },
-        complete: function() {
+        complete: function () {
             $thisButton.prop('disabled', false).find('i').removeClass('fa-spinner fa-spin').addClass('fa-save');
         }
     });
@@ -1773,7 +1795,7 @@ $('body').on('click', '#btnRefreshSavedQueries', function() {
 });
 */
 
-$('#addjoinedtablefields').click(function(event) {
+$('#addjoinedtablefields').click(function (event) {
     event.preventDefault(); // Prevent default anchor action if it's a link
     addTablesToDropdown(); // Call with no callback for default behavior
 });
@@ -1785,18 +1807,18 @@ function addTablesToDropdown(dataSourceId, callback) {
     // Ensure __table is defined and not empty. If not, we can't proceed.
     if (typeof __table === 'undefined' || !__table) {
         console.error("__table (primary table context) is not defined for addTablesToDropdown.");
-        $.jGrowl('Primary table context not set. Cannot load fields.', {header: 'Error', theme: 'error'});
+        $.jGrowl('Primary table context not set. Cannot load fields.', { header: 'Error', theme: 'error' });
         if (typeof callback === 'function') {
             callback(false); // Indicate failure
         }
         return;
     }
 
-    const selectedTables = [__table]; 
+    const selectedTables = [__table];
     // console.log('Initial Table for Dropdowns:', __table);
 
     // Collect any currently joined tables in the VQB
-    $('#modal-visual-query .jointable').each(function() { // Scope to VQB modal
+    $('#modal-visual-query .jointable').each(function () { // Scope to VQB modal
         const table = $(this).val();
         if (table && !selectedTables.includes(table)) {
             selectedTables.push(table);
@@ -1806,11 +1828,11 @@ function addTablesToDropdown(dataSourceId, callback) {
     // console.log('Final Tables Sent for getselectfields:', selectedTables);
 
     if (selectedTables.length > 0) {
-        const postData = {"tables": JSON.stringify(selectedTables), "data_source_id": dataSourceId};
+        const postData = { "tables": JSON.stringify(selectedTables), "data_source_id": dataSourceId };
 
-        $.post(base + '/ajax/getselectfields', postData, function(response) {
+        $.post(base + '/ajax/getselectfields', postData, function (response) {
             // console.log('Server Response for getselectfields:', response);
-            
+
             var selectorsToUpdate = [
                 '#modal-visual-query select.fields', // VQB main fields
                 '#modal-visual-query select.fname', // WHERE clause fields
@@ -1822,7 +1844,7 @@ function addTablesToDropdown(dataSourceId, callback) {
                 // but updateHavingFieldNameOptions itself relies on select.fields being populated.
             ];
 
-            $(selectorsToUpdate.join(', ')).each(function() {
+            $(selectorsToUpdate.join(', ')).each(function () {
                 var $select = $(this);
                 var currentValues = $select.val();
 
@@ -1837,7 +1859,7 @@ function addTablesToDropdown(dataSourceId, callback) {
                 if (currentValues) {
                     if (Array.isArray(currentValues)) {
                         var newValues = [];
-                        currentValues.forEach(function(val) {
+                        currentValues.forEach(function (val) {
                             if ($select.find('option[value="' + val + '"]').length > 0) {
                                 newValues.push(val);
                             }
@@ -1853,7 +1875,7 @@ function addTablesToDropdown(dataSourceId, callback) {
                 var placeholderText = $select.data('placeholder') || 'Choose';
                 $select.select2({ placeholder: placeholderText, allowClear: true });
             });
-            
+
             // After updating general field dropdowns, also update the HAVING clause options
             // as it depends on the main fields list.
             updateHavingFieldNameOptions();
@@ -1863,9 +1885,9 @@ function addTablesToDropdown(dataSourceId, callback) {
             if (typeof callback === 'function') {
                 callback(true, response); // Indicate success and pass the HTML response
             }
-        }).fail(function(jqXHR, textStatus, errorThrown) {
+        }).fail(function (jqXHR, textStatus, errorThrown) {
             // console.error('AJAX Error in addTablesToDropdown:', textStatus, errorThrown);
-            $.jGrowl('Error loading fields: ' + textStatus, {header: 'Error', theme: 'error'});
+            $.jGrowl('Error loading fields: ' + textStatus, { header: 'Error', theme: 'error' });
             if (typeof callback === 'function') {
                 callback(false, null); // Indicate failure, pass null for response
             }
@@ -1900,14 +1922,14 @@ function populateJoinFieldDropdown($selectElement, tableName, selectedValue, dat
         // console.log("populateJFD - AJAX Success. Table:", tableName, "Resp:", JSON.stringify(response)); // DEBUG
         if (response && response.status === 'success' && response.fields) {
             var optionsHtml = '<option value="">Choose Field</option>'; // Add a default empty option
-            response.fields.forEach(function(field) {
+            response.fields.forEach(function (field) {
                 optionsHtml += '<option value="' + escapeHtml(field) + '">' + escapeHtml(field) + '</option>';
             });
             // console.log("populateJFD - Options HTML for " + tableName + ":", optionsHtml.substring(0, 200)); // DEBUG
 
             try {
                 $selectElement.select2('destroy'); // Destroy existing Select2 if any
-            } catch(e) { /* ignore if not initialized */ }
+            } catch (e) { /* ignore if not initialized */ }
 
             $selectElement.html(optionsHtml);
 
@@ -1925,11 +1947,9 @@ function populateJoinFieldDropdown($selectElement, tableName, selectedValue, dat
             $.jGrowl('Error loading fields for ' + tableName + ': ' + (response.message || 'Unknown error'), { sticky: false, header: 'Error' });
             if (typeof callback === 'function') callback(false);
         }
-    }, 'json').fail(function(jqXHR, textStatus, errorThrown) {
+    }, 'json').fail(function (jqXHR, textStatus, errorThrown) {
         // console.error("populateJFD - AJAX FAIL. Table: " + tableName, jqXHR, textStatus, errorThrown); // DEBUG
         $.jGrowl('AJAX Error: Could not load fields for ' + tableName + '.', { sticky: false, header: 'Error' });
         if (typeof callback === 'function') callback(false);
     });
 }
-
-
