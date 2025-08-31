@@ -1,18 +1,20 @@
 Idiorm
 ======
 
-[![Build Status](https://travis-ci.org/j4mie/idiorm.png?branch=master)](https://travis-ci.org/j4mie/idiorm)
+[![idiorm master branch](https://github.com/j4mie/idiorm/actions/workflows/idiorm-workflow.yml/badge.svg?branch=master)](https://github.com/j4mie/idiorm/actions?query=branch%3Amaster) [![Latest Stable Version](https://poser.pugx.org/j4mie/idiorm/v/stable.png)](https://packagist.org/packages/j4mie/idiorm) [![Total Downloads](https://poser.pugx.org/j4mie/idiorm/downloads.png)](https://packagist.org/packages/j4mie/idiorm) [![Code Climate](https://codeclimate.com/github/j4mie/idiorm/badges/gpa.svg)](https://codeclimate.com/github/j4mie/idiorm)
 
 [http://j4mie.github.com/idiormandparis/](http://j4mie.github.com/idiormandparis/)
 
 ---
-### Feature complete
+### Feature/API complete
 
-Idiorm is now considered to be feature complete as of version 1.4.0. Whilst it will continue to be maintained with bug fixes there will be no further new features added.
+Idiorm is now considered to be feature complete as of version 1.5.0. Whilst it will continue to be maintained with bug fixes there will be no further new features added from this point on. This means that if a pull request makes breaking changes to the API or requires anything other than a patch version bump of the library then it will not be merged.
+
+**Please do not submit feature requests or API breaking changes as they will be closed without ceremony.**
 
 ---
 
-A lightweight nearly-zero-configuration object-relational mapper and fluent query builder for PHP5.
+A lightweight nearly-zero-configuration object-relational mapper and fluent query builder for PHP5 and above.
 
 Tested on PHP 5.2.0+ - may work on earlier versions with PDO and the correct database drivers.
 
@@ -71,16 +73,94 @@ foreach ($tweets as $tweet) {
 }
 ```
 
+Tests
+-----
+
+Tests are written with PHPUnit and be run through composer
+
+    composer test
+
+To make testing on PHP 5.2 (Idiorm maintains support back to this version of PHP) there
+is a Docker setup in `./test/docker_for_php52` - check the readme in there for more.
+
 Changelog
 ---------
 
-#### 1.4.1 - release 2013-12-12
+#### 1.5.8 - released 2022-07-18
+
+* Update to support PHP 8.1 [[edlerd](https://github.com/edlerd) and [aaronpk](https://github.com/aaronpk)] - [issue #370](https://github.com/j4mie/idiorm/pull/370) and [issue #372](https://github.com/j4mie/idiorm/pull/372)
+* GitHub actions used to perform unit testing/CI [[Treffynnon](https://github.com/treffynnon) and [yan12125](https://github.com/yan12125)]
+
+#### 1.5.7 - released 2020-04-29
+
+* Fix argument order in call to join() [[CatalinFrancu](https://github.com/CatalinFrancu)] - [issue #357](https://github.com/j4mie/idiorm/pull/357)
+
+#### 1.5.6 - released 2018-05-31
+
+* Assign `null` to `self::$_db` on `reset_db()` to ensure PDO closes the connections [[bleakgadfly](https://github.com/bleakgadfly)] - [issue #338](https://github.com/j4mie/idiorm/issues/338)
+
+#### 1.5.5 - released 2018-01-05
+
+* Add a docker setup for testing with PHP 5.2 (uses PHPUnit 3.6.12, which is the last version released compatible with PHP 5.2) [[Treffynnon](https://github.com/treffynnon)]
+
+#### 1.5.4 - released 2018-01-04
+
+* Reset Idiorm state when a cached result is returned [[fayland](https://github.com/fayland) (and [Treffynnon](https://github.com/treffynnon))] - [issue #319](https://github.com/j4mie/idiorm/issues/319)
+* Fix travis builds for PHP 5.2+ (adding 7.0 and 7.1) and document support for newer PHP versions [[Treffynnon](https://github.com/treffynnon)]
+* Correct PHPDoc comments for `selectMany()` [[kawausokun](https://github.com/kawausokun)] - [issue #325](github.com/j4mie/idiorm/issues/325)
+* Add pdo_sqlite to the composer require-dev dependencies [[qyanu](https://github.com/qyanu)] - [issue #328](github.com/j4mie/idiorm/issues/328)
+
+#### 1.5.3 - released 2017-03-21
+
+* Document the `raw_execute()` method and add a note for `get_db()` in the querying documentation - [[Treffynnon](https://github.com/treffynnon)]
+
+#### 1.5.2 - released 2016-12-14
+
+* Fix autoincremented compound keys inserts [[lrlopez](https://github.com/lrlopez)] - [issue #233](https://github.com/j4mie/idiorm/issues/233) and [pull #235](https://github.com/j4mie/idiorm/pull/235)
+* Add @method tags for magic methods [[stellis](https://github.com/stellis)] - [issue #237](https://github.com/j4mie/idiorm/issues/237)
+* Ensure `is_dirty()` returns correctly when fed null or an empty string [[tentwofour](https://github.com/tentwofour)] - [issue #268](https://github.com/j4mie/idiorm/issues/268)
+* Adding Code Climate badge to the readme file [[e3betht](https://github.com/e3betht)] - [issue #260](https://github.com/j4mie/idiorm/issues/260)
+* Typo in navigation [[leongersen](https://github.com/leongersen)] - [issue #257](https://github.com/j4mie/idiorm/issues/257)
+* Support named placeholders logging and test [[m92o](https://github.com/m92o)] - [issue #223](https://github.com/j4mie/idiorm/issues/223)
+* `having_id_is()` reference undefined variable `$value` [[Treffynnon](https://github.com/treffynnon)] - [issue #224](https://github.com/j4mie/idiorm/issues/224)
+* Documentation fix - ORM query output for `where_any_is()` [[uovidiu](https://github.com/uovidiu)] - [issue #306](https://github.com/j4mie/idiorm/issues/306)
+* Code style fix preventing nested loops from using the same variable names [[mkkeck](https://github.com/mkkeck)] - [issue #301](https://github.com/j4mie/idiorm/issues/301)
+* Document shortcomings of the built in query logger [[Treffynnon](https://github.com/treffynnon)] - [issue #307](https://github.com/j4mie/idiorm/issues/307)
+* Add phpunit to dev dependencies, add `composer test` script shortcut and fix PDO mock in test bootstrap [[Treffynnon](https://github.com/treffynnon)]
+* New test for multiple raw where clauses [[Treffynnon](https://github.com/treffynnon)] - [issue #236](https://github.com/j4mie/idiorm/issues/236)
+* Remove PHP 5.2 from travis-ci containers to test against (**note** Idiorm still supports PHP 5.2 despite this) [[Treffynnon](https://github.com/treffynnon)]
+
+#### 1.5.1 - released 2014-06-23
+
+* Binding of named parameters was broken [[cainmi](https://github.com/cainmi)] - [issue #221](https://github.com/j4mie/idiorm/pull/221)
+
+#### 1.5.0 - released 2014-06-22
+
+* Multiple OR'ed conditions support [[lrlopez](https://github.com/lrlopez)] - [issue #201](https://github.com/j4mie/idiorm/issues/201)
+* `where_id_in()` for selecting multiple records by primary key [[lrlopez](https://github.com/lrlopez)] - [issue #202](https://github.com/j4mie/idiorm/issues/202)
+* Add compound primary key support [[lrlopez](https://github.com/lrlopez)] - [issue #171](https://github.com/j4mie/idiorm/issues/171)
+* Add a RAW JOIN source to the query [[moiseevigor](https://github.com/moiseevigor)] - [issue #163](https://github.com/j4mie/idiorm/issues/163)
+* offsetExists() should return true for null values, resolves [#181](https://github.com/j4mie/idiorm/issues/181) [[cainmi](https://github.com/cainmi)] - [issue #214](https://github.com/j4mie/idiorm/pull/214)
+* Custom cache callback functions [[peter-mw](https://github.com/peter-mw)] - [issue #216](https://github.com/j4mie/idiorm/pull/216)
+* Restrict null primary keys on update/delete, resolves [#203](https://github.com/j4mie/idiorm/issues/203) [[cainmi](https://github.com/cainmi)] - [issue #205](https://github.com/j4mie/idiorm/issues/205) 
+* Ensure parameters treated by type correctly [[charsleysa](https://github.com/charsleysa)] & [[SneakyBobito](https://github.com/SneakyBobito)] - [issue #206](https://github.com/j4mie/idiorm/issues/206) & [issue #208](https://github.com/j4mie/idiorm/issues/208)
+* Reduce the type casting on aggregate functions to allow characters [[herroffizier](https://github.com/herroffizier)] - [issue #150](https://github.com/j4mie/idiorm/issues/150)
+* Prevent invalid method calls from triggering infinite recursion [[michaelward82](https://github.com/michaelward82)] - [issue #152](https://github.com/j4mie/idiorm/issues/152)
+* Add time to query logging - adds query time parameter to external logger callback function [[AgelxNash](https://github.com/AgelxNash)] - [issue #180](https://github.com/j4mie/idiorm/issues/180)
+* Changed database array access to ensure it's always properly setup [[falmp](https://github.com/falmp)] - [issue #159](https://github.com/j4mie/idiorm/issues/159)
+* Allow unsetting the db (`ORM::set_db(null)`) to make the test work again [[borrel](https://github.com/borrel)] - [issue #160](https://github.com/j4mie/idiorm/issues/160)
+* Correct [issue #176](https://github.com/j4mie/idiorm/issues/176): Ensure database setup before building select [[kendru](https://github.com/kendru)] - [issue #197](https://github.com/j4mie/idiorm/issues/197)
+* Add HHVM to travis-ci build matrix [[ptarjan](https://github.com/ptarjan)] - [issue #168](https://github.com/j4mie/idiorm/issues/168)
+* Improve where statement precendence documentation [[thomasahle](https://github.com/thomasahle)] - [issue #190](https://github.com/j4mie/idiorm/issues/190)
+* Improve testing checks [[charsleysa](https://github.com/charsleysa)] - [issue #173](https://github.com/j4mie/idiorm/issues/173)
+
+#### 1.4.1 - released 2013-12-12
 
 **Patch update to remove a broken pull request** - may have consequences for users of 1.4.0 that exploited the "`find_many()` now returns an associative array with the databases primary ID as the array keys" change that was merged in 1.4.0.
 
 * Back out pull request/issue [#133](https://github.com/j4mie/idiorm/pull/133) as it breaks backwards compatibility in previously unexpected ways (see [#162](https://github.com/j4mie/idiorm/pull/162), [#156](https://github.com/j4mie/idiorm/issues/156) and [#133](https://github.com/j4mie/idiorm/pull/133#issuecomment-29063108)) - sorry for merging this change into Idiorm - closes [issue 156](https://github.com/j4mie/idiorm/issues/156)
 
-#### 1.4.0 - release 2013-09-05
+#### 1.4.0 - released 2013-09-05
 
 * `find_many()` now returns an associative array with the databases primary ID as the array keys [[Surt](https://github.com/Surt)] - [issue #133](https://github.com/j4mie/idiorm/issues/133)
 * Calls to `set()` and `set_expr()` return `$this` allowing them to be chained [[Surt](https://github.com/Surt)]
@@ -97,7 +177,7 @@ Changelog
 * Fix docblock [[ulrikjohansson](https://github.com/ulrikjohansson)] - [issue #147](https://github.com/j4mie/idiorm/issues/147)
 * Fix incorrect variable name in querying documentation [[fridde](https://github.com/fridde)] - [issue #146](https://github.com/j4mie/idiorm/issues/146)
 
-#### 1.3.0 - release 2013-01-31
+#### 1.3.0 - released 2013-01-31
 
 * Documentation moved to [idiorm.rtfd.org](http://idiorm.rtfd.org) and now built using [Sphinx](http://sphinx-doc.org/)
 * Add support for multiple database connections - closes [issue #15](https://github.com/j4mie/idiorm/issues/15) [[tag](https://github.com/tag)]
@@ -117,19 +197,19 @@ Changelog
 * Fix issue with aggregate functions always returning `int` when is `float` sometimes required - closes [issue #92](https://github.com/j4mie/idiorm/issues/92)
 * Move testing into PHPUnit to unify method testing and query generation testing
 
-#### 1.2.3 - release 2012-11-28
+#### 1.2.3 - released 2012-11-28
 
 * Fix [issue #78](https://github.com/j4mie/idiorm/issues/78) - remove use of PHP 5.3 static call
 
-#### 1.2.2 - release 2012-11-15
+#### 1.2.2 - released 2012-11-15
 
 * Fix bug where input parameters were sent as part-indexed, part associative
 
-#### 1.2.1 - release 2012-11-15
+#### 1.2.1 - released 2012-11-15
 
 * Fix minor bug caused by IdiormStringException not extending Exception
 
-#### 1.2.0 - release 2012-11-14
+#### 1.2.0 - released 2012-11-14
 
 * Setup composer for installation via packagist (j4mie/idiorm)
 * Add `order_by_expr` method [[sandermarechal](http://github.com/sandermarechal)]
@@ -147,7 +227,7 @@ Changelog
 * Add `find_array` to get the records as associative arrays [[Surt](https://github.com/Surt)] - closes [issue #17](https://github.com/j4mie/idiorm/issues/17)
 * Fix bug in `_log_query` with `?` and `%` supplied in raw where statements etc. - closes [issue #57](https://github.com/j4mie/idiorm/issues/57) [[ridgerunner](https://github.com/ridgerunner)]
 
-#### 1.1.1 - release 2011-01-30
+#### 1.1.1 - released 2011-01-30
 
 * Fix bug in quoting column wildcard. j4mie/paris#12
 * Small documentation improvements

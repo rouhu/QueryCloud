@@ -85,6 +85,18 @@ To find a single record by ID, you can pass the ID directly to the
     <?php
     $person = ORM::for_table('person')->find_one(5);
 
+If you are using a compound primary key, you can find the records
+using an array as the parameter:
+
+.. code-block:: php
+
+    <?php
+    $person = ORM::for_table('user_role')->find_one(array(
+        'user_id' => 34,
+        'role_id' => 10
+    ));
+
+
 Multiple records
 ^^^^^^^^^^^^^^^^
 
@@ -238,11 +250,36 @@ the ``where_equal`` method: this is identical to ``where``.
 The ``where_not_equal`` method adds a ``WHERE column != "value"`` clause
 to your query.
 
+You can specify multiple columns and their values in the same call. In this
+case you should pass an associative array as the first parameter. The array
+notation uses keys as column names.
+
+.. code-block:: php
+
+    <?php
+    $people = ORM::for_table('person')
+                ->where(array(
+                    'name' => 'Fred',
+                    'age' => 20
+                ))
+                ->find_many();
+
+    // Creates SQL:
+    SELECT * FROM `person` WHERE `name` = "Fred" AND `age` = "20";
+
 Shortcut: ``where_id_is``
 '''''''''''''''''''''''''
 
 This is a simple helper method to query the table by primary key.
-Respects the ID column specified in the config.
+Respects the ID column specified in the config. If you are using a compound
+primary key, you must pass an array where the key is the column name. Columns
+that don't belong to the key will be ignored.
+
+Shortcut: ``where_id_in``
+'''''''''''''''''''''''''
+
+This helper method is similar to ``where_id_is`, but it expects an array of
+primary keys to be selected. It is compound primary keys aware.
 
 Less than / greater than: ``where_lt``, ``where_gt``, ``where_lte``, ``where_gte``
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
@@ -275,6 +312,54 @@ Similarly, to add a ``WHERE ... NOT LIKE`` clause, use:
     <?php
     $people = ORM::for_table('person')->where_not_like('name', '%bob%')->find_many();
 
+Multiple OR'ed conditions
+'''''''''''''''''''''''''
+
+You can add simple OR'ed conditions to the same WHERE clause using ``where_any_is``. You
+should specify multiple conditions using an array of items. Each item will be an
+associative array that contains a multiple conditions. 
+
+.. code-block:: php
+
+    <?php
+    $people = ORM::for_table('person')
+                ->where_any_is(array(
+                    array('name' => 'Joe', 'age' => 10),
+                    array('name' => 'Fred', 'age' => 20)))
+                ->find_many();
+
+    // Creates SQL:
+    SELECT * FROM `widget` WHERE (( `name` = 'Joe' AND `age` = '10' ) OR ( `name` = 'Fred' AND `age` = '20' ));
+
+By default, it uses the equal operator for every column, but it can be overriden for any
+column using a second parameter:
+
+.. code-block:: php
+
+    <?php
+    $people = ORM::for_table('person')
+                ->where_any_is(array(
+                    array('name' => 'Joe', 'age' => 10),
+                    array('name' => 'Fred', 'age' => 20)), array('age' => '>'))
+                ->find_many();
+
+    // Creates SQL:
+    SELECT * FROM `widget` WHERE (( `name` = 'Joe' AND `age` = '10' ) OR ( `name` = 'Fred' AND `age` > '20' ));
+
+If you want to set the default operator for all the columns, just pass it as the second parameter:
+
+.. code-block:: php
+
+    <?php
+    $people = ORM::for_table('person')
+                ->where_any_is(array(
+                    array('score' => '5', 'age' => 10),
+                    array('score' => '15', 'age' => 20)), '>')
+                ->find_many();
+
+    // Creates SQL:
+    SELECT * FROM `widget` WHERE (( `score` > '5' AND `age` > '10' ) OR ( `score` > '15' AND `age` > '20' ));
+
 Set membership: ``where_in`` and ``where_not_in``
 '''''''''''''''''''''''''''''''''''''''''''''''''
 
@@ -282,7 +367,9 @@ To add a ``WHERE ... IN ()`` or ``WHERE ... NOT IN ()`` clause, use the
 ``where_in`` and ``where_not_in`` methods respectively.
 
 Both methods accept two arguments. The first is the column name to
-compare against. The second is an *array* of possible values.
+compare against. The second is an *array* of possible values. As all the
+``where_`` methods, you can specify multiple columns using an associative
+*array* as the only parameter.
 
 .. code-block:: php
 
@@ -325,6 +412,13 @@ with preceding and following WHERE clauses with AND.
 
     // Creates SQL:
     SELECT * FROM `person` WHERE `name` = "Fred" AND (`age` = 20 OR `age` = 25) ORDER BY `name` ASC;
+
+.. note::
+
+    You must wrap your expression in parentheses when using any of ``ALL``,
+    ``ANY``, ``BETWEEN``, ``IN``, ``LIKE``, ``OR`` and ``SOME``. Otherwise
+    the precedence of ``AND`` will bind stronger and in the above example
+    you would effectively get ``WHERE (`name` = "Fred" AND `age` = 20) OR `age` = 25``
 
 Note that this method only supports "question mark placeholder" syntax,
 and NOT "named placeholder" syntax. This is because PDO does not allow
@@ -623,6 +717,49 @@ method to control which columns get returned.
         ->join('person', array('p1.parent', '=', 'p2.id'), 'p2')
         ->find_many();
 
+Raw JOIN clauses
+'''''''''''''''''
+
+If you need to construct a more complex query, you can use the ``raw_join``
+method to specify the SQL fragment for the JOIN clause exactly. This
+method takes four required arguments: the string to add to the query,
+the conditions is as an *array* containing three components: 
+the first column, the operator, and the second column, the table alias and
+(optional) the parameters array. If parameters are supplied, 
+the string should contain question mark characters (``?``) to represent 
+the values to be bound, and the parameter array should contain the values 
+to be substituted into the string in the correct order.
+
+This method may be used in a method chain alongside other ``*_join``
+methods as well as methods such as ``offset``, ``limit`` and
+``order_by_*``. The contents of the string you supply will be connected
+with preceding and following JOIN clauses.
+
+.. code-block:: php
+
+    <?php
+    $people = ORM::for_table('person')
+                ->raw_join(
+                    'JOIN (SELECT * FROM role WHERE role.name = ?)', 
+                    array('person.role_id', '=', 'role.id'), 
+                    'role', 
+                    array('role' => 'janitor'))    
+                ->order_by_asc('person.name')
+                ->find_many();
+
+    // Creates SQL:
+    SELECT * FROM `person` JOIN (SELECT * FROM role WHERE role.name = 'janitor') `role` ON `person`.`role_id` = `role`.`id` ORDER BY `person`.`name` ASC
+
+Note that this method only supports "question mark placeholder" syntax,
+and NOT "named placeholder" syntax. This is because PDO does not allow
+queries that contain a mixture of placeholder types. Also, you should
+ensure that the number of question mark placeholders in the string
+exactly matches the number of elements in the array.
+
+If you require yet more flexibility, you can manually specify the entire
+query. See *Raw queries* below.
+
+
 Aggregate functions
 ^^^^^^^^^^^^^^^^^^^
 
@@ -661,9 +798,99 @@ to stop you from specifying a completely different table in the query.
 This is because if you wish to later called ``save``, the ORM will need
 to know which table to update.
 
-Note that using ``raw_query`` is advanced and possibly dangerous, and
-Idiorm does not make any attempt to protect you from making errors when
-using this method. If you find yourself calling ``raw_query`` often, you
-may have misunderstood the purpose of using an ORM, or your application
-may be too complex for Idiorm. Consider using a more full-featured
-database abstraction system.
+.. note::
+
+    Using ``raw_query`` is advanced and possibly dangerous, and
+    Idiorm does not make any attempt to protect you from making errors when
+    using this method. If you find yourself calling ``raw_query`` often, you
+    may have misunderstood the purpose of using an ORM, or your application
+    may be too complex for Idiorm. Consider using a more full-featured
+    database abstraction system.
+
+Raw SQL execution using PDO
+'''''''''''''''''''''''''''
+
+.. warning::
+
+    By using this function you're dropping down to PHPs PDO directly. Idiorm
+    does not make any attempt to protect you from making errors when using this
+    method.
+
+    You're essentially just using Idiorm to manage the connection and configuration
+    when you implement ``raw_execute()``.
+
+It can be handy, in some instances, to make use of the PDO instance underneath
+Idiorm to make advanced queries. These can be things like dropping a table from
+the database that Idiorm doesn't support and will not support in the future. These
+are operations that fall outside the 80/20 philosophy of Idiorm. That said there is
+a lot of interest in this function and quite a lot of support requests related to
+it.
+
+This method directly maps to `PDOStatement::execute()`_ underneath so please
+familiarise yourself with it's documentation.
+
+Dropping tables
+~~~~~~~~~~~~~~~
+
+This can be done very simply using ``raw_execute()``.
+
+.. code-block:: php
+
+    <?php
+    if (ORM::raw_execute('DROP TABLE my_table')) {
+        echo "Table dropped";
+    } else {
+        echo "Drop query failed";
+    }
+
+Selecting rows
+~~~~~~~~~~~~~~
+
+.. warning::
+
+    You really, should not be doing this, use Idiorm with ``raw_query()`` instead
+    where possible.
+
+Here is a simple query implemented using ``raw_execute()`` - note the call to 
+``ORM::get_last_statement()`` as ``raw_execute()`` returns a boolean as per the
+`PDOStatement::execute()`_ underneath.
+
+.. code-block:: php
+
+    <?php
+    $res = ORM::raw_execute('SHOW TABLES');
+    $statement = ORM::get_last_statement();
+    $rows = array();
+    while ($row = $statement->fetch(PDO::FETCH_ASSOC)) {
+        var_dump($row);
+    }
+
+It is also worth noting that ``$statement`` is a ``PDOStatement`` instance so calling
+its ``fetch()`` method is the same as if you had called against PDO without Idiorm.
+
+Getting the PDO instance
+''''''''''''''''''''''''
+
+.. warning::
+
+    By using this function you're dropping down to PHPs PDO directly. Idiorm
+    does not make any attempt to protect you from making errors when using this
+    method.
+
+    You're essentially just using Idiorm to manage the connection and configuration
+    when you implement against ``get_db()``.
+
+If none of the preceeding methods suit your purposes then you can also get direct
+access to the PDO instance underneath Idiorm using ``ORM::get_db()``. This will
+return a configured instance of `PDO`_.
+
+.. code-block:: php
+
+    <?php
+    $pdo = ORM::get_db();
+    foreach($pdo->query('SHOW TABLES') as $row) {
+        var_dump($row);
+    }
+
+.. _PDOStatement::execute(): https://secure.php.net/manual/en/pdostatement.execute.php
+.. _PDO: https://secure.php.net/manual/en/class.pdo.php
