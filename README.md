@@ -6,10 +6,26 @@ Installation:
 - Run "Create Table" commands in config.php file for your repository database
 - Schedule /cron.php with crontab to run ETLs with a schedule
 
+Supported source databases and ETL destinations:
+
+Sources:
+- MySQL/MariaDB
+- PostgreSQL
+
+Destinations:
+- MySQL/MariaDB
+- PostgreSQL
+- S3 Object Storage
+- SFTP
+
+Supported ETL types:
+- UPSERT to Database destinations
+- CSV files to SFTP and S3
+
 Requirements:
 - PHP 8.x
-- MySQL/MariaDB Database
-- If needed install PSQL support extension for PHP
+- MySQL/MariaDB Database as repository DB
+- If needed install PSQL extension for PHP
 - Allocate enough memory for PHP for large data transfers
 
 Made using:
