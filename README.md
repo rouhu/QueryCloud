@@ -1,4 +1,4 @@
-QueryCloud - SQL Query Builder and ETL Tool
+# QueryCloud - SQL Query Builder and ETL Tool
 
 Installation:
 - Save the files to your webroot
