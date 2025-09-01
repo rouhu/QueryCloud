@@ -152,14 +152,18 @@ $('body').on('click', '.btn-share-query', function () {
     var $shareLinkMsg = $('#shareLinkMsg');
     var $requireLoginCheckbox = $('#shareRequireLoginCheckbox');
     var $shareSettingsMsg = $('#shareSettingsMsg');
+    var $generateLinkBtn = $('#btnGenerateShareLink');
+    var $generateLinkMsg = $('#generateLinkMsg');
 
     $modal.data('current-query-id', queryId); // Store queryId on the modal for the checkbox handler
     $queryNameDisplay.text(queryName || 'Selected Query');
-    $linkInput.val('Loading link...');
+    $linkInput.val(''); // Clear the input initially
     $shareLinkMsg.hide();
     $shareSettingsMsg.hide().removeClass('text-success text-danger').text('');
+    $generateLinkMsg.hide().removeClass('text-success text-danger').text('');
     $copyBtn.prop('disabled', true);
     $requireLoginCheckbox.prop('checked', false).prop('disabled', true); // Disable until loaded
+    $generateLinkBtn.prop('disabled', true); // Disable until loaded
 
     $modal.modal('show');
 
@@ -172,23 +176,68 @@ $('body').on('click', '.btn-share-query', function () {
                 if (response.share_url) {
                     $linkInput.val(response.share_url);
                     $copyBtn.prop('disabled', false);
+                    $generateLinkBtn.text('Regenerate Share Link').removeClass('btn-primary').addClass('btn-warning');
                 } else {
                     // No token/URL yet.
-                    $linkInput.val('No public link generated yet. Check "Require Login" to generate or if already checked, save settings.');
+                    $linkInput.attr('placeholder', 'Click "Generate Share Link" to create a shareable URL');
                     $copyBtn.prop('disabled', true); // Disable copy if no URL
+                    $generateLinkBtn.text('Generate Share Link').removeClass('btn-warning').addClass('btn-primary');
                 }
                 $requireLoginCheckbox.prop('checked', response.requires_login || false);
             } else {
-                $linkInput.val('Could not retrieve share settings.');
+                $linkInput.attr('placeholder', 'Error loading share settings');
                 $.jGrowl(response.message || 'Error fetching share link.', { header: 'Error', theme: 'error' });
             }
         },
         error: function (jqXHR, textStatus, errorThrown) {
-            $linkInput.val('Error fetching link.');
+            $linkInput.attr('placeholder', 'Error loading share settings');
             $.jGrowl('AJAX Error: ' + textStatus + ' - ' + errorThrown, { header: 'AJAX Error', theme: 'error' });
         },
         complete: function () {
             $requireLoginCheckbox.prop('disabled', false); // Enable checkbox after loading
+            $generateLinkBtn.prop('disabled', false); // Enable generate button after loading
+        }
+    });
+});
+
+// --- Generate Share Link Button Handler ---
+$('body').on('click', '#btnGenerateShareLink', function () {
+    var queryId = $('#modal-share-query').data('current-query-id');
+    var $thisButton = $(this);
+    var $linkInput = $('#shareableLinkInput');
+    var $copyBtn = $('#btnCopyShareLink');
+    var $generateLinkMsg = $('#generateLinkMsg');
+
+    $thisButton.prop('disabled', true).find('i').removeClass('fa-link').addClass('fa-spinner fa-spin');
+    $generateLinkMsg.hide().removeClass('text-success text-danger').text('');
+
+    $.ajax({
+        url: base + '/ajax/generateShareToken',
+        type: 'POST',
+        data: { query_id: queryId },
+        dataType: 'json',
+        success: function (response) {
+            if (response.status === 'success') {
+                $linkInput.val(response.share_url);
+                $copyBtn.prop('disabled', false);
+                $generateLinkMsg.addClass('text-success').text(response.message).fadeIn();
+                $thisButton.text('Regenerate Share Link').removeClass('btn-primary').addClass('btn-warning');
+
+                // Auto-hide success message after 3 seconds
+                setTimeout(function () {
+                    $generateLinkMsg.fadeOut();
+                }, 3000);
+            } else {
+                $generateLinkMsg.addClass('text-danger').text(response.message || 'Failed to generate share link').fadeIn();
+                $.jGrowl(response.message || 'Error generating share link.', { header: 'Error', theme: 'error' });
+            }
+        },
+        error: function (jqXHR, textStatus, errorThrown) {
+            $generateLinkMsg.addClass('text-danger').text('AJAX Error: Could not generate share link').fadeIn();
+            $.jGrowl('AJAX Error: ' + textStatus + ' - ' + errorThrown, { header: 'AJAX Error', theme: 'error' });
+        },
+        complete: function () {
+            $thisButton.prop('disabled', false).find('i').removeClass('fa-spinner fa-spin').addClass('fa-link');
         }
     });
 });

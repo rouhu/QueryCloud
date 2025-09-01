@@ -148,6 +148,16 @@
                             </div>
                         </div>
 
+                        <div class="form-group">
+                            <label for="notification_email" class="col-sm-3 control-label">Notification Email</label>
+                            <div class="col-sm-6">
+                                <input type="email" class="form-control" id="notification_email" name="notification_email" 
+                                       value="<?php echo isset($etl_config['notification_email']) ? htmlspecialchars($etl_config['notification_email'], ENT_QUOTES, 'UTF-8') : ''; ?>"
+                                       placeholder="email@example.com">
+                                <p class="help-block">Optional email address to receive notifications when scheduled ETL jobs fail.</p>
+                            </div>
+                        </div>
+
                         <hr>
                         <h4 class="database-etl-fields" style="display: none;">Column Mapping:</h4>
                         <div id="column-mapping-container" class="col-sm-offset-1 col-sm-10 database-etl-fields" style="display: none;">

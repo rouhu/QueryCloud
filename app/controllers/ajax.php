@@ -159,7 +159,18 @@ class Ajax
         try {
             // Ensure Table class is available
             if (class_exists('Table')) {
-                $generated_sql = Table::generateSqlFromVisualParams($params_array, $primary_table_name);
+                // Default to mysql if no specific db_type is available in this context
+                $db_type = 'mysql';
+                
+                // Try to get db_type from session if available
+                if (isset($_SESSION['selected_data_source'])) {
+                    $source = ORM::for_table('data_sources')->find_one($_SESSION['selected_data_source']);
+                    if ($source) {
+                        $db_type = $source->db_type;
+                    }
+                }
+                
+                $generated_sql = Table::generateSqlFromVisualParams($params_array, $primary_table_name, $db_type);
                 $response['status'] = 'success';
                 $response['message'] = 'SQL generated successfully.';
                 $response['sql_query'] = $generated_sql;
@@ -265,7 +276,10 @@ class Ajax
                                 $primaryTableName = $paramsArray['primaryTable'];
                                 // Ensure Table class is available (it should be due to autoloading)
                                 if (class_exists('Table')) {
-                                    $new_sql_query = Table::generateSqlFromVisualParams($paramsArray, $primaryTableName);
+                                    // Get the data source to determine db_type
+                                    $source = ORM::for_table('data_sources')->find_one($saved_query->source_connection_id);
+                                    $db_type = $source ? $source->db_type : 'mysql';
+                                    $new_sql_query = Table::generateSqlFromVisualParams($paramsArray, $primaryTableName, $db_type);
                                     $saved_query->sql_query = $new_sql_query;
                                     // $updated_fields_count++; // sql_query is implicitly updated if visual params are.
                                                              // Or, if sql_query was also sent, this overwrites it.
@@ -594,6 +608,84 @@ class Ajax
         echo json_encode($response);
     }
 
+    public static function generateShareToken()
+    {
+        header('Content-Type: application/json');
+        $response = ['status' => 'error', 'message' => 'An unknown error occurred.'];
+
+        $query_id = $_POST['query_id'] ?? null;
+
+        if (empty($query_id) || !is_numeric($query_id)) {
+            $response['message'] = 'Invalid Query ID provided.';
+            echo json_encode($response);
+            return;
+        }
+
+        try {
+            $saved_query = ORM::for_table('saved_queries')->find_one($query_id);
+
+            if (!$saved_query) {
+                $response['message'] = 'Query not found.';
+                echo json_encode($response);
+                return;
+            }
+
+            $config = Flight::get('config');
+            $site_url_from_config = ''; // Default to empty string
+            if (is_array($config) && isset($config['site_url']) && is_string($config['site_url']) && !empty(trim($config['site_url']))) {
+                $site_url_from_config = $config['site_url'];
+            } else {
+                error_log("WARNING: config['site_url'] is not properly set in config.php. Share URLs may be incomplete.");
+            }
+            $site_url = rtrim($site_url_from_config, '/');
+
+            // Generate a new token if one doesn't exist
+            if (empty($saved_query->share_token)) {
+                $token = null;
+                $max_attempts = 5;
+                for ($i = 0; $i < $max_attempts; $i++) {
+                    $potential_token = bin2hex(random_bytes(32));
+                    if (ORM::for_table('saved_queries')->where('share_token', $potential_token)->count() == 0) {
+                        $token = $potential_token;
+                        break;
+                    }
+                }
+                
+                if ($token) {
+                    $saved_query->share_token = $token;
+                    if ($saved_query->save()) {
+                        $response['status'] = 'success';
+                        $response['message'] = 'Share link generated successfully.';
+                        $response['token'] = $token;
+                        $response['share_url'] = $site_url . '/share/' . $token;
+                        $response['requires_login'] = (bool)$saved_query->share_requires_login;
+                    } else {
+                        $response['message'] = 'Failed to save new share token to the database.';
+                        error_log("Failed to save new share token for query_id: $query_id");
+                    }
+                } else {
+                    $response['message'] = 'Failed to generate a unique share token after multiple attempts.';
+                    error_log("Failed to generate unique share token for query_id: $query_id after $max_attempts attempts.");
+                }
+            } else {
+                // Token already exists, return it
+                $response['status'] = 'success';
+                $response['message'] = 'Share link already exists.';
+                $response['token'] = $saved_query->share_token;
+                $response['share_url'] = $site_url . '/share/' . $saved_query->share_token;
+                $response['requires_login'] = (bool)$saved_query->share_requires_login;
+            }
+        } catch (PDOException $e) {
+            error_log("Database error in generateShareToken for query_id $query_id: " . $e->getMessage());
+            $response['message'] = 'Database error: ' . $e->getMessage();
+        } catch (Exception $e) {
+            error_log("General error in generateShareToken for query_id $query_id: " . $e->getMessage());
+            $response['message'] = 'An unexpected error occurred: ' . $e->getMessage();
+        }
+
+        echo json_encode($response);
+    }
+
     public static function updateShareSettings()
     {
         header('Content-Type: application/json');
@@ -632,37 +724,10 @@ class Ajax
             }
 
             $saved_query->share_requires_login = $require_login ? 1 : 0;
-            $token_generated_or_existed = !empty($saved_query->share_token);
-
-            // If requiring login and no token exists, generate one
-            if ($require_login && empty($saved_query->share_token)) {
-                $token = null;
-                $max_attempts = 5;
-                for ($i = 0; $i < $max_attempts; $i++) {
-                    $potential_token = bin2hex(random_bytes(32));
-                    if (ORM::for_table('saved_queries')->where('share_token', $potential_token)->count() == 0) {
-                        $token = $potential_token;
-                        break;
-                    }
-                }
-                if ($token) {
-                    $saved_query->share_token = $token;
-                    $token_generated_or_existed = true;
-                    $response['new_token'] = $token; // Inform client a new token was generated
-                } else {
-                    $response['message'] = 'Failed to generate a unique share token. Settings not fully saved.';
-                    error_log("Failed to generate unique share token during updateShareSettings for query_id: $query_id");
-                    echo json_encode($response);
-                    return;
-                }
-            }
 
             if ($saved_query->save()) {
                 $response['status'] = 'success';
                 $response['message'] = 'Share settings updated successfully.';
-                if (isset($response['new_token'])) {
-                    $response['message'] .= ' A new share token was generated.';
-                }
                 $response['requires_login'] = (bool)$saved_query->share_requires_login;
                 $response['token'] = $saved_query->share_token;
 

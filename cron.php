@@ -31,6 +31,39 @@ date_default_timezone_set('UTC');
 echo "Cron job started at " . date('Y-m-d H:i:s') . "\n";
 
 /**
+ * Sends an email notification for a failed ETL job.
+ *
+ * @param string $to_email The recipient email address.
+ * @param object $saved_query The saved query object.
+ * @param string $error_message The error message from the failed job.
+ * @return bool True if email was sent successfully, false otherwise.
+ */
+function sendFailureNotification($to_email, $saved_query, $error_message) {
+    if (empty($to_email) || !filter_var($to_email, FILTER_VALIDATE_EMAIL)) {
+        return false;
+    }
+    
+    $subject = "ETL Job Failed: " . $saved_query->query_name;
+    
+    $message = "Hello,\n\n";
+    $message .= "This is an automated notification to inform you that a scheduled ETL job has failed.\n\n";
+    $message .= "Job Details:\n";
+    $message .= "- Query Name: " . $saved_query->query_name . "\n";
+    $message .= "- Query ID: " . $saved_query->id . "\n";
+    $message .= "- Failure Time: " . date('Y-m-d H:i:s') . "\n";
+    $message .= "- Error Message: " . $error_message . "\n\n";
+    $message .= "Please check the ETL configuration and resolve the issue.\n\n";
+    $message .= "Best regards,\n";
+    $message .= "QueryCloud ETL System";
+    
+    $headers = "From: noreply@querycloud.local\r\n";
+    $headers .= "Reply-To: noreply@querycloud.local\r\n";
+    $headers .= "X-Mailer: PHP/" . phpversion();
+    
+    return mail($to_email, $subject, $message, $headers);
+}
+
+/**
  * Checks if a scheduled ETL job is due to run based on its specific configuration.
  *
  * @param array $etl_config The decoded etl_config from the database.
@@ -133,6 +166,18 @@ foreach ($saved_queries as $saved_query) {
         } else { // 'error'
             $log->status = 'failed';
             echo "ETL for query ID {$saved_query->id} failed: " . $result['message'] . "\n";
+            
+            // Send email notification if configured
+            $notification_email = $etl_config['notification_email'] ?? '';
+            if (!empty($notification_email)) {
+                echo "Sending failure notification to: {$notification_email}\n";
+                $email_sent = sendFailureNotification($notification_email, $saved_query, $result['message']);
+                if ($email_sent) {
+                    echo "Email notification sent successfully.\n";
+                } else {
+                    echo "Failed to send email notification.\n";
+                }
+            }
         }
 
         $log->message = $result['message'];

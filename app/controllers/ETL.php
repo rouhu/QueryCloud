@@ -68,6 +68,7 @@ class ETL
 
                 // Always save these base settings
                 $etl_config['destination_db_id'] = $destination_id;
+                $etl_config['notification_email'] = $_POST['notification_email'] ?? '';
                 
                 if ($dest_type === 'sftp') {
                     // For SFTP destinations, save CSV separator instead of table/mapping

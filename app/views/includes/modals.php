@@ -310,12 +310,20 @@ $fields = $fields ?? [];
                 <h4 class="modal-title"><i class="fa fa-share-alt"></i> Share Query Report</h4>
             </div>
             <div class="modal-body">
-                <p>Anyone with the following link can view the results of the query: <strong id="shareQueryName"></strong></p>
+                <p>Share the results of the query: <strong id="shareQueryName"></strong></p>
                 <p><small>This link provides read-only access to the report data. It does not allow modification of the query or access to other parts of the application.</small></p>
+                
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <button type="button" class="btn btn-primary" id="btnGenerateShareLink">
+                        <i class="fa fa-link"></i> Generate Share Link
+                    </button>
+                    <div id="generateLinkMsg" style="display:none; margin-top: 10px; font-style: italic;"></div>
+                </div>
+                
                 <div class="input-group">
-                    <input type="text" class="form-control" id="shareableLinkInput" readonly>
+                    <input type="text" class="form-control" id="shareableLinkInput" readonly placeholder="Click 'Generate Share Link' to create a shareable URL">
                     <span class="input-group-btn">
-                        <button class="btn btn-default" type="button" id="btnCopyShareLink" title="Copy to Clipboard">
+                        <button class="btn btn-default" type="button" id="btnCopyShareLink" title="Copy to Clipboard" disabled>
                             <i class="fa fa-clipboard"></i> Copy
                         </button>
                     </span>
@@ -334,7 +342,6 @@ $fields = $fields ?? [];
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-default" data-dismiss="modal"><i class="fa fa-times"></i> Close</button>
-                <!-- No explicit "Save Settings" button for now; checkbox change will trigger save. -->
             </div>
         </div>
     </div>
