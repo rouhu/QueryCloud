@@ -519,7 +519,12 @@ function openVisualQueryBuilderModal(visualParamsObj, queryId, queryName, isEdit
 
     // Helper to check for valid <option> HTML
     function _hasValidTableOptions(htmlString) {
-        return htmlString && typeof htmlString === 'string' && htmlString.indexOf('<option') !== -1;
+        if (!htmlString || typeof htmlString !== 'string') {
+            return false;
+        }
+        // A valid list should have more than just a single placeholder/dummy option.
+        const optionCount = (htmlString.match(/<option/g) || []).length;
+        return optionCount > 1;
     }
 
     // Main logic to populate and show the modal, moved into a function
