@@ -699,6 +699,7 @@ function openVisualQueryBuilderModal(visualParamsObj, queryId, queryName, isEdit
                 response.tables.forEach(function (table) {
                     optionsHtml += '<option value="' + escapeHtml(table) + '">' + escapeHtml(table) + '</option>';
                 });
+                allTablesOptionsHTML = optionsHtml;
                 _populateAndShowModal(optionsHtml);
             } else {
                 $.jGrowl('Failed to load table list for VQB.', { header: 'Error', theme: 'error' });
