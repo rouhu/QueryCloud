@@ -514,6 +514,9 @@ $('body').on('click', '.btn-run-saved-query', function (e) {
 function openVisualQueryBuilderModal(visualParamsObj, queryId, queryName, isEditingSaved, dataSourceId) {
     var $modal = $('#modal-visual-query');
 
+    // Store the data source ID on the modal for use by other functions like join table button
+    $modal.data('current-data-source-id', dataSourceId);
+
     // Helper to check for valid <option> HTML
     function _hasValidTableOptions(htmlString) {
         return htmlString && typeof htmlString === 'string' && htmlString.indexOf('<option') !== -1;
@@ -1580,31 +1583,54 @@ $('body').on('click', '.remove', function () {
 
 // join table for visual query
 $('#btnJoinTable').click(function () {
-    console.log("DEBUG: #btnJoinTable click - allTablesOptionsHTML content (first 200 chars):", typeof allTablesOptionsHTML !== 'undefined' ? allTablesOptionsHTML.substring(0, 200) : 'NOT DEFINED');
-    // Ensure the template's jointable select has fresh options before cloning
-    if (typeof allTablesOptionsHTML !== 'undefined') {
-        $('#fieldCloneTable').find('select.jointable').html(allTablesOptionsHTML);
-    } else {
-        console.error("allTablesOptionsHTML is not defined. Cannot populate join table template for new join.");
+    var $modal = $('#modal-visual-query');
+    var dataSourceId = $modal.data('current-data-source-id'); // We'll store this when modal opens
+
+    // Helper function to check for valid table options
+    function _hasValidTableOptions(htmlString) {
+        return htmlString && typeof htmlString === 'string' && htmlString.indexOf('<option') !== -1;
     }
-    console.log("DEBUG: btnJoinTable Click - BEFORE CLONE - HTML of #fieldCloneTable select.jointable:", $('#fieldCloneTable').find('select.jointable').html());
-    console.log("DEBUG: btnJoinTable Click - BEFORE CLONE - Options count for #fieldCloneTable select.jointable:", $('#fieldCloneTable').find('select.jointable option').length);
 
-    var $clone = $('#fieldCloneTable').clone();
-    console.log("DEBUG: btnJoinTable Click - AFTER CLONE - HTML of CLONED select.jointable:", $clone.find('select.jointable').html());
-    console.log("DEBUG: btnJoinTable Click - AFTER CLONE - Options count in CLONED select.jointable:", $clone.find('select.jointable option').length);
+    // Function to create and show the join row
+    function _createJoinRow(tablesOptionsHtml) {
+        // Ensure the template's jointable select has fresh options before cloning
+        $('#fieldCloneTable').find('select.jointable').html(tablesOptionsHtml);
 
-    $(this).after($clone);
-    $clone.slideDown('fast');
+        var $clone = $('#fieldCloneTable').clone();
+        $('#btnJoinTable').after($clone);
+        $clone.slideDown('fast');
 
-    $clone.find('.select2-container').remove();
-    $clone.find('.joinfieldselected').empty();
-    $clone.find('select').select2();
+        $clone.find('.select2-container').remove();
+        $clone.find('.joinfieldselected').empty();
+        $clone.find('select').select2();
 
-    console.log("DEBUG: btnJoinTable Click - AFTER CLONE & S2 INIT - Cloned select.jointable S2 data:", $clone.find('select.jointable').data('select2'));
-    console.log("DEBUG: btnJoinTable Click - AFTER CLONE & S2 INIT - HTML of CLONED s.jointable post-S2:", $clone.find('select.jointable').html());
+        $('#addjoinedtablefields').slideDown('fast');
+    }
 
-    $('#addjoinedtablefields').slideDown('fast');
+    // If we have valid table options, use them directly
+    if (_hasValidTableOptions(allTablesOptionsHTML)) {
+        _createJoinRow(allTablesOptionsHTML);
+    } else if (dataSourceId) {
+        // Fetch table options from the server
+        $.post(base + '/ajax/get_tables_for_data_source', { data_source_id: dataSourceId }, function (response) {
+            if (response.status === 'success' && response.tables) {
+                var optionsHtml = '<option value="">Choose Table</option>';
+                response.tables.forEach(function (table) {
+                    optionsHtml += '<option value="' + escapeHtml(table) + '">' + escapeHtml(table) + '</option>';
+                });
+                // Update the global variable for future use
+                allTablesOptionsHTML = optionsHtml;
+                _createJoinRow(optionsHtml);
+            } else {
+                $.jGrowl('Failed to load table list for join. Please try again.', { header: 'Error', theme: 'error' });
+            }
+        }, 'json').fail(function () {
+            $.jGrowl('Error loading table list for join. Please check your connection.', { header: 'Error', theme: 'error' });
+        });
+    } else {
+        // No data source ID available and no table options - show error
+        $.jGrowl('Cannot add join: No data source context available. Please refresh and try again.', { header: 'Error', theme: 'error' });
+    }
 });
 
 // to get fields for selected table for visual query
@@ -1614,10 +1640,11 @@ $('body').on('change', 'select.jointable', function () {
     if (value) {
         var $this = $(this);
         var $targetSelect = $this.closest('.parent').find('select.joinfieldselected');
-        // console.log("Manual Join: Selected table:", value, "Target select:", $targetSelect);
+        var $modal = $('#modal-visual-query');
+        var dataSourceId = $modal.data('current-data-source-id');
 
         // Use the new populateJoinFieldDropdown function
-        populateJoinFieldDropdown($targetSelect, value, null, function (success) {
+        populateJoinFieldDropdown($targetSelect, value, null, dataSourceId, function (success) {
             if (success) {
                 // Optional: Trigger change on the populated select if other elements depend on its value
                 // $targetSelect.trigger('change');
@@ -1902,6 +1929,14 @@ function addTablesToDropdown(dataSourceId, callback) {
             callback(false); // Indicate failure
         }
         return;
+    }
+
+    // If dataSourceId is not provided, try to get it from the VQB modal if it exists and has data
+    if (!dataSourceId) {
+        var $modal = $('#modal-visual-query');
+        if ($modal.length) {
+            dataSourceId = $modal.data('current-data-source-id');
+        }
     }
 
     const selectedTables = [__table];

@@ -200,7 +200,7 @@ class Table
         }
 
         Flight::set('lastSegment', $tableName ?? 'custom_query');
-        self::runQueryWithView($query, $fields, '', null, $running_saved_query_name, $connection_name, true);
+        self::runQueryWithView($query, $fields, '', null, $running_saved_query_name, $connection_name, true, $source_connection_id);
     }
 
     /**
@@ -274,26 +274,28 @@ class Table
 
             // run query and render view
 
-            // If running from VQB after editing a saved query, try to get its name
+            // If running from VQB after editing a saved query, try to get its name and source connection ID
             // $running_saved_query_name is already initialized from $_POST['running_saved_query_name']
             // but that field is not typically part of the VQB form submission.
             // The VQB form submits 'visual_query_id_edit'.
             $query_id_from_vqb_edit = $_POST['visual_query_id_edit'] ?? null;
             $current_running_saved_query_name = $running_saved_query_name; // Preserve if it came from another source
+            $source_connection_id_for_vqb = null;
 
             if (!empty($query_id_from_vqb_edit) && is_numeric($query_id_from_vqb_edit)) {
                 // If VQB was editing a saved query, its ID is visual_query_id_edit.
-                // We need to fetch its name to provide context to runQueryWithView.
+                // We need to fetch its name and source connection ID to provide context to runQueryWithView.
                 $saved_query_for_name = ORM::for_table('saved_queries')->find_one($query_id_from_vqb_edit);
                 if ($saved_query_for_name) {
                     $current_running_saved_query_name = $saved_query_for_name->query_name;
+                    $source_connection_id_for_vqb = $saved_query_for_name->source_connection_id;
                     // Note: runQueryWithView will use this name to re-fetch the ID.
                     // Alternatively, we could pass the ID directly if runQueryWithView is modified,
                     // but using the name aligns with its current design.
                 }
             }
 
-            self::runQueryWithView($query, $fields, $printArray, $visual_params_for_view, $current_running_saved_query_name, $connection_name, true);
+            self::runQueryWithView($query, $fields, $printArray, $visual_params_for_view, $current_running_saved_query_name, $connection_name, true, $source_connection_id_for_vqb);
         }
 
     }
@@ -479,10 +481,10 @@ class Table
     }
 
 
-    private static function runQueryWithView($query, $fields, $printArray, $visual_query_params = null, $running_saved_query_name = null, $connection_name = null, $apply_limit = false)
+    private static function runQueryWithView($query, $fields, $printArray, $visual_query_params = null, $running_saved_query_name = null, $connection_name = null, $apply_limit = false, $source_connection_id = null)
     {
         if (is_null($connection_name)) {
-            $connection_name = self::get_data_source_connection_name();
+            $connection_name = self::get_data_source_connection_name($source_connection_id);
         }
         $db = ORM::get_db($connection_name);
 
@@ -492,8 +494,9 @@ class Table
         $exec_time_row = array();
         $records = '';
 
-        // Get data source type
-        $source = ORM::for_table('data_sources')->find_one($_SESSION['selected_data_source']);
+        // Get data source type - use the passed source_connection_id if available, otherwise fall back to session
+        $data_source_id = $source_connection_id ?: $_SESSION['selected_data_source'];
+        $source = ORM::for_table('data_sources')->find_one($data_source_id);
         $db_type = $source ? $source->db_type : 'mysql';
 
         // Ensure tablesOptions is available for the view context by generating it directly
