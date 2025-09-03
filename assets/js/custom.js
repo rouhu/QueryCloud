@@ -587,7 +587,11 @@ function openVisualQueryBuilderModal(visualParamsObj, queryId, queryName, isEdit
 
                 $clone.find('select').each(function () {
                     if ($(this).data('select2')) $(this).select2('destroy');
-                    $(this).select2({ placeholder: 'Choose', allowClear: true });
+                    $(this).select2({
+                        placeholder: 'Choose',
+                        allowClear: true,
+                        dropdownParent: $(this).closest('.modal')
+                    });
                 });
                 $clone.show();
 
@@ -633,8 +637,14 @@ function openVisualQueryBuilderModal(visualParamsObj, queryId, queryName, isEdit
                                 $ftypeSelect.val(visualParamsObj.ftype[idx]);
                             }
                             $('#btnAddWhere').after($c);
-                            $fnameSelect.select2({ placeholder: 'Choose Field', allowClear: true });
-                            $ftypeSelect.select2();
+                            $fnameSelect.select2({
+                                placeholder: 'Choose Field',
+                                allowClear: true,
+                                dropdownParent: $fnameSelect.closest('.modal')
+                            });
+                            $ftypeSelect.select2({
+                                dropdownParent: $ftypeSelect.closest('.modal')
+                            });
                             $fnameSelect.trigger('change');
                             $ftypeSelect.trigger('change');
                         }
@@ -655,8 +665,14 @@ function openVisualQueryBuilderModal(visualParamsObj, queryId, queryName, isEdit
                             $aggFuncSelect.val(visualParamsObj.agg_func[idx]);
                             $aggClone.find('.agg_alias').val(visualParamsObj.agg_alias[idx] || '');
                             $aggContainer.append($aggClone);
-                            $aggFieldSelect.select2({ placeholder: 'Select Field', allowClear: true });
-                            $aggFuncSelect.select2();
+                            $aggFieldSelect.select2({
+                                placeholder: 'Select Field',
+                                allowClear: true,
+                                dropdownParent: $aggFieldSelect.closest('.modal')
+                            });
+                            $aggFuncSelect.select2({
+                                dropdownParent: $aggFuncSelect.closest('.modal')
+                            });
                             $aggFieldSelect.trigger('change');
                             $aggFuncSelect.trigger('change');
                         }
