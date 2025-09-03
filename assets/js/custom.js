@@ -35,7 +35,14 @@ if ($('table tr').length) {
 // It's generally better to initialize Select2 specifically when elements are shown or activated.
 // For now, we'll make it slightly more specific to avoid direct init on known template contents.
 var initialSelect2Selector = 'select:not(#fieldClone select, #fieldCloneTable select, #fieldCloneAggregate select, #fieldCloneHaving select)';
-$(initialSelect2Selector).select2({ placeholder: 'Choose' });
+$(initialSelect2Selector).each(function() {
+    var $this = $(this);
+    var options = { placeholder: 'Choose' };
+    if ($this.closest('.modal').length) {
+        options.dropdownParent = $this.closest('.modal');
+    }
+    $this.select2(options);
+});
 
 
 // for tooltips
@@ -418,7 +425,11 @@ $('#btnAddWhere').click(function () {
     $(this).after($clone); // Append the clone to the DOM
 
     // Initialize Select2 on the select element within the newly appended clone
-    $selectInClone.select2({ placeholder: 'Choose Field', allowClear: true });
+    $selectInClone.select2({
+        placeholder: 'Choose Field',
+        allowClear: true,
+        dropdownParent: $selectInClone.closest('.modal')
+    });
     $clone.slideDown('fast');
 });
 
@@ -430,7 +441,11 @@ $('#btnAddAggregateField').click(function () {
     // Destroy existing Select2 instance if any, then re-initialize
     $aggFieldSelect.select2('destroy');
     $('#aggregateFieldsContainer').append($clone);
-    $aggFieldSelect.select2({ placeholder: 'Select Field', allowClear: true });
+    $aggFieldSelect.select2({
+        placeholder: 'Select Field',
+        allowClear: true,
+        dropdownParent: $aggFieldSelect.closest('.modal')
+    });
 
     // No need to initialize select2 for agg_func unless specific styling/features are needed for it.
     $clone.slideDown('fast');
@@ -1548,7 +1563,11 @@ function updateHavingFieldNameOptions() {
         }
 
         // Re-initialize Select2 after updating options and value
-        $select.select2({ placeholder: 'Select Field/Alias', allowClear: true });
+        $select.select2({
+            placeholder: 'Select Field/Alias',
+            allowClear: true,
+            dropdownParent: $select.closest('.modal')
+        });
         $select.trigger('change'); // Trigger change to ensure UI consistency
     });
 }
@@ -1608,7 +1627,9 @@ $('#btnJoinTable').click(function () {
 
         $clone.find('.select2-container').remove();
         $clone.find('.joinfieldselected').empty();
-        $clone.find('select').select2();
+        $clone.find('select').select2({
+            dropdownParent: $clone.closest('.modal')
+        });
 
         $('#addjoinedtablefields').slideDown('fast');
     }
@@ -2070,7 +2091,11 @@ function populateJoinFieldDropdown($selectElement, tableName, selectedValue, dat
                 // console.log("populateJFD - Value after setting for " + tableName + ":", $selectElement.val()); // DEBUG
             }
 
-            $selectElement.select2({ placeholder: 'Choose Field', allowClear: true });
+            $selectElement.select2({
+                placeholder: 'Choose Field',
+                allowClear: true,
+                dropdownParent: $selectElement.closest('.modal')
+            });
             if (typeof callback === 'function') callback(true);
 
         } else {
