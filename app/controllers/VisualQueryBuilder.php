@@ -1,0 +1,345 @@
+<?php
+
+set_time_limit(3600);
+
+class VisualQueryBuilder
+{
+    private static $icon = 'fa fa-database';
+
+    public static function index($table = null)
+    {
+        // Checks whether or not user is logged in
+        self::checkLogin();
+
+        try {
+            $currentTable = $table;
+            $fields = '';
+            $dataSourceId = null;
+            $editMode = false;
+            $queryId = null;
+            $queryName = '';
+            $visualParams = null;
+
+            // Check if this is an edit request from POST data
+            if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+                $editMode = isset($_POST['edit_mode']) && $_POST['edit_mode'] === 'true';
+                $queryId = $_POST['query_id'] ?? null;
+                $dataSourceId = $_POST['data_source_id'] ?? null;
+                
+                if (isset($_POST['visual_params']) && $_POST['visual_params']) {
+                    $visualParams = json_decode($_POST['visual_params'], true);
+                    if ($visualParams && !$currentTable && isset($visualParams['primaryTable'])) {
+                        $currentTable = $visualParams['primaryTable'];
+                    }
+                }
+
+                // Set the data source session if provided
+                if ($dataSourceId) {
+                    $_SESSION['selected_data_source'] = $dataSourceId;
+                }
+            }
+
+            // Get current data source from session if not set
+            if (!$dataSourceId && isset($_SESSION['selected_data_source'])) {
+                $dataSourceId = $_SESSION['selected_data_source'];
+            }
+
+            // Get table fields if we have a table
+            if ($currentTable) {
+                $connection_name = Table::get_data_source_connection_name($dataSourceId);
+                $db = ORM::get_db($connection_name);
+                $source = ORM::for_table('data_sources')->find_one($dataSourceId);
+                $db_type = $source ? $source->db_type : 'mysql';
+
+                try {
+                    $table_fields_data = get_table_columns($db, $db_type, $currentTable);
+                    $fields = getOptions(array_column($table_fields_data, 'Field'), false, $currentTable);
+                } catch (PDOException $e) {
+                    $fields = '<option value="">Error loading fields</option>';
+                    error_log("VQB field loading error: " . $e->getMessage());
+                }
+            }
+
+            // Get tables options for joins
+            $tablesOptionsHTML = '<option value="">Choose Table</option>';
+            if ($dataSourceId) {
+                try {
+                    $connection_name = Table::get_data_source_connection_name($dataSourceId);
+                    $db = ORM::get_db($connection_name);
+                    $source = ORM::for_table('data_sources')->find_one($dataSourceId);
+                    $db_type = $source ? $source->db_type : 'mysql';
+                    
+                    $tableNames = get_tables($db, $db_type);
+                    $tablesOptionsHTML = getOptions($tableNames, true);
+                } catch (Exception $e) {
+                    error_log("VQB table options error: " . $e->getMessage());
+                }
+            }
+
+            Flight::render('visual_query_builder', array(
+                'title' => 'Visual Query Builder',
+                'icon' => self::$icon,
+                'currentTable' => $currentTable,
+                'fields' => $fields,
+                'dataSourceId' => $dataSourceId,
+                'editMode' => $editMode,
+                'queryId' => $queryId,
+                'queryName' => $queryName,
+                'visualParams' => $visualParams,
+                'tablesOptionsHTML' => $tablesOptionsHTML
+            ));
+
+        } catch (Exception $e) {
+            Flight::set('error', 'Error loading Visual Query Builder: ' . $e->getMessage());
+            Flight::render('error_page');
+        }
+    }
+
+    public static function edit($query_id)
+    {
+        // Checks whether or not user is logged in
+        self::checkLogin();
+
+        try {
+            // Get the saved query data
+            $savedQuery = ORM::for_table('saved_queries')->find_one($query_id);
+            
+            if (!$savedQuery) {
+                throw new Exception('Query not found with ID: ' . $query_id);
+            }
+
+            if (!$savedQuery->is_visual_query) {
+                // Redirect to SQL editor for non-visual queries
+                Flight::redirect(Flight::get('base') . '/table/' . ($savedQuery->primaryTable ?? 'custom_query') . '?edit_sql=' . $query_id);
+                return;
+            }
+
+            // Parse visual parameters
+            $visualParams = null;
+            $currentTable = null;
+            
+            if ($savedQuery->visual_params) {
+                $visualParams = json_decode($savedQuery->visual_params, true);
+                $currentTable = $visualParams['primaryTable'] ?? null;
+            }
+
+            if (!$currentTable) {
+                throw new Exception('Could not determine table for visual query');
+            }
+
+            // Set data source session
+            if ($savedQuery->source_connection_id) {
+                $_SESSION['selected_data_source'] = $savedQuery->source_connection_id;
+            }
+
+            $dataSourceId = $savedQuery->source_connection_id;
+
+            // Get table fields
+            $fields = '';
+            if ($currentTable) {
+                $connection_name = Table::get_data_source_connection_name($dataSourceId);
+                $db = ORM::get_db($connection_name);
+                $source = ORM::for_table('data_sources')->find_one($dataSourceId);
+                $db_type = $source ? $source->db_type : 'mysql';
+
+                try {
+                    $table_fields_data = get_table_columns($db, $db_type, $currentTable);
+                    $fields = getOptions(array_column($table_fields_data, 'Field'), false, $currentTable);
+                } catch (PDOException $e) {
+                    $fields = '<option value="">Error loading fields</option>';
+                    error_log("VQB field loading error: " . $e->getMessage());
+                }
+            }
+
+            // Get tables options for joins
+            $tablesOptionsHTML = '<option value="">Choose Table</option>';
+            if ($dataSourceId) {
+                try {
+                    $connection_name = Table::get_data_source_connection_name($dataSourceId);
+                    $db = ORM::get_db($connection_name);
+                    $source = ORM::for_table('data_sources')->find_one($dataSourceId);
+                    $db_type = $source ? $source->db_type : 'mysql';
+                    
+                    $tableNames = get_tables($db, $db_type);
+                    $tablesOptionsHTML = getOptions($tableNames, true);
+                } catch (Exception $e) {
+                    error_log("VQB table options error: " . $e->getMessage());
+                }
+            }
+
+            Flight::render('visual_query_builder', array(
+                'title' => 'Visual Query Builder - Edit: ' . $savedQuery->query_name,
+                'icon' => self::$icon,
+                'currentTable' => $currentTable,
+                'fields' => $fields,
+                'dataSourceId' => $dataSourceId,
+                'editMode' => true,
+                'queryId' => $query_id,
+                'queryName' => $savedQuery->query_name,
+                'visualParams' => $visualParams,
+                'tablesOptionsHTML' => $tablesOptionsHTML
+            ));
+
+        } catch (Exception $e) {
+            Flight::set('error', 'Error loading saved query for editing: ' . $e->getMessage());
+            Flight::render('error_page');
+        }
+    }
+
+    public static function run($table = null)
+    {
+        // Checks whether or not user is logged in
+        self::checkLogin();
+
+        try {
+            $currentTable = $table;
+
+            if (!$currentTable) {
+                throw new Exception('Table not specified for Visual Query Builder');
+            }
+
+            // Get data source info
+            $dataSourceId = $_SESSION['selected_data_source'] ?? null;
+            $connection_name = Table::get_data_source_connection_name($dataSourceId);
+            $source = ORM::for_table('data_sources')->find_one($dataSourceId);
+            $db_type = $source ? $source->db_type : 'mysql';
+
+            // Extract visual parameters and generate SQL
+            $visualParams = self::extractVisualParams($_POST);
+            $visualParams['primaryTable'] = $currentTable;
+            
+            $sql = Table::generateSqlFromVisualParams($_POST, $currentTable, $db_type);
+
+            if (empty($sql)) {
+                throw new Exception('Could not generate SQL from visual query parameters');
+            }
+
+            // Get table fields for the results view
+            $db = ORM::get_db($connection_name);
+            try {
+                $table_fields_data = get_table_columns($db, $db_type, $currentTable);
+                $fields = array_column($table_fields_data, 'Field');
+            } catch (PDOException $e) {
+                $fields = [];
+                error_log("VQB results field loading error: " . $e->getMessage());
+            }
+
+            // Set the table segment for the results
+            Flight::set('lastSegment', $currentTable);
+
+            // Execute the query by calling the table's runquery method
+            // We need to simulate the POST data that runquery expects
+            $_POST['cquery'] = $sql;
+            $_POST['printArray'] = '';
+            
+            // Store visual params for the results view
+            $_SESSION['current_visual_params'] = json_encode($visualParams);
+            
+            Table::runquery();
+
+        } catch (Exception $e) {
+            Flight::set('error', 'Error running Visual Query: ' . $e->getMessage());
+            Flight::render('error_page');
+        }
+    }
+
+    public static function getFieldsForTables()
+    {
+        // AJAX endpoint for getting fields for tables (used by JavaScript)
+        try {
+            $tables = json_decode($_POST['tables'] ?? '[]', true);
+            $dataSourceId = $_POST['data_source_id'] ?? null;
+
+            if (empty($tables)) {
+                echo '<option value="">No tables specified</option>';
+                return;
+            }
+
+            $connection_name = Table::get_data_source_connection_name($dataSourceId);
+            $db = ORM::get_db($connection_name);
+            $source = ORM::for_table('data_sources')->find_one($dataSourceId);
+            $db_type = $source ? $source->db_type : 'mysql';
+
+            $fieldsHtml = '';
+            $allFields = [];
+
+            foreach ($tables as $tableName) {
+                try {
+                    $table_fields_data = get_table_columns($db, $db_type, $tableName);
+                    $tableFields = array_column($table_fields_data, 'Field');
+                    
+                    foreach ($tableFields as $field) {
+                        $fieldValue = $tableName . '.' . $field;
+                        $allFields[$tableName][] = [
+                            'value' => $fieldValue,
+                            'label' => $fieldValue
+                        ];
+                    }
+                } catch (Exception $e) {
+                    error_log("Error getting fields for table $tableName: " . $e->getMessage());
+                    continue;
+                }
+            }
+
+            // Build optgroups
+            foreach ($allFields as $tableName => $tableFields) {
+                $fieldsHtml .= '<optgroup label="' . htmlspecialchars($tableName) . '">';
+                foreach ($tableFields as $field) {
+                    $fieldsHtml .= '<option value="' . htmlspecialchars($field['value']) . '">' . 
+                                  htmlspecialchars($field['label']) . '</option>';
+                }
+                $fieldsHtml .= '</optgroup>';
+            }
+
+            echo $fieldsHtml;
+
+        } catch (Exception $e) {
+            echo '<option value="">Error loading fields: ' . $e->getMessage() . '</option>';
+        }
+    }
+
+    private static function extractVisualParams($postData)
+    {
+        $visualParams = [];
+        
+        // Extract all the visual parameters from POST data
+        $arrayFields = [
+            'fields', 'agg_field', 'agg_func', 'agg_alias', 
+            'jointype', 'jointable', 'joinfield', 'joinfieldp', 
+            'ftype', 'fname', 'fvalue', 'groupfields', 'orderfields', 
+            'htype', 'hfname', 'hfvalue'
+        ];
+        
+        foreach ($arrayFields as $field) {
+            $visualParams[$field] = isset($postData[$field]) ? (array) $postData[$field] : [];
+        }
+
+        // Handle non-array fields
+        if (isset($postData['chkDescending'])) {
+            $visualParams['chkDescending'] = 'on';
+        }
+        
+        if (isset($postData['limitStart'])) {
+            $visualParams['limitStart'] = $postData['limitStart'];
+        }
+        
+        if (isset($postData['limitNumRows'])) {
+            $visualParams['limitNumRows'] = $postData['limitNumRows'];
+        }
+
+        return $visualParams;
+    }
+
+    private static function runQueryWithView($query, $fields, $printArray, $visual_query_params = null, $running_saved_query_name = null, $connection_name = null, $apply_limit = false, $source_connection_id = null)
+    {
+        // Use the existing Table class method
+        return Table::runQueryWithView($query, $fields, $printArray, $visual_query_params, $running_saved_query_name, $connection_name, $apply_limit, $source_connection_id);
+    }
+
+    private static function checkLogin()
+    {
+        if (!isset($_SESSION['logged'])) {
+            Flight::redirect('./login');
+        }
+    }
+}

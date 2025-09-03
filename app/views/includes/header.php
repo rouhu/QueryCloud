@@ -29,6 +29,7 @@
     <link href="<?php echo Flight::get('base'); ?>/assets/plugins/select2/select2.css" rel="stylesheet">
     <link href="<?php echo Flight::get('base'); ?>/assets/plugins/select2/select2-bootstrap.css"
           rel="stylesheet">
+    <link href="<?php echo Flight::get('base'); ?>/assets/css/select2-search-fix.css" rel="stylesheet">
     <link href="<?php echo Flight::get('base'); ?>/assets/plugins/dataTables/dataTables.bootstrap.css"
           rel="stylesheet">
 

@@ -1,0 +1,70 @@
+/* Fix for Select2 search input being blocked on desktop/responsive screens */
+.select2-search input.select2-input,
+.select2-search input.select2-input.select2-focused {
+    -webkit-user-select: text !important;
+    -moz-user-select: text !important;
+    -ms-user-select: text !important;
+    user-select: text !important;
+
+    /* Ensure the input is always editable */
+    pointer-events: auto !important;
+
+    /* Make sure the input is focusable and can receive text */
+    cursor: text !important;
+
+    /* Prevent flickering by stabilizing the input */
+    position: relative !important;
+    z-index: 9999 !important;
+    outline: none !important;
+
+    /* Prevent text selection interference */
+    -webkit-touch-callout: default !important;
+    -webkit-user-select: text !important;
+    -khtml-user-select: text !important;
+    -moz-user-select: text !important;
+    -ms-user-select: text !important;
+    user-select: text !important;
+}
+
+/* Additional fix for any nested select2 search inputs */
+.select2-container .select2-search input,
+.select2-drop .select2-search input {
+    -webkit-user-select: text !important;
+    -moz-user-select: text !important;
+    -ms-user-select: text !important;
+    user-select: text !important;
+
+    pointer-events: auto !important;
+    cursor: text !important;
+
+    /* Prevent flickering */
+    position: relative !important;
+    z-index: 9999 !important;
+    outline: none !important;
+}
+
+/* Prevent animations and transitions that could cause flickering */
+.select2-container .select2-search input {
+    -webkit-transition: none !important;
+    -moz-transition: none !important;
+    -ms-transition: none !important;
+    -o-transition: none !important;
+    transition: none !important;
+
+    -webkit-animation: none !important;
+    -moz-animation: none !important;
+    -ms-animation: none !important;
+    -o-animation: none !important;
+    animation: none !important;
+}
+
+/* Ensure dropdown stays stable during updates */
+.select2-drop-active,
+.select2-container-active .select2-choice,
+.select2-container-active .select2-choices {
+    -webkit-transition: none !important;
+    -moz-transition: none !important;
+    -ms-transition: none !important;
+    -o-transition: none !important;
+    transition: none !important;
+}

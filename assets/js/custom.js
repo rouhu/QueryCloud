@@ -798,72 +798,19 @@ $('body').on('click', '.btn-edit-saved-query', function () {
         return;
     }
 
-    // Pre-select the data source and load its tables
-    if (queryData.source_connection_id) {
-        var $datasourceSelect = $('#datasource');
-
-        // Set the value
-        $datasourceSelect.val(queryData.source_connection_id);
-
-        // Manually trigger the logic that would normally run on 'change'
-        // This includes setting the session and updating the table dropdown.
-        // We do this manually to control the flow and open the modal after completion.
-        $.ajax({
-            url: base + '/ajax/set_data_source',
-            type: 'POST',
-            data: { data_source_id: queryData.source_connection_id },
-            dataType: 'json',
-            success: function (response) {
-                if (response.status === 'success') {
-                    // Now update the table dropdown, then open the modal
-                    updateTableDropdown(queryData.source_connection_id, function () {
-                        // This callback ensures the table dropdown is populated before the modal opens
-                        proceedToOpenModal();
-                    });
-                } else {
-                    $.jGrowl('Failed to set the data source for the query.', { header: 'Error', theme: 'error' });
-                    // Even if setting the source fails, we might still try to open the modal
-                    proceedToOpenModal();
-                }
-            },
-            error: function () {
-                $.jGrowl('AJAX error setting the data source.', { header: 'Error', theme: 'error' });
-                // In case of error, still proceed to open the modal
-                proceedToOpenModal();
-            }
-        });
+    if (queryData.is_visual_query == '1' || queryData.is_visual_query === true) {
+        // For visual queries, redirect to the VQB edit page using query ID
+        window.location.href = base + '/vqb/edit/' + queryId;
     } else {
-        // If no source_connection_id is available, open the modal immediately
-        proceedToOpenModal();
-    }
-
-    function proceedToOpenModal() {
-        if (queryData.is_visual_query == '1' || queryData.is_visual_query === true) {
-            if (queryData.visual_params) {
-                try {
-                    var parsedParams = JSON.parse(queryData.visual_params);
-                    openVisualQueryBuilderModal(parsedParams, queryId, queryName, true, queryData.source_connection_id);
-                } catch (e) {
-                    console.error("Error parsing visual_params for saved query:", e);
-                    $.jGrowl('Error loading visual query data. Opening as SQL.', { header: 'Error' });
-                    $('#sql').val(queryData.sql_query); // Fallback to SQL editor
-                    $('#modal-custom-query').modal('show');
-                }
-            } else {
-                $.jGrowl('Saved visual query has no parameters. Opening as SQL.', { header: 'Warning' });
-                $('#sql').val(queryData.sql_query); // Fallback to SQL editor
-                $('#modal-custom-query').modal('show');
-            }
-        } else { // Not a visual query, open in SQL editor
-            if (typeof editor !== 'undefined' && editor !== null) {
-                editor.setValue(queryData.sql_query, -1); // -1 moves cursor to the start
-            } else {
-                $('#sql').val(queryData.sql_query); // Fallback if ACE editor not ready
-            }
-            $('#custom_query_id_edit').val(queryId);
-            $('#modal-custom-query').data('source', 'dashboard');
-            $('#modal-custom-query').modal('show');
+        // Not a visual query, open in SQL editor
+        if (typeof editor !== 'undefined' && editor !== null) {
+            editor.setValue(queryData.sql_query, -1); // -1 moves cursor to the start
+        } else {
+            $('#sql').val(queryData.sql_query); // Fallback if ACE editor not ready
         }
+        $('#custom_query_id_edit').val(queryId);
+        $('#modal-custom-query').data('source', 'dashboard');
+        $('#modal-custom-query').modal('show');
     }
 });
 
@@ -884,9 +831,52 @@ $('body').on('click', '#btnEditExecutedQuery', function () {
     if (visualParamsJsonString && visualParamsJsonString !== '{}' && visualParamsJsonString !== '[]') {
         try {
             var parsedParams = JSON.parse(visualParamsJsonString);
-            // If it was a saved visual query, its ID and name are used.
-            // Otherwise, queryId and queryName will be empty, VQB opens for a new/adhoc query state.
-            openVisualQueryBuilderModal(parsedParams, executedQueryId, executedQueryName, wasSavedVisual, dataSourceId);
+            // Get the table name from the current context
+            var tableName = (typeof __table !== 'undefined' && __table) ? __table : '';
+
+            if (!tableName) {
+                $.jGrowl('Error: Could not determine the table for editing.', { header: 'Error', theme: 'error' });
+                return;
+            }
+
+            // Create a form with the visual parameters and redirect to VQB page
+            var $form = $('<form>', {
+                'method': 'POST',
+                'action': base + '/vqb/' + encodeURIComponent(tableName),
+                'style': 'display:none;'
+            });
+
+            // Add visual parameters as form data
+            $form.append($('<input>', {
+                'type': 'hidden',
+                'name': 'edit_mode',
+                'value': 'true'
+            }));
+
+            if (wasSavedVisual && executedQueryId) {
+                $form.append($('<input>', {
+                    'type': 'hidden',
+                    'name': 'query_id',
+                    'value': executedQueryId
+                }));
+            }
+
+            $form.append($('<input>', {
+                'type': 'hidden',
+                'name': 'visual_params',
+                'value': visualParamsJsonString
+            }));
+
+            $form.append($('<input>', {
+                'type': 'hidden',
+                'name': 'data_source_id',
+                'value': dataSourceId
+            }));
+
+            $('body').append($form);
+            $form.submit();
+            $form.remove();
+
         } catch (e) {
             console.error("Error parsing #current_visual_params for editing:", e);
             $.jGrowl('Could not parse visual parameters to edit this query.', { header: 'Error' });
@@ -1515,7 +1505,21 @@ function updateTableDropdown(dataSourceId, callback) {
     });
 }
 
+// Debounce function to prevent excessive calls
+var debounceTimer = null;
 function updateHavingFieldNameOptions() {
+    // Clear existing timer
+    if (debounceTimer) {
+        clearTimeout(debounceTimer);
+    }
+
+    // Set new timer to delay execution
+    debounceTimer = setTimeout(function () {
+        _doUpdateHavingFieldNameOptions();
+    }, 150); // 150ms delay to prevent rapid successive calls
+}
+
+function _doUpdateHavingFieldNameOptions() {
     var options = [];
     var existingOptions = {}; // To avoid duplicate options
 
@@ -1603,27 +1607,47 @@ function updateHavingFieldNameOptions() {
     $hfnameSelects.each(function () {
         var $select = $(this);
         var intendedValue = $select.data('intended-value'); // Get the stored intended value
+        var currentHtml = $select.html();
 
-        $select.select2('destroy'); // Destroy before updating HTML
-        $select.html(newHtml);      // Populate with all possible options
+        // Check if the select element is currently in focus or if its dropdown is open
+        var isActive = $select.hasClass('select2-container--open') ||
+            $select.parent().find('.select2-focused').length > 0 ||
+            $select.parent().find('.select2-search input:focus').length > 0;
 
-        if (intendedValue && $select.find('option[value="' + intendedValue + '"]').length > 0) {
-            $select.val(intendedValue); // Set to the stored intended value if option exists
-            $select.removeData('intended-value'); // Clean up data attribute
-        } else {
-            // If no intended value, or if it's no longer a valid option,
-            // let Select2 default to placeholder or first option.
-            // No explicit .val('') needed here as the newHtml starts with an empty option.
+        // Skip updates if the field is currently being used (active/focused)
+        if (isActive) {
+            console.log('Skipping updateHavingFieldNameOptions for active select to prevent flickering');
+            return; // Continue to next select element
         }
 
-        // Re-initialize Select2 after updating options and value
-        $select.select2({
-            placeholder: 'Select Field/Alias',
-            allowClear: true,
-            dropdownParent: $select.closest('.modal'),
-            minimumResultsForSearch: 0 // Always enable search
-        });
-        $select.trigger('change'); // Trigger change to ensure UI consistency
+        // Only destroy if the options are actually different
+        if (currentHtml !== newHtml) {
+            try {
+                $select.select2('destroy'); // Destroy before updating HTML
+                $select.html(newHtml);      // Populate with all possible options
+
+                if (intendedValue && $select.find('option[value="' + intendedValue + '"]').length > 0) {
+                    $select.val(intendedValue); // Set to the stored intended value if option exists
+                    $select.removeData('intended-value'); // Clean up data attribute
+                } else {
+                    // If no intended value, or if it's no longer a valid option,
+                    // let Select2 default to placeholder or first option.
+                    // No explicit .val('') needed here as the newHtml starts with an empty option.
+                }
+
+                // Re-initialize Select2 after updating options and value
+                $select.select2({
+                    placeholder: 'Select Field/Alias',
+                    allowClear: true,
+                    dropdownParent: $select.closest('.modal'),
+                    minimumResultsForSearch: 0 // Always enable search
+                });
+
+                $select.trigger('change'); // Trigger change to ensure UI consistency
+            } catch (e) {
+                console.warn('Error updating select2 in updateHavingFieldNameOptions:', e);
+            }
+        }
     });
 }
 
@@ -2067,42 +2091,45 @@ function addTablesToDropdown(dataSourceId, callback) {
                 var $select = $(this);
                 var currentValues = $select.val();
 
-                try {
-                    $select.select2('destroy');
-                } catch (e) {
-                    // console.warn('Could not destroy select2 instance on an element:', $select, e);
-                }
+                // Only destroy if the options are actually different
+                var currentOptionsHtml = $select.html();
+                if (currentOptionsHtml !== response) {
+                    try {
+                        $select.select2('destroy');
+                    } catch (e) {
+                        // console.warn('Could not destroy select2 instance on an element:', $select, e);
+                    }
 
-                $select.html(response);
+                    $select.html(response);
 
-                if (currentValues) {
-                    if (Array.isArray(currentValues)) {
-                        var newValues = [];
-                        currentValues.forEach(function (val) {
-                            if ($select.find('option[value="' + val + '"]').length > 0) {
-                                newValues.push(val);
+                    if (currentValues) {
+                        if (Array.isArray(currentValues)) {
+                            var newValues = [];
+                            currentValues.forEach(function (val) {
+                                if ($select.find('option[value="' + val + '"]').length > 0) {
+                                    newValues.push(val);
+                                }
+                            });
+                            $select.val(newValues);
+                        } else {
+                            if ($select.find('option[value="' + currentValues + '"]').length > 0) {
+                                $select.val(currentValues);
                             }
-                        });
-                        $select.val(newValues);
-                    } else {
-                        if ($select.find('option[value="' + currentValues + '"]').length > 0) {
-                            $select.val(currentValues);
                         }
                     }
-                }
 
-                var placeholderText = $select.data('placeholder') || 'Choose';
-                $select.select2({
-                    placeholder: placeholderText,
-                    allowClear: true,
-                    minimumResultsForSearch: 0 // Always enable search
-                });
+                    var placeholderText = $select.data('placeholder') || 'Choose';
+                    $select.select2({
+                        placeholder: placeholderText,
+                        allowClear: true,
+                        minimumResultsForSearch: 0 // Always enable search
+                    });
+                }
             });
 
             // After updating general field dropdowns, also update the HAVING clause options
             // as it depends on the main fields list.
             updateHavingFieldNameOptions();
-
 
             $.jGrowl('Fields updated for selected tables!');
             if (typeof callback === 'function') {
