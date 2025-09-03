@@ -2,6 +2,30 @@
  * Created by SARFRAZ on 7/27/14
  */
 
+// Detect mobile devices and disable VQB functionality
+$(document).ready(function () {
+    // Function to detect mobile devices - only disable VQB on true mobile phones
+    function isMobileDevice() {
+        return /Android.*Mobile|webOS|iPhone|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+            (window.innerWidth <= 480 && /Android|Mobile/i.test(navigator.userAgent));
+    }
+
+    // Fix Select2 search issue by ensuring search is always enabled
+    // We'll handle this in individual Select2 initializations rather than a global override
+    console.log('Mobile device detection and Select2 search fix initialized');
+
+    // If mobile device detected, disable VQB functionality
+    if (isMobileDevice()) {
+        // Hide VQB-related buttons and show warning
+        $('#btnVisualQueryBuilder, .btn-edit-saved-query').hide();
+
+        // Show warning message for mobile users
+        $('body').prepend('<div class="alert alert-warning" style="margin: 10px;"><i class="fa fa-mobile"></i> <strong>Notice:</strong> Visual Query Builder is not available on mobile devices. Please use a desktop or tablet for full VQB functionality.</div>');
+
+        console.log('Mobile device detected - VQB functionality disabled');
+    }
+});
+
 // select active navigation item
 $('.sidebar-nav a').parents('li').removeClass('activelink');
 $('.sidebar-nav a[href$="' + lastSegment + '"]').parents('li').addClass('activelink');
@@ -35,12 +59,18 @@ if ($('table tr').length) {
 // It's generally better to initialize Select2 specifically when elements are shown or activated.
 // For now, we'll make it slightly more specific to avoid direct init on known template contents.
 var initialSelect2Selector = 'select:not(#fieldClone select, #fieldCloneTable select, #fieldCloneAggregate select, #fieldCloneHaving select)';
-$(initialSelect2Selector).each(function() {
+$(initialSelect2Selector).each(function () {
     var $this = $(this);
-    var options = { placeholder: 'Choose' };
+    var options = {
+        placeholder: 'Choose',
+        allowClear: true,
+        minimumInputLength: 0,
+        minimumResultsForSearch: 0 // Always enable search
+    };
     if ($this.closest('.modal').length) {
         options.dropdownParent = $this.closest('.modal');
     }
+    console.log('DEBUG: Global Select2 initialization for element:', $this[0], 'with options:', options);
     $this.select2(options);
 });
 
@@ -428,7 +458,8 @@ $('#btnAddWhere').click(function () {
     $selectInClone.select2({
         placeholder: 'Choose Field',
         allowClear: true,
-        dropdownParent: $selectInClone.closest('.modal')
+        dropdownParent: $selectInClone.closest('.modal'),
+        minimumResultsForSearch: 0 // Always enable search
     });
     $clone.slideDown('fast');
 });
@@ -444,7 +475,8 @@ $('#btnAddAggregateField').click(function () {
     $aggFieldSelect.select2({
         placeholder: 'Select Field',
         allowClear: true,
-        dropdownParent: $aggFieldSelect.closest('.modal')
+        dropdownParent: $aggFieldSelect.closest('.modal'),
+        minimumResultsForSearch: 0 // Always enable search
     });
 
     // No need to initialize select2 for agg_func unless specific styling/features are needed for it.
@@ -590,7 +622,8 @@ function openVisualQueryBuilderModal(visualParamsObj, queryId, queryName, isEdit
                     $(this).select2({
                         placeholder: 'Choose',
                         allowClear: true,
-                        dropdownParent: $(this).closest('.modal')
+                        dropdownParent: $(this).closest('.modal'),
+                        minimumResultsForSearch: 0 // Always enable search
                     });
                 });
                 $clone.show();
@@ -640,10 +673,12 @@ function openVisualQueryBuilderModal(visualParamsObj, queryId, queryName, isEdit
                             $fnameSelect.select2({
                                 placeholder: 'Choose Field',
                                 allowClear: true,
-                                dropdownParent: $fnameSelect.closest('.modal')
+                                dropdownParent: $fnameSelect.closest('.modal'),
+                                minimumResultsForSearch: 0 // Always enable search
                             });
                             $ftypeSelect.select2({
-                                dropdownParent: $ftypeSelect.closest('.modal')
+                                dropdownParent: $ftypeSelect.closest('.modal'),
+                                minimumResultsForSearch: 0 // Always enable search
                             });
                             $fnameSelect.trigger('change');
                             $ftypeSelect.trigger('change');
@@ -668,10 +703,12 @@ function openVisualQueryBuilderModal(visualParamsObj, queryId, queryName, isEdit
                             $aggFieldSelect.select2({
                                 placeholder: 'Select Field',
                                 allowClear: true,
-                                dropdownParent: $aggFieldSelect.closest('.modal')
+                                dropdownParent: $aggFieldSelect.closest('.modal'),
+                                minimumResultsForSearch: 0 // Always enable search
                             });
                             $aggFuncSelect.select2({
-                                dropdownParent: $aggFuncSelect.closest('.modal')
+                                dropdownParent: $aggFuncSelect.closest('.modal'),
+                                minimumResultsForSearch: 0 // Always enable search
                             });
                             $aggFieldSelect.trigger('change');
                             $aggFuncSelect.trigger('change');
@@ -1414,7 +1451,8 @@ $(document).ready(function () {
     // ETL Page: Initialize select2 for scheduling options
     if ($('#schedule_hours').length) {
         $('#schedule_hours, #schedule_days').select2({
-            placeholder: 'Click to select options'
+            placeholder: 'Click to select options',
+            minimumResultsForSearch: 0 // Always enable search
         });
     }
 
@@ -1582,7 +1620,8 @@ function updateHavingFieldNameOptions() {
         $select.select2({
             placeholder: 'Select Field/Alias',
             allowClear: true,
-            dropdownParent: $select.closest('.modal')
+            dropdownParent: $select.closest('.modal'),
+            minimumResultsForSearch: 0 // Always enable search
         });
         $select.trigger('change'); // Trigger change to ensure UI consistency
     });
@@ -1634,6 +1673,8 @@ $('#btnJoinTable').click(function () {
 
     // Function to create and show the join row
     function _createJoinRow(tablesOptionsHtml) {
+        console.log('DEBUG: _createJoinRow called with tablesOptionsHtml length:', tablesOptionsHtml ? tablesOptionsHtml.length : 'null');
+
         // Ensure the template's jointable select has fresh options before cloning
         $('#fieldCloneTable').find('select.jointable').html(tablesOptionsHtml);
 
@@ -1643,11 +1684,21 @@ $('#btnJoinTable').click(function () {
 
         $clone.find('.select2-container').remove();
         $clone.find('.joinfieldselected').empty();
-        $clone.find('select').select2({
-            dropdownParent: $clone.closest('.modal')
+
+        console.log('DEBUG: About to initialize Select2 on join row selects. Found selects:', $clone.find('select').length);
+
+        $clone.find('select').each(function () {
+            var $select = $(this);
+            $select.select2({
+                placeholder: 'Choose',
+                allowClear: true,
+                dropdownParent: $clone.closest('.modal'),
+                minimumResultsForSearch: 0 // Always enable search
+            });
         });
 
         $('#addjoinedtablefields').slideDown('fast');
+        console.log('DEBUG: _createJoinRow completed');
     }
 
     // If we have valid table options, use them directly
@@ -2041,7 +2092,11 @@ function addTablesToDropdown(dataSourceId, callback) {
                 }
 
                 var placeholderText = $select.data('placeholder') || 'Choose';
-                $select.select2({ placeholder: placeholderText, allowClear: true });
+                $select.select2({
+                    placeholder: placeholderText,
+                    allowClear: true,
+                    minimumResultsForSearch: 0 // Always enable search
+                });
             });
 
             // After updating general field dropdowns, also update the HAVING clause options
@@ -2077,50 +2132,43 @@ function addTablesToDropdown(dataSourceId, callback) {
  * @param {function} [callback] - Optional. Callback function executed after population (receives true for success, false for failure).
  */
 function populateJoinFieldDropdown($selectElement, tableName, selectedValue, dataSourceId, callback) {
-    // console.log("populateJFD - Called. Table:", tableName, "SelectedVal:", selectedValue, "Element:", $selectElement.length ? $selectElement[0] : 'not found'); // DEBUG
     if (!tableName) {
-        console.error("populateJoinFieldDropdown: tableName is required.");
         if (typeof callback === 'function') callback(false);
         return;
     }
 
-    // console.log("Populating join field dropdown for table:", tableName, "Target select:", $selectElement);
-
     $.post(base + '/ajax/gettablefields', { "table": tableName, "data_source_id": dataSourceId }, function (response) {
-        // console.log("populateJFD - AJAX Success. Table:", tableName, "Resp:", JSON.stringify(response)); // DEBUG
         if (response && response.status === 'success' && response.fields) {
-            var optionsHtml = '<option value="">Choose Field</option>'; // Add a default empty option
+            var optionsHtml = '<option value="">Choose Field</option>';
             response.fields.forEach(function (field) {
                 optionsHtml += '<option value="' + escapeHtml(field) + '">' + escapeHtml(field) + '</option>';
             });
-            // console.log("populateJFD - Options HTML for " + tableName + ":", optionsHtml.substring(0, 200)); // DEBUG
 
             try {
-                $selectElement.select2('destroy'); // Destroy existing Select2 if any
-            } catch (e) { /* ignore if not initialized */ }
+                $selectElement.select2('destroy');
+            } catch (e) {
+                // Ignore destruction errors
+            }
 
             $selectElement.html(optionsHtml);
 
             if (selectedValue) {
-                // console.log("populateJFD - Attempting to select value for " + tableName + ":", selectedValue); // DEBUG
                 $selectElement.val(selectedValue);
-                // console.log("populateJFD - Value after setting for " + tableName + ":", $selectElement.val()); // DEBUG
             }
 
             $selectElement.select2({
                 placeholder: 'Choose Field',
                 allowClear: true,
-                dropdownParent: $selectElement.closest('.modal')
+                dropdownParent: $selectElement.closest('.modal'),
+                minimumResultsForSearch: 0 // Always enable search
             });
-            if (typeof callback === 'function') callback(true);
 
+            if (typeof callback === 'function') callback(true);
         } else {
-            console.error("Error fetching fields for table " + tableName + ":", response.message);
-            $.jGrowl('Error loading fields for ' + tableName + ': ' + (response.message || 'Unknown error'), { sticky: false, header: 'Error' });
+            $.jGrowl('Error loading fields for ' + tableName + ': ' + (response && response.message ? response.message : 'Unknown error'), { sticky: false, header: 'Error' });
             if (typeof callback === 'function') callback(false);
         }
     }, 'json').fail(function (jqXHR, textStatus, errorThrown) {
-        // console.error("populateJFD - AJAX FAIL. Table: " + tableName, jqXHR, textStatus, errorThrown); // DEBUG
         $.jGrowl('AJAX Error: Could not load fields for ' + tableName + '.', { sticky: false, header: 'Error' });
         if (typeof callback === 'function') callback(false);
     });
