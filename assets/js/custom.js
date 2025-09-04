@@ -939,14 +939,12 @@ function initializeVisualQueryBuilder(parsedParams, sqlQuery, queryName) {
 
 // --- Update Visual Query (works for both VQB Modal and VQB Page) ---
 $('body').on('click', '#btnUpdateVisualQuery', function () {
-    var $modal = $('#modal-visual-query');
     var $vqbForm = $('#vqb-form');
-    var $currentContext = $modal.length ? $modal : $vqbForm; // Use modal if available, otherwise VQB page form
-    var queryId = $currentContext.find('#visual_query_id_edit').val();
+    var queryId = $vqbForm.find('#visual_query_id_edit').val();
     var $thisButton = $(this);
 
     // Collect form data into a structured object
-    var formData = $currentContext.find('form').serializeArray();
+    var formData = $vqbForm.serializeArray();
     var visualParamsData = {};
     formData.forEach(function (item) {
         if (item.name.endsWith('[]')) {
@@ -959,7 +957,7 @@ $('body').on('click', '#btnUpdateVisualQuery', function () {
             }
         } else {
             if (item.value || item.name === 'chkDescending' || item.name === 'limitStart' || item.name === 'limitNumRows') {
-                if (item.name === 'chkDescending' && !$currentContext.find('input[name="chkDescending"]').is(':checked')) { } else {
+                if (item.name === 'chkDescending' && !$vqbForm.find('input[name="chkDescending"]').is(':checked')) { } else {
                     visualParamsData[item.name] = item.value;
                 }
             }
@@ -971,7 +969,7 @@ $('body').on('click', '#btnUpdateVisualQuery', function () {
             visualParamsData[fieldName] = [];
         }
     });
-    if ($currentContext.find('input[name="chkDescending"]').is(':checked')) {
+    if ($vqbForm.find('input[name="chkDescending"]').is(':checked')) {
         visualParamsData.chkDescending = 'on';
     } else {
         delete visualParamsData.chkDescending;
@@ -989,9 +987,8 @@ $('body').on('click', '#btnUpdateVisualQuery', function () {
 
     if (queryId) {
         // --- EXISTING QUERY: UPDATE IT ---
-        // Get query name and data source from VQB page globals or fetch from server
-        var queryName = (typeof vqbQueryName !== 'undefined') ? vqbQueryName : '';
-        var dataSourceId = (typeof vqbDataSourceId !== 'undefined') ? vqbDataSourceId : '';
+        var queryName = $vqbForm.data('query-name');
+        var dataSourceId = $vqbForm.data('source-id');
 
         // Generate SQL first to populate the save modal
         $thisButton.prop('disabled', true).find('i').removeClass('fa-save').addClass('fa-spinner fa-spin');
@@ -1005,11 +1002,6 @@ $('body').on('click', '#btnUpdateVisualQuery', function () {
             dataType: 'json',
             success: function (response) {
                 if (response.status === 'success' && response.sql_query) {
-                    // Hide VQB modal if it exists
-                    if ($modal.length) {
-                        $modal.modal('hide');
-                    }
-
                     // Open the Save Query modal with existing query data populated
                     $('#sql_query_save').val(response.sql_query);
                     $('#query_name_save').val(queryName); // Prepopulate existing name
@@ -1043,17 +1035,12 @@ $('body').on('click', '#btnUpdateVisualQuery', function () {
             dataType: 'json',
             success: function (response) {
                 if (response.status === 'success' && response.sql_query) {
-                    // Hide VQB modal if it exists
-                    if ($modal.length) {
-                        $modal.modal('hide');
-                    }
-
                     // Open the Save Query modal for new query
                     $('#sql_query_save').val(response.sql_query);
                     $('#query_name_save').val(''); // Clear name for a new save
-                    $('#source_connection_id_save').val((typeof vqbDataSourceId !== 'undefined') ? vqbDataSourceId : ''); // Set current data source
+                    $('#source_connection_id_save').val($vqbForm.data('source-id') || ''); // Set current data source
                     $('#modal-save-query').data('visual-params', visualParamsJsonString);
-                    $('#modal-save-query').removeData('update-mode'); // Ensure update mode is off
+                    $('#modal-save-query').removeData('update-mode');
                     $('#modal-save-query').removeData('update-query-id');
                     $('#saveQueryMsg').hide().removeClass('alert-success alert-danger').text('');
                     $('#modal-save-query').modal('show');
@@ -2287,41 +2274,24 @@ function initializeVQBPage() {
 function populateVQBFormWithSavedData(savedParams) {
     console.log('Populating VQB form with saved data:', savedParams);
 
-    // Populate non-aggregated fields
-    if (savedParams.fields && Array.isArray(savedParams.fields)) {
-        setTimeout(function () {
-            $('select[name="fields[]"]').val(savedParams.fields).trigger('change');
-            console.log('Set fields to:', savedParams.fields);
-        }, 100);
-    }
-
-    // Populate joins
+    // First, populate the join rows. This is necessary to know which tables' fields to load.
     if (savedParams.jointype && Array.isArray(savedParams.jointype)) {
         savedParams.jointype.forEach(function (type, idx) {
             if (type && savedParams.jointable && savedParams.jointable[idx]) {
-                // Create join row
                 var $clone = $('#fieldCloneTable').clone().removeAttr('id').addClass('cloned-join-row');
                 $clone.find('select[name="jointype[]"]').val(type);
-
                 var $tableSelect = $clone.find('select[name="jointable[]"]');
                 if (allTablesOptionsHTML) {
                     $tableSelect.html(allTablesOptionsHTML);
                 }
                 $tableSelect.val(savedParams.jointable[idx]);
-
                 $('#btnJoinTable').after($clone);
                 $clone.show();
 
-                // Initialize Select2 on the new elements
                 $clone.find('select').each(function () {
-                    $(this).select2({
-                        placeholder: 'Choose',
-                        allowClear: true,
-                        minimumResultsForSearch: 0
-                    });
+                    $(this).select2({ placeholder: 'Choose', allowClear: true, minimumResultsForSearch: 0 });
                 });
 
-                // Populate join fields if available
                 if (savedParams.joinfield && savedParams.joinfield[idx]) {
                     populateJoinFieldDropdown(
                         $clone.find('select[name="joinfield[]"]'),
@@ -2330,126 +2300,111 @@ function populateVQBFormWithSavedData(savedParams) {
                         vqbDataSourceId
                     );
                 }
-
-                if (savedParams.joinfieldp && savedParams.joinfieldp[idx]) {
-                    setTimeout(function () {
-                        $clone.find('select[name="joinfieldp[]"]').val(savedParams.joinfieldp[idx]).trigger('change');
-                    }, 200);
-                }
             }
         });
     }
 
-    // Populate WHERE conditions
-    if (savedParams.fname && Array.isArray(savedParams.fname)) {
-        savedParams.fname.forEach(function (name, idx) {
-            if (name && savedParams.fvalue && savedParams.fvalue[idx]) {
-                var $clone = $('#fieldClone').clone().removeAttr('id');
-                $clone.find('select[name="fname[]"]').val(name);
-                $clone.find('input[name="fvalue[]"]').val(savedParams.fvalue[idx]);
+    // Now, call addTablesToDropdown to populate all field dropdowns with the correct options.
+    // The rest of the form population logic will happen in the callback.
+    addTablesToDropdown(vqbDataSourceId, function(success, fieldOptionsHtml) {
+        if (!success) {
+            $.jGrowl('Failed to load field options, form may not populate correctly.', { header: 'Error', theme: 'error' });
+            return;
+        }
 
-                if (idx > 0 && savedParams.ftype && savedParams.ftype[idx]) {
-                    $clone.find('select[name="ftype[]"]').val(savedParams.ftype[idx]);
-                }
+        // Populate non-aggregated fields
+        if (savedParams.fields && Array.isArray(savedParams.fields)) {
+            $('select[name="fields[]"]').val(savedParams.fields).trigger('change');
+        }
 
-                $('#btnAddWhere').after($clone);
+        // Re-set the primary table join fields now that their options are loaded
+        $('.cloned-join-row').each(function(idx) {
+            var $row = $(this);
+            if (savedParams.joinfieldp && savedParams.joinfieldp[idx]) {
+                $row.find('select[name="joinfieldp[]"]').val(savedParams.joinfieldp[idx]).trigger('change');
+            }
+        });
 
-                // Initialize Select2
-                $clone.find('select').each(function () {
-                    $(this).select2({
-                        placeholder: 'Choose',
-                        allowClear: true,
-                        minimumResultsForSearch: 0
+        // Populate WHERE conditions
+        if (savedParams.fname && Array.isArray(savedParams.fname)) {
+            savedParams.fname.forEach(function (name, idx) {
+                if (name && savedParams.fvalue && savedParams.fvalue[idx]) {
+                    var $clone = $('#fieldClone').clone().removeAttr('id');
+                    $clone.find('select[name="fname[]"]').val(name).end()
+                          .find('input[name="fvalue[]"]').val(savedParams.fvalue[idx]).end();
+                    if (idx > 0 && savedParams.ftype && savedParams.ftype[idx]) {
+                        $clone.find('select[name="ftype[]"]').val(savedParams.ftype[idx]);
+                    }
+                    $('#btnAddWhere').after($clone);
+                    $clone.find('select').each(function () {
+                        $(this).select2({ placeholder: 'Choose', allowClear: true, minimumResultsForSearch: 0 });
                     });
-                });
-
-                $clone.show();
-            }
-        });
-    }
-
-    // Populate aggregated fields
-    if (savedParams.agg_field && Array.isArray(savedParams.agg_field)) {
-        savedParams.agg_field.forEach(function (field, idx) {
-            if (field && savedParams.agg_func && savedParams.agg_func[idx]) {
-                var $clone = $('#fieldCloneAggregate').clone().removeAttr('id');
-                $clone.find('select[name="agg_field[]"]').val(field);
-                $clone.find('select[name="agg_func[]"]').val(savedParams.agg_func[idx]);
-
-                if (savedParams.agg_alias && savedParams.agg_alias[idx]) {
-                    $clone.find('input[name="agg_alias[]"]').val(savedParams.agg_alias[idx]);
+                    $clone.show();
                 }
+            });
+        }
 
-                $('#aggregateFieldsContainer').append($clone);
-
-                // Initialize Select2
-                $clone.find('select').each(function () {
-                    $(this).select2({
-                        placeholder: 'Choose',
-                        allowClear: true,
-                        minimumResultsForSearch: 0
+        // Populate aggregated fields
+        if (savedParams.agg_field && Array.isArray(savedParams.agg_field)) {
+            savedParams.agg_field.forEach(function (field, idx) {
+                if (field && savedParams.agg_func && savedParams.agg_func[idx]) {
+                    var $clone = $('#fieldCloneAggregate').clone().removeAttr('id');
+                    $clone.find('select[name="agg_field[]"]').val(field).end()
+                          .find('select[name="agg_func[]"]').val(savedParams.agg_func[idx]).end()
+                          .find('input[name="agg_alias[]"]').val(savedParams.agg_alias[idx] || '').end();
+                    $('#aggregateFieldsContainer').append($clone);
+                    $clone.find('select').each(function () {
+                        $(this).select2({ placeholder: 'Choose', allowClear: true, minimumResultsForSearch: 0 });
                     });
-                });
+                    $clone.show();
+                }
+            });
+        }
 
-                $clone.show();
-            }
-        });
-    }
-
-    // Populate ORDER BY
-    if (savedParams.orderfields && Array.isArray(savedParams.orderfields) && savedParams.orderfields.length > 0) {
-        setTimeout(function () {
+        // Populate ORDER BY
+        if (savedParams.orderfields && Array.isArray(savedParams.orderfields) && savedParams.orderfields.length > 0) {
             $('select[name="orderfields[]"]').val(savedParams.orderfields).trigger('change');
             $('#orderby').show();
-
             if (savedParams.chkDescending === 'on' || savedParams.chkDescending === true) {
                 $('input[name="chkDescending"]').prop('checked', true);
             }
-        }, 150);
-    }
+        }
 
-    // Populate GROUP BY
-    if (savedParams.groupfields && Array.isArray(savedParams.groupfields) && savedParams.groupfields.length > 0) {
-        setTimeout(function () {
+        // Populate GROUP BY
+        if (savedParams.groupfields && Array.isArray(savedParams.groupfields) && savedParams.groupfields.length > 0) {
             $('select[name="groupfields[]"]').val(savedParams.groupfields).trigger('change');
             $('#group').show();
-        }, 150);
-    }
+        }
 
-    // Populate LIMIT
-    if (savedParams.limitStart || savedParams.limitNumRows) {
-        $('input[name="limitStart"]').val(savedParams.limitStart || '');
-        $('input[name="limitNumRows"]').val(savedParams.limitNumRows || '');
-        $('#limit').show();
-    }
+        // Populate LIMIT
+        if (savedParams.limitStart || savedParams.limitNumRows) {
+            $('input[name="limitStart"]').val(savedParams.limitStart || '');
+            $('input[name="limitNumRows"]').val(savedParams.limitNumRows || '');
+            $('#limit').show();
+        }
 
-    // Populate HAVING conditions
-    if (savedParams.hfname && Array.isArray(savedParams.hfname)) {
-        savedParams.hfname.forEach(function (name, idx) {
-            if (name && savedParams.hfvalue && savedParams.hfvalue[idx]) {
-                var $clone = $('#fieldCloneHaving').clone().removeAttr('id');
-                $clone.find('select[name="hfname[]"]').val(name);
-                $clone.find('input[name="hfvalue[]"]').val(savedParams.hfvalue[idx]);
-
-                if (idx > 0 && savedParams.htype && savedParams.htype[idx]) {
-                    $clone.find('select[name="htype[]"]').val(savedParams.htype[idx]);
-                }
-
-                $('#havingConditionsContainer').append($clone);
-
-                // Initialize Select2
-                $clone.find('select').each(function () {
-                    $(this).select2({
-                        placeholder: 'Choose',
-                        allowClear: true,
-                        minimumResultsForSearch: 0
-                    });
+        // Populate HAVING conditions (after aggregates are populated)
+        if (savedParams.hfname && Array.isArray(savedParams.hfname)) {
+            updateHavingFieldNameOptions(); // Ensure options are fresh
+            setTimeout(function() { // Use a timeout to allow dropdowns to render
+                savedParams.hfname.forEach(function (name, idx) {
+                    if (name && savedParams.hfvalue && savedParams.hfvalue[idx]) {
+                        var $clone = $('#fieldCloneHaving').clone().removeAttr('id');
+                        $clone.find('select[name="hfname[]"]').val(name).end()
+                              .find('input[name="hfvalue[]"]').val(savedParams.hfvalue[idx]).end();
+                        if (idx > 0 && savedParams.htype && savedParams.htype[idx]) {
+                            $clone.find('select[name="htype[]"]').val(savedParams.htype[idx]);
+                        }
+                        $('#havingConditionsContainer').append($clone);
+                        $clone.find('select').each(function () {
+                             $(this).select2({ placeholder: 'Choose', allowClear: true, minimumResultsForSearch: 0 });
+                        });
+                        $clone.show();
+                    }
                 });
+            }, 100);
+        }
 
-                $clone.show();
-            }
-        });
-    }
-
-    console.log('VQB form population completed');
+        console.log('VQB form population completed.');
+    });
 }
