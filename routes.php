@@ -39,9 +39,11 @@ Flight::route('POST /table/[a-zA-Z0-9-_?+]+', 'Table::runquery');
 
 // Visual Query Builder
 Flight::route('GET /vqb', 'VisualQueryBuilder::index');
+Flight::route('POST /vqb', 'VisualQueryBuilder::run');
 Flight::route('GET /vqb/@table', 'VisualQueryBuilder::index');
 Flight::route('POST /vqb/@table', 'VisualQueryBuilder::run');
 Flight::route('GET /vqb/edit/@query_id:[0-9]+', 'VisualQueryBuilder::edit');
+Flight::route('POST /vqb/edit/@query_id:[0-9]+', 'VisualQueryBuilder::run');
 //Flight::route('POST /ajax/[a-zA-Z0-9-_?+]+', array('Ajax', Flight::get('lastSegment')));
 $lastSegment = Flight::get('lastSegment');
 Flight::route('POST /ajax/set_data_source', 'Ajax::set_data_source');

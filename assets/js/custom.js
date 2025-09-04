@@ -831,51 +831,49 @@ $('body').on('click', '#btnEditExecutedQuery', function () {
     if (visualParamsJsonString && visualParamsJsonString !== '{}' && visualParamsJsonString !== '[]') {
         try {
             var parsedParams = JSON.parse(visualParamsJsonString);
-            // Get the table name from the current context
-            var tableName = (typeof __table !== 'undefined' && __table) ? __table : '';
-
-            if (!tableName) {
-                $.jGrowl('Error: Could not determine the table for editing.', { header: 'Error', theme: 'error' });
-                return;
-            }
-
-            // Create a form with the visual parameters and redirect to VQB page
-            var $form = $('<form>', {
-                'method': 'POST',
-                'action': base + '/vqb/' + encodeURIComponent(tableName),
-                'style': 'display:none;'
-            });
-
-            // Add visual parameters as form data
-            $form.append($('<input>', {
-                'type': 'hidden',
-                'name': 'edit_mode',
-                'value': 'true'
-            }));
 
             if (wasSavedVisual && executedQueryId) {
+                // For saved visual queries, redirect directly to the edit page (GET route)
+                var editUrl = base + '/vqb/edit/' + encodeURIComponent(executedQueryId);
+                window.location.href = editUrl;
+            } else {
+                // For ad-hoc VQB queries, use POST form submission to table-based route
+                var tableName = (typeof __table !== 'undefined' && __table) ? __table : '';
+                if (!tableName) {
+                    $.jGrowl('Error: Could not determine the table for editing.', { header: 'Error', theme: 'error' });
+                    return;
+                }
+
+                // Create a form with the visual parameters and redirect to VQB page
+                var $form = $('<form>', {
+                    'method': 'POST',
+                    'action': base + '/vqb/' + encodeURIComponent(tableName),
+                    'style': 'display:none;'
+                });
+
+                // Add visual parameters as form data
                 $form.append($('<input>', {
                     'type': 'hidden',
-                    'name': 'query_id',
-                    'value': executedQueryId
+                    'name': 'edit_mode',
+                    'value': 'true'
                 }));
+
+                $form.append($('<input>', {
+                    'type': 'hidden',
+                    'name': 'visual_params',
+                    'value': visualParamsJsonString
+                }));
+
+                $form.append($('<input>', {
+                    'type': 'hidden',
+                    'name': 'data_source_id',
+                    'value': dataSourceId
+                }));
+
+                $('body').append($form);
+                $form.submit();
+                $form.remove();
             }
-
-            $form.append($('<input>', {
-                'type': 'hidden',
-                'name': 'visual_params',
-                'value': visualParamsJsonString
-            }));
-
-            $form.append($('<input>', {
-                'type': 'hidden',
-                'name': 'data_source_id',
-                'value': dataSourceId
-            }));
-
-            $('body').append($form);
-            $form.submit();
-            $form.remove();
 
         } catch (e) {
             console.error("Error parsing #current_visual_params for editing:", e);
@@ -939,14 +937,16 @@ function initializeVisualQueryBuilder(parsedParams, sqlQuery, queryName) {
 */
 
 
-// --- Update Visual Query (from VQB Modal) ---
+// --- Update Visual Query (works for both VQB Modal and VQB Page) ---
 $('body').on('click', '#btnUpdateVisualQuery', function () {
     var $modal = $('#modal-visual-query');
-    var queryId = $modal.find('#visual_query_id_edit').val();
+    var $vqbForm = $('#vqb-form');
+    var $currentContext = $modal.length ? $modal : $vqbForm; // Use modal if available, otherwise VQB page form
+    var queryId = $currentContext.find('#visual_query_id_edit').val();
     var $thisButton = $(this);
 
     // Collect form data into a structured object
-    var formData = $modal.find('form').serializeArray();
+    var formData = $currentContext.find('form').serializeArray();
     var visualParamsData = {};
     formData.forEach(function (item) {
         if (item.name.endsWith('[]')) {
@@ -959,7 +959,7 @@ $('body').on('click', '#btnUpdateVisualQuery', function () {
             }
         } else {
             if (item.value || item.name === 'chkDescending' || item.name === 'limitStart' || item.name === 'limitNumRows') {
-                if (item.name === 'chkDescending' && !$modal.find('input[name="chkDescending"]').is(':checked')) { } else {
+                if (item.name === 'chkDescending' && !$currentContext.find('input[name="chkDescending"]').is(':checked')) { } else {
                     visualParamsData[item.name] = item.value;
                 }
             }
@@ -971,7 +971,7 @@ $('body').on('click', '#btnUpdateVisualQuery', function () {
             visualParamsData[fieldName] = [];
         }
     });
-    if ($modal.find('input[name="chkDescending"]').is(':checked')) {
+    if ($currentContext.find('input[name="chkDescending"]').is(':checked')) {
         visualParamsData.chkDescending = 'on';
     } else {
         delete visualParamsData.chkDescending;
@@ -989,35 +989,42 @@ $('body').on('click', '#btnUpdateVisualQuery', function () {
 
     if (queryId) {
         // --- EXISTING QUERY: UPDATE IT ---
+        // Get query name and data source from VQB page globals or fetch from server
+        var queryName = (typeof vqbQueryName !== 'undefined') ? vqbQueryName : '';
+        var dataSourceId = (typeof vqbDataSourceId !== 'undefined') ? vqbDataSourceId : '';
+
+        // Generate SQL first to populate the save modal
         $thisButton.prop('disabled', true).find('i').removeClass('fa-save').addClass('fa-spinner fa-spin');
         $.ajax({
-            url: base + '/ajax/saveQuery',
+            url: base + '/ajax/getSqlFromVisualParams',
             type: 'POST',
             data: {
-                query_id: queryId,
-                visual_params: visualParamsJsonString,
-                is_visual_query: true
+                visual_params: JSON.stringify(visualParamsData),
+                primary_table_name: visualParamsData.primaryTable
             },
             dataType: 'json',
             success: function (response) {
-                if (response.status === 'success') {
-                    $.jGrowl(response.message || 'Visual query updated successfully!', { header: 'Success', theme: 'success', life: 3000 });
-                    if (typeof savedQueriesCache !== 'undefined' && savedQueriesCache.find) {
-                        var itemInCache = savedQueriesCache.find(function (q) { return q.id == queryId; });
-                        if (itemInCache) {
-                            itemInCache.visual_params = visualParamsJsonString;
-                            itemInCache.is_visual_query = true;
-                        }
+                if (response.status === 'success' && response.sql_query) {
+                    // Hide VQB modal if it exists
+                    if ($modal.length) {
+                        $modal.modal('hide');
                     }
-                    setTimeout(function () {
-                        location.reload();
-                    }, 1500);
+
+                    // Open the Save Query modal with existing query data populated
+                    $('#sql_query_save').val(response.sql_query);
+                    $('#query_name_save').val(queryName); // Prepopulate existing name
+                    $('#source_connection_id_save').val(dataSourceId); // Prepopulate existing connection
+                    $('#modal-save-query').data('visual-params', visualParamsJsonString);
+                    $('#modal-save-query').data('update-mode', true); // Flag for update mode
+                    $('#modal-save-query').data('update-query-id', queryId); // Store query ID for update
+                    $('#saveQueryMsg').hide().removeClass('alert-success alert-danger').text('');
+                    $('#modal-save-query').modal('show');
                 } else {
-                    $.jGrowl(response.message || 'An error occurred while updating the query.', { header: 'Error', theme: 'error', life: 5000 });
+                    $.jGrowl(response.message || 'Could not generate SQL for this visual query.', { header: 'Error', theme: 'error' });
                 }
             },
             error: function (jqXHR, textStatus, errorThrown) {
-                $.jGrowl('AJAX Error: ' + textStatus + ' - ' + errorThrown, { header: 'AJAX Error', theme: 'error', life: 5000 });
+                $.jGrowl('AJAX Error generating SQL: ' + textStatus, { header: 'AJAX Error', theme: 'error' });
             },
             complete: function () {
                 $thisButton.prop('disabled', false).find('i').removeClass('fa-spinner fa-spin').addClass('fa-save');
@@ -1036,12 +1043,18 @@ $('body').on('click', '#btnUpdateVisualQuery', function () {
             dataType: 'json',
             success: function (response) {
                 if (response.status === 'success' && response.sql_query) {
-                    // Hide VQB modal
-                    $modal.modal('hide');
-                    // Now open the Save Query modal, populating it with the generated SQL and visual params
+                    // Hide VQB modal if it exists
+                    if ($modal.length) {
+                        $modal.modal('hide');
+                    }
+
+                    // Open the Save Query modal for new query
                     $('#sql_query_save').val(response.sql_query);
                     $('#query_name_save').val(''); // Clear name for a new save
-                    $('#modal-save-query').data('visual-params', visualParamsJsonString); // Attach visual params for saving
+                    $('#source_connection_id_save').val((typeof vqbDataSourceId !== 'undefined') ? vqbDataSourceId : ''); // Set current data source
+                    $('#modal-save-query').data('visual-params', visualParamsJsonString);
+                    $('#modal-save-query').removeData('update-mode'); // Ensure update mode is off
+                    $('#modal-save-query').removeData('update-query-id');
                     $('#saveQueryMsg').hide().removeClass('alert-success alert-danger').text('');
                     $('#modal-save-query').modal('show');
                 } else {
@@ -1220,6 +1233,11 @@ $('#modal-delete-confirm').on('click', '.btnDelete', function () {
 });
 
 $(document).ready(function () {
+    // VQB Page-specific initialization (runs after jQuery loads)
+    if (typeof vqbIsEditMode !== 'undefined' && typeof vqbDataSourceId !== 'undefined') {
+        initializeVQBPage();
+    }
+
     // Populate savedQueriesCache if initialSavedQueries is available (from dashboard.php)
     if (typeof initialSavedQueries !== 'undefined' && Array.isArray(initialSavedQueries)) {
         savedQueriesCache = initialSavedQueries;
@@ -1835,13 +1853,15 @@ $('body').on('click', '#btnShowSaveQueryModal', function () {
     $('#modal-save-query').modal('show');
 });
 
-// Confirm and Save NEW Query (AJAX)
+// Confirm and Save/Update Query (AJAX)
 $('body').on('click', '#btnSaveQueryConfirm', function () {
     var queryName = $('#query_name_save').val();
     var sqlQuery = $('#sql_query_save').val();
     var sourceConnectionId = $('#source_connection_id_save').val();
     var $saveQueryMsg = $('#saveQueryMsg');
     var visualParams = $('#modal-save-query').data('visual-params');
+    var updateMode = $('#modal-save-query').data('update-mode');
+    var updateQueryId = $('#modal-save-query').data('update-query-id');
 
     if ($.trim(queryName) === '') {
         $saveQueryMsg.removeClass('alert-success').addClass('alert-danger').text('Query name cannot be empty.').show();
@@ -1869,6 +1889,11 @@ $('body').on('click', '#btnSaveQueryConfirm', function () {
         visual_params: (visualParams && visualParams !== '') ? visualParams : null
     };
 
+    // If in update mode, add the query ID
+    if (updateMode && updateQueryId) {
+        ajaxData.query_id = updateQueryId;
+    }
+
     $.ajax({
         url: base + '/ajax/saveQuery',
         type: 'POST',
@@ -1876,12 +1901,25 @@ $('body').on('click', '#btnSaveQueryConfirm', function () {
         dataType: 'json',
         success: function (response) {
             if (response.status === 'success') {
-                $saveQueryMsg.removeClass('alert-danger').addClass('alert-success').text(response.message).show();
+                var message = updateMode ? 'Visual query updated successfully!' : response.message;
+                $saveQueryMsg.removeClass('alert-danger').addClass('alert-success').text(message).show();
                 $('#query_name_save').val('');
+
+                // Update cache if in update mode
+                if (updateMode && typeof savedQueriesCache !== 'undefined' && savedQueriesCache.find) {
+                    var itemInCache = savedQueriesCache.find(function (q) { return q.id == updateQueryId; });
+                    if (itemInCache) {
+                        itemInCache.query_name = queryName;
+                        itemInCache.sql_query = sqlQuery;
+                        itemInCache.source_connection_id = sourceConnectionId;
+                        itemInCache.visual_params = ajaxData.visual_params;
+                        itemInCache.is_visual_query = ajaxData.is_visual_query;
+                    }
+                }
 
                 // If a new query is saved and user is on dashboard, ideally refresh the dashboard list or add to it.
                 // For now, a jGrowl message might be enough, or they can refresh.
-                if (typeof initialSavedQueries !== 'undefined' && response.new_query_id) { // Assuming server sends back new_query_id
+                if (!updateMode && typeof initialSavedQueries !== 'undefined' && response.new_query_id) { // Assuming server sends back new_query_id
                     // To dynamically update dashboard:
                     // 1. Add new query to savedQueriesCache
                     // savedQueriesCache.unshift({id: response.new_query_id, query_name: queryName, sql_query: sqlQuery, is_visual_query: ajaxData.is_visual_query, visual_params: ajaxData.visual_params, created_at: new Date().toISOString()});
@@ -1889,7 +1927,6 @@ $('body').on('click', '#btnSaveQueryConfirm', function () {
                     // This part can be complex, for now, we'll rely on user refreshing dashboard or a success message.
                     $.jGrowl('New query saved! Refresh dashboard to see it in the list.', { header: 'Info', theme: 'info', life: 5000 });
                 }
-
 
                 setTimeout(function () {
                     location.reload();
@@ -1903,7 +1940,7 @@ $('body').on('click', '#btnSaveQueryConfirm', function () {
         },
         complete: function () {
             $thisButton.prop('disabled', false).find('i').removeClass('fa-spinner fa-spin').addClass('fa-save');
-            $('#modal-save-query').removeData('visual-params'); // Clean up
+            $('#modal-save-query').removeData('visual-params').removeData('update-mode').removeData('update-query-id'); // Clean up
         }
     });
 });
@@ -2049,19 +2086,24 @@ function addTablesToDropdown(dataSourceId, callback) {
         return;
     }
 
-    // If dataSourceId is not provided, try to get it from the VQB modal if it exists and has data
+    // If dataSourceId is not provided, try to get it from VQB contexts (modal or standalone page)
     if (!dataSourceId) {
         var $modal = $('#modal-visual-query');
+        var $vqbForm = $('#vqb-form');
+
         if ($modal.length) {
             dataSourceId = $modal.data('current-data-source-id');
+        } else if ($vqbForm.length) {
+            dataSourceId = $vqbForm.data('current-data-source-id');
         }
     }
 
     const selectedTables = [__table];
     // console.log('Initial Table for Dropdowns:', __table);
 
-    // Collect any currently joined tables in the VQB
-    $('#modal-visual-query .jointable').each(function () { // Scope to VQB modal
+    // Collect any currently joined tables in the VQB (works for both modal and standalone page)
+    var $joinTableSelects = $('#modal-visual-query .jointable, #vqb-form .jointable');
+    $joinTableSelects.each(function () {
         const table = $(this).val();
         if (table && !selectedTables.includes(table)) {
             selectedTables.push(table);
@@ -2077,12 +2119,12 @@ function addTablesToDropdown(dataSourceId, callback) {
             // console.log('Server Response for getselectfields:', response);
 
             var selectorsToUpdate = [
-                '#modal-visual-query select.fields', // VQB main fields
-                '#modal-visual-query select.fname', // WHERE clause fields
-                '#modal-visual-query select.orderfields', // ORDER BY fields
-                '#modal-visual-query select.groupfields', // GROUP BY fields
-                '#modal-visual-query select.joinfieldmain', // JOIN clause primary table fields
-                '#modal-visual-query select.agg_field' // Aggregate function fields
+                '#modal-visual-query select.fields, #vqb-form select.fields', // VQB main fields
+                '#modal-visual-query select.fname, #vqb-form select.fname', // WHERE clause fields
+                '#modal-visual-query select.orderfields, #vqb-form select.orderfields', // ORDER BY fields
+                '#modal-visual-query select.groupfields, #vqb-form select.groupfields', // GROUP BY fields
+                '#modal-visual-query select.joinfieldmain, #vqb-form select.joinfieldmain', // JOIN clause primary table fields
+                '#modal-visual-query select.agg_field, #vqb-form select.agg_field' // Aggregate function fields
                 // Note: .hfname (HAVING) is handled by updateHavingFieldNameOptions separately,
                 // but updateHavingFieldNameOptions itself relies on select.fields being populated.
             ];
@@ -2119,11 +2161,18 @@ function addTablesToDropdown(dataSourceId, callback) {
                     }
 
                     var placeholderText = $select.data('placeholder') || 'Choose';
-                    $select.select2({
+                    var select2Options = {
                         placeholder: placeholderText,
                         allowClear: true,
                         minimumResultsForSearch: 0 // Always enable search
-                    });
+                    };
+
+                    // Add dropdownParent for modal context only
+                    if ($select.closest('.modal').length) {
+                        select2Options.dropdownParent = $select.closest('.modal');
+                    }
+
+                    $select.select2(select2Options);
                 }
             });
 
@@ -2199,4 +2248,208 @@ function populateJoinFieldDropdown($selectElement, tableName, selectedValue, dat
         $.jGrowl('AJAX Error: Could not load fields for ' + tableName + '.', { sticky: false, header: 'Error' });
         if (typeof callback === 'function') callback(false);
     });
+}
+
+// VQB Page-specific initialization function
+function initializeVQBPage() {
+    console.log('Initializing VQB page with edit mode:', vqbIsEditMode, 'and saved params:', vqbSavedParams);
+
+    // Store data source ID for VQB functions
+    if (vqbDataSourceId) {
+        $('#vqb-form').data('current-data-source-id', vqbDataSourceId);
+    }
+
+    // Initialize popovers for VQB page
+    $('[rel=hover_popover]').popover({ "trigger": "hover", "placement": "bottom" });
+
+    // Initialize Select2 on VQB form elements
+    var vqbSelect2Selector = '#vqb-form select:not(#fieldClone select, #fieldCloneTable select, #fieldCloneAggregate select, #fieldCloneHaving select)';
+    $(vqbSelect2Selector).each(function () {
+        var $this = $(this);
+        var options = {
+            placeholder: 'Choose',
+            allowClear: true,
+            minimumInputLength: 0,
+            minimumResultsForSearch: 0 // Always enable search
+        };
+
+        console.log('DEBUG: VQB Select2 initialization for element:', $this[0], 'with options:', options);
+        $this.select2(options);
+    });
+
+    // If in edit mode and have saved parameters, populate the form
+    if (vqbIsEditMode && vqbSavedParams) {
+        populateVQBFormWithSavedData(vqbSavedParams);
+    }
+}
+
+// Function to populate VQB form with saved query data
+function populateVQBFormWithSavedData(savedParams) {
+    console.log('Populating VQB form with saved data:', savedParams);
+
+    // Populate non-aggregated fields
+    if (savedParams.fields && Array.isArray(savedParams.fields)) {
+        setTimeout(function () {
+            $('select[name="fields[]"]').val(savedParams.fields).trigger('change');
+            console.log('Set fields to:', savedParams.fields);
+        }, 100);
+    }
+
+    // Populate joins
+    if (savedParams.jointype && Array.isArray(savedParams.jointype)) {
+        savedParams.jointype.forEach(function (type, idx) {
+            if (type && savedParams.jointable && savedParams.jointable[idx]) {
+                // Create join row
+                var $clone = $('#fieldCloneTable').clone().removeAttr('id').addClass('cloned-join-row');
+                $clone.find('select[name="jointype[]"]').val(type);
+
+                var $tableSelect = $clone.find('select[name="jointable[]"]');
+                if (allTablesOptionsHTML) {
+                    $tableSelect.html(allTablesOptionsHTML);
+                }
+                $tableSelect.val(savedParams.jointable[idx]);
+
+                $('#btnJoinTable').after($clone);
+                $clone.show();
+
+                // Initialize Select2 on the new elements
+                $clone.find('select').each(function () {
+                    $(this).select2({
+                        placeholder: 'Choose',
+                        allowClear: true,
+                        minimumResultsForSearch: 0
+                    });
+                });
+
+                // Populate join fields if available
+                if (savedParams.joinfield && savedParams.joinfield[idx]) {
+                    populateJoinFieldDropdown(
+                        $clone.find('select[name="joinfield[]"]'),
+                        savedParams.jointable[idx],
+                        savedParams.joinfield[idx],
+                        vqbDataSourceId
+                    );
+                }
+
+                if (savedParams.joinfieldp && savedParams.joinfieldp[idx]) {
+                    setTimeout(function () {
+                        $clone.find('select[name="joinfieldp[]"]').val(savedParams.joinfieldp[idx]).trigger('change');
+                    }, 200);
+                }
+            }
+        });
+    }
+
+    // Populate WHERE conditions
+    if (savedParams.fname && Array.isArray(savedParams.fname)) {
+        savedParams.fname.forEach(function (name, idx) {
+            if (name && savedParams.fvalue && savedParams.fvalue[idx]) {
+                var $clone = $('#fieldClone').clone().removeAttr('id');
+                $clone.find('select[name="fname[]"]').val(name);
+                $clone.find('input[name="fvalue[]"]').val(savedParams.fvalue[idx]);
+
+                if (idx > 0 && savedParams.ftype && savedParams.ftype[idx]) {
+                    $clone.find('select[name="ftype[]"]').val(savedParams.ftype[idx]);
+                }
+
+                $('#btnAddWhere').after($clone);
+
+                // Initialize Select2
+                $clone.find('select').each(function () {
+                    $(this).select2({
+                        placeholder: 'Choose',
+                        allowClear: true,
+                        minimumResultsForSearch: 0
+                    });
+                });
+
+                $clone.show();
+            }
+        });
+    }
+
+    // Populate aggregated fields
+    if (savedParams.agg_field && Array.isArray(savedParams.agg_field)) {
+        savedParams.agg_field.forEach(function (field, idx) {
+            if (field && savedParams.agg_func && savedParams.agg_func[idx]) {
+                var $clone = $('#fieldCloneAggregate').clone().removeAttr('id');
+                $clone.find('select[name="agg_field[]"]').val(field);
+                $clone.find('select[name="agg_func[]"]').val(savedParams.agg_func[idx]);
+
+                if (savedParams.agg_alias && savedParams.agg_alias[idx]) {
+                    $clone.find('input[name="agg_alias[]"]').val(savedParams.agg_alias[idx]);
+                }
+
+                $('#aggregateFieldsContainer').append($clone);
+
+                // Initialize Select2
+                $clone.find('select').each(function () {
+                    $(this).select2({
+                        placeholder: 'Choose',
+                        allowClear: true,
+                        minimumResultsForSearch: 0
+                    });
+                });
+
+                $clone.show();
+            }
+        });
+    }
+
+    // Populate ORDER BY
+    if (savedParams.orderfields && Array.isArray(savedParams.orderfields) && savedParams.orderfields.length > 0) {
+        setTimeout(function () {
+            $('select[name="orderfields[]"]').val(savedParams.orderfields).trigger('change');
+            $('#orderby').show();
+
+            if (savedParams.chkDescending === 'on' || savedParams.chkDescending === true) {
+                $('input[name="chkDescending"]').prop('checked', true);
+            }
+        }, 150);
+    }
+
+    // Populate GROUP BY
+    if (savedParams.groupfields && Array.isArray(savedParams.groupfields) && savedParams.groupfields.length > 0) {
+        setTimeout(function () {
+            $('select[name="groupfields[]"]').val(savedParams.groupfields).trigger('change');
+            $('#group').show();
+        }, 150);
+    }
+
+    // Populate LIMIT
+    if (savedParams.limitStart || savedParams.limitNumRows) {
+        $('input[name="limitStart"]').val(savedParams.limitStart || '');
+        $('input[name="limitNumRows"]').val(savedParams.limitNumRows || '');
+        $('#limit').show();
+    }
+
+    // Populate HAVING conditions
+    if (savedParams.hfname && Array.isArray(savedParams.hfname)) {
+        savedParams.hfname.forEach(function (name, idx) {
+            if (name && savedParams.hfvalue && savedParams.hfvalue[idx]) {
+                var $clone = $('#fieldCloneHaving').clone().removeAttr('id');
+                $clone.find('select[name="hfname[]"]').val(name);
+                $clone.find('input[name="hfvalue[]"]').val(savedParams.hfvalue[idx]);
+
+                if (idx > 0 && savedParams.htype && savedParams.htype[idx]) {
+                    $clone.find('select[name="htype[]"]').val(savedParams.htype[idx]);
+                }
+
+                $('#havingConditionsContainer').append($clone);
+
+                // Initialize Select2
+                $clone.find('select').each(function () {
+                    $(this).select2({
+                        placeholder: 'Choose',
+                        allowClear: true,
+                        minimumResultsForSearch: 0
+                    });
+                });
+
+                $clone.show();
+            }
+        });
+    }
+
+    console.log('VQB form population completed');
 }

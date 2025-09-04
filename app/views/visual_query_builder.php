@@ -39,7 +39,7 @@ $isEditMode = !empty($queryId);
                 </div>
                 
                 <div class="panel-body">
-                    <form action="" method="post" class="form-horizontal" role="form" id="vqb-form">
+                    <form action="<?php echo Flight::get('base'); ?>/vqb<?php echo $currentTable ? '/' . $currentTable : ''; ?>" method="post" class="form-horizontal" role="form" id="vqb-form">
                         <input type="hidden" id="visual_query_id_edit" name="visual_query_id_edit" value="<?php echo htmlspecialchars($queryId); ?>">
                         <input type="hidden" name="vquery"/>
                         <input type="hidden" name="visual_query_id_edit_submit" id="visual_query_id_edit_submit_field">
@@ -381,6 +381,7 @@ $isEditMode = !empty($queryId);
     <div class="clearfix"></div>
 </div>
 
+<!-- Store data for JavaScript initialization -->
 <script type="text/javascript">
     // Store the globally generated table options HTML
     var allTablesOptionsHTML = <?php echo json_encode(Flight::get('masterTableOptionsHTML') ?? '<option value="">No tables available (Global Fallback)</option>'); ?>;
@@ -392,18 +393,9 @@ $isEditMode = !empty($queryId);
     // Set up VQB page context
     var __table = '<?php echo addslashes($currentTable); ?>';
     var vqbDataSourceId = '<?php echo addslashes($dataSourceId); ?>';
-    
-    // VQB page-specific initialization
-    $(document).ready(function() {
-        // Initialize VQB page
-        if (vqbDataSourceId) {
-            // Store data source ID for VQB functions
-            $('#vqb-form').data('current-data-source-id', vqbDataSourceId);
-        }
-        
-        // Initialize popovers for VQB page
-        $('[rel=hover_popover]').popover({ "trigger": "hover", "placement": "bottom" });
-    });
+    var vqbQueryName = '<?php echo addslashes($queryName); ?>';
+    var vqbIsEditMode = <?php echo $isEditMode ? 'true' : 'false'; ?>;
+    var vqbSavedParams = <?php echo json_encode($visualParams ?? null); ?>;
 </script>
 
 <?php require_once 'includes/footer.php'; ?>

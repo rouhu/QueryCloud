@@ -46,6 +46,9 @@ class VisualQueryBuilder
 
             // Get table fields if we have a table
             if ($currentTable) {
+                // Store current table in session for form submissions
+                $_SESSION['current_vqb_table'] = $currentTable;
+                
                 $connection_name = Table::get_data_source_connection_name($dataSourceId);
                 $db = ORM::get_db($connection_name);
                 $source = ORM::for_table('data_sources')->find_one($dataSourceId);
@@ -75,6 +78,9 @@ class VisualQueryBuilder
                     error_log("VQB table options error: " . $e->getMessage());
                 }
             }
+
+            // Set global data for the view
+            Flight::set('masterTableOptionsHTML', $tablesOptionsHTML);
 
             Flight::render('visual_query_builder', array(
                 'title' => 'Visual Query Builder',
@@ -167,6 +173,9 @@ class VisualQueryBuilder
                 }
             }
 
+            // Set global data for the view
+            Flight::set('masterTableOptionsHTML', $tablesOptionsHTML);
+
             Flight::render('visual_query_builder', array(
                 'title' => 'Visual Query Builder - Edit: ' . $savedQuery->query_name,
                 'icon' => self::$icon,
@@ -194,8 +203,39 @@ class VisualQueryBuilder
         try {
             $currentTable = $table;
 
+            // If table is numeric (from edit route), ignore it and get from POST or visual params
+            if ($currentTable && is_numeric($currentTable)) {
+                $currentTable = null;
+            }
+
+            // Try to get table from POST data or visual params
             if (!$currentTable) {
-                throw new Exception('Table not specified for Visual Query Builder');
+                if (isset($_POST['visual_params'])) {
+                    $visualParamsFromPost = json_decode($_POST['visual_params'], true);
+                    if ($visualParamsFromPost && isset($visualParamsFromPost['primaryTable'])) {
+                        $currentTable = $visualParamsFromPost['primaryTable'];
+                    }
+                }
+                
+                // Try to extract from form data
+                if (!$currentTable) {
+                    // Look for table context in session or globals
+                    if (isset($_SESSION['current_vqb_table'])) {
+                        $currentTable = $_SESSION['current_vqb_table'];
+                    }
+                }
+                
+                // Extract from visual query fields - if we have joined tables, use the first available table
+                if (!$currentTable && isset($_POST['fields']) && !empty($_POST['fields'])) {
+                    $firstField = $_POST['fields'][0];
+                    if (strpos($firstField, '.') !== false) {
+                        $currentTable = explode('.', $firstField)[0];
+                    }
+                }
+            }
+
+            if (!$currentTable) {
+                throw new Exception('Could not determine table for Visual Query Builder. Please ensure you have selected fields or set up the query properly.');
             }
 
             // Get data source info
