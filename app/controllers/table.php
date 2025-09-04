@@ -308,15 +308,29 @@ class Table
         // Process non-aggregated fields
         if (!empty($params['fields'])) {
             $duplicateNameFields = [];
+            $columnNameCounts = []; // Track how many times each column name appears
+            
+            // First pass: count column name occurrences
+            foreach ($params['fields'] as $value) {
+                if ($value) {
+                    $fieldArray = explode('.', $value);
+                    $columnName = (count($fieldArray) === 2) ? $fieldArray[1] : $value;
+                    $columnNameCounts[$columnName] = ($columnNameCounts[$columnName] ?? 0) + 1;
+                }
+            }
+            
+            // Second pass: apply aliases only when column names would conflict
             foreach ($params['fields'] as $value) {
                 if ($value) {
                     $baseValue = $value;
-                    if (in_array($baseValue, $duplicateNameFields)) {
-                        $fieldArray = explode('.', $baseValue);
-                        if (count($fieldArray) === 2) {
-                            $value = $baseValue . ' AS ' . $fieldArray[0] . '_' . $fieldArray[1];
-                        }
+                    $fieldArray = explode('.', $baseValue);
+                    $columnName = (count($fieldArray) === 2) ? $fieldArray[1] : $baseValue;
+                    
+                    // Only create alias if this column name appears more than once
+                    if ($columnNameCounts[$columnName] > 1 && count($fieldArray) === 2) {
+                        $value = $baseValue . ' AS ' . $fieldArray[0] . '_' . $fieldArray[1];
                     }
+                    
                     $duplicateNameFields[] = $baseValue;
                     $select_parts[] = $value;
                 }

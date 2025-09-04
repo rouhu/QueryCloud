@@ -529,9 +529,23 @@ $('body').on('click', '.btn-run-saved-query', function (e) {
 
     if (queryToRun && queryToRun.sql_query) {
         var formAction = '';
-        var onDashboard = (!lastSegment || lastSegment === 'home' || lastSegment === 'dashboard');
+        var isVisualQuery = queryToRun.is_visual_query == '1' || queryToRun.is_visual_query === true;
 
-        formAction = base + '/table/run_saved_query';
+        if (isVisualQuery && queryToRun.visual_params) {
+            // For VQB queries, extract the primary table and route to VQB controller
+            try {
+                var visualParams = JSON.parse(queryToRun.visual_params);
+                var primaryTable = visualParams.primaryTable || 'unknown';
+                formAction = base + '/vqb/' + encodeURIComponent(primaryTable);
+            } catch (e) {
+                console.error('Error parsing visual_params for saved VQB query:', e);
+                // Fallback to regular table route if parsing fails
+                formAction = base + '/table/run_saved_query';
+                isVisualQuery = false;
+            }
+        } else {
+            formAction = base + '/table/run_saved_query';
+        }
 
         var $dynamicForm = $('<form>', {
             'action': formAction,
@@ -545,7 +559,24 @@ $('body').on('click', '.btn-run-saved-query', function (e) {
             'type': 'hidden',
             'name': 'running_saved_query_name',
             'value': queryToRun.query_name
+        })).append($('<input>', { // Add query ID for VQB queries
+            'type': 'hidden',
+            'name': 'query_id',
+            'value': queryId
         }));
+
+        // Add visual params for VQB queries
+        if (isVisualQuery && queryToRun.visual_params) {
+            $dynamicForm.append($('<input>', {
+                'type': 'hidden',
+                'name': 'visual_params',
+                'value': queryToRun.visual_params
+            })).append($('<input>', {
+                'type': 'hidden',
+                'name': 'data_source_id',
+                'value': queryToRun.source_connection_id
+            }));
+        }
 
         $('body').append($dynamicForm);
         $dynamicForm.submit();
@@ -2306,7 +2337,7 @@ function populateVQBFormWithSavedData(savedParams) {
 
     // Now, call addTablesToDropdown to populate all field dropdowns with the correct options.
     // The rest of the form population logic will happen in the callback.
-    addTablesToDropdown(vqbDataSourceId, function(success, fieldOptionsHtml) {
+    addTablesToDropdown(vqbDataSourceId, function (success, fieldOptionsHtml) {
         if (!success) {
             $.jGrowl('Failed to load field options, form may not populate correctly.', { header: 'Error', theme: 'error' });
             return;
@@ -2318,7 +2349,7 @@ function populateVQBFormWithSavedData(savedParams) {
         }
 
         // Re-set the primary table join fields now that their options are loaded
-        $('.cloned-join-row').each(function(idx) {
+        $('.cloned-join-row').each(function (idx) {
             var $row = $(this);
             if (savedParams.joinfieldp && savedParams.joinfieldp[idx]) {
                 $row.find('select[name="joinfieldp[]"]').val(savedParams.joinfieldp[idx]).trigger('change');
@@ -2331,7 +2362,7 @@ function populateVQBFormWithSavedData(savedParams) {
                 if (name && savedParams.fvalue && savedParams.fvalue[idx]) {
                     var $clone = $('#fieldClone').clone().removeAttr('id');
                     $clone.find('select[name="fname[]"]').val(name).end()
-                          .find('input[name="fvalue[]"]').val(savedParams.fvalue[idx]).end();
+                        .find('input[name="fvalue[]"]').val(savedParams.fvalue[idx]).end();
                     if (idx > 0 && savedParams.ftype && savedParams.ftype[idx]) {
                         $clone.find('select[name="ftype[]"]').val(savedParams.ftype[idx]);
                     }
@@ -2350,8 +2381,8 @@ function populateVQBFormWithSavedData(savedParams) {
                 if (field && savedParams.agg_func && savedParams.agg_func[idx]) {
                     var $clone = $('#fieldCloneAggregate').clone().removeAttr('id');
                     $clone.find('select[name="agg_field[]"]').val(field).end()
-                          .find('select[name="agg_func[]"]').val(savedParams.agg_func[idx]).end()
-                          .find('input[name="agg_alias[]"]').val(savedParams.agg_alias[idx] || '').end();
+                        .find('select[name="agg_func[]"]').val(savedParams.agg_func[idx]).end()
+                        .find('input[name="agg_alias[]"]').val(savedParams.agg_alias[idx] || '').end();
                     $('#aggregateFieldsContainer').append($clone);
                     $clone.find('select').each(function () {
                         $(this).select2({ placeholder: 'Choose', allowClear: true, minimumResultsForSearch: 0 });
@@ -2386,18 +2417,18 @@ function populateVQBFormWithSavedData(savedParams) {
         // Populate HAVING conditions (after aggregates are populated)
         if (savedParams.hfname && Array.isArray(savedParams.hfname)) {
             updateHavingFieldNameOptions(); // Ensure options are fresh
-            setTimeout(function() { // Use a timeout to allow dropdowns to render
+            setTimeout(function () { // Use a timeout to allow dropdowns to render
                 savedParams.hfname.forEach(function (name, idx) {
                     if (name && savedParams.hfvalue && savedParams.hfvalue[idx]) {
                         var $clone = $('#fieldCloneHaving').clone().removeAttr('id');
                         $clone.find('select[name="hfname[]"]').val(name).end()
-                              .find('input[name="hfvalue[]"]').val(savedParams.hfvalue[idx]).end();
+                            .find('input[name="hfvalue[]"]').val(savedParams.hfvalue[idx]).end();
                         if (idx > 0 && savedParams.htype && savedParams.htype[idx]) {
                             $clone.find('select[name="htype[]"]').val(savedParams.htype[idx]);
                         }
                         $('#havingConditionsContainer').append($clone);
                         $clone.find('select').each(function () {
-                             $(this).select2({ placeholder: 'Choose', allowClear: true, minimumResultsForSearch: 0 });
+                            $(this).select2({ placeholder: 'Choose', allowClear: true, minimumResultsForSearch: 0 });
                         });
                         $clone.show();
                     }

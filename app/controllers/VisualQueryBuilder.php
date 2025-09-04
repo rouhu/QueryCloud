@@ -202,6 +202,8 @@ class VisualQueryBuilder
 
         try {
             $currentTable = $table;
+            $queryId = $_POST['query_id'] ?? null;
+            $queryName = $_POST['running_saved_query_name'] ?? '';
 
             // If table is numeric (from edit route), ignore it and get from POST or visual params
             if ($currentTable && is_numeric($currentTable)) {
@@ -243,6 +245,7 @@ class VisualQueryBuilder
             $connection_name = Table::get_data_source_connection_name($dataSourceId);
             $source = ORM::for_table('data_sources')->find_one($dataSourceId);
             $db_type = $source ? $source->db_type : 'mysql';
+            $source_name = $source ? $source->name : 'Unknown';
 
             // Extract visual parameters and generate SQL
             $visualParams = self::extractVisualParams($_POST);
@@ -254,28 +257,127 @@ class VisualQueryBuilder
                 throw new Exception('Could not generate SQL from visual query parameters');
             }
 
-            // Get table fields for the results view
-            $db = ORM::get_db($connection_name);
+            // Execute the query and get results
+            $startTime = microtime(true);
+            
             try {
-                $table_fields_data = get_table_columns($db, $db_type, $currentTable);
-                $fields = array_column($table_fields_data, 'Field');
-            } catch (PDOException $e) {
-                $fields = [];
-                error_log("VQB results field loading error: " . $e->getMessage());
+                $db = ORM::get_db($connection_name);
+                
+                if ($db_type === 'mysql') {
+                    // turn on query profiling for MySQL
+                    $db->query('SET profiling = 1;');
+                }
+                
+                $result = $db->query($sql);
+                $data = $result->fetchAll(PDO::FETCH_ASSOC);
+                
+                if ($db_type === 'mysql') {
+                    // find out execution time for MySQL
+                    $exec_time_result = $db->query(
+                       'SELECT query_id, SUM(duration) FROM information_schema.profiling GROUP BY query_id ORDER BY query_id DESC LIMIT 1;'
+                    );
+                    $exec_time_row = $exec_time_result->fetchAll(PDO::FETCH_NUM);
+                    $timeTaken = $exec_time_row[0][1] ?? '0.00';
+                } else {
+                    $endTime = microtime(true);
+                    $timeTaken = round($endTime - $startTime, 2);
+                }
+                
+                // Handle table formatting if this is a saved query
+                $original_header = [];
+                $display_header = [];
+                if (!empty($data) && isset($data[0])) {
+                    $original_header = array_keys($data[0]);
+                    $display_header = $original_header;
+                    
+                    // Apply table formatting if available
+                    if ($queryId) {
+                        $query_with_formatting = ORM::for_table('saved_queries')->find_one($queryId);
+                        if ($query_with_formatting && !empty($query_with_formatting->table_formatting)) {
+                            try {
+                                $formatting_rules = json_decode($query_with_formatting->table_formatting, true);
+                                if (json_last_error() === JSON_ERROR_NONE && isset($formatting_rules['column_titles'])) {
+                                    $new_display_header = [];
+                                    foreach ($original_header as $original_col_name) {
+                                        $new_display_header[] = (!empty($formatting_rules['column_titles'][$original_col_name])) ? $formatting_rules['column_titles'][$original_col_name] : $original_col_name;
+                                    }
+                                    $display_header = $new_display_header;
+                                }
+                            } catch (Exception $e) {
+                                error_log("Error decoding table formatting JSON: " . $e->getMessage());
+                            }
+                        }
+                    }
+                    
+                    // Store data for export functionality
+                    $_SESSION['tableData'] = array($display_header);
+                    foreach ($data as $row) {
+                        $_SESSION['tableData'][] = array_values($row);
+                    }
+                } else {
+                    $_SESSION['tableData'] = array();
+                }
+                
+                // Generate table HTML using the same method as Table controller
+                $tableData = Presenter::listTableData($data, [], $display_header, $original_header);
+                
+            } catch (Exception $e) {
+                throw new Exception('Error executing query: ' . $e->getMessage());
             }
 
             // Set the table segment for the results
             Flight::set('lastSegment', $currentTable);
 
-            // Execute the query by calling the table's runquery method
-            // We need to simulate the POST data that runquery expects
-            $_POST['cquery'] = $sql;
-            $_POST['printArray'] = '';
+            // Prepare view data
+            $visualParamsJson = json_encode($visualParams);
+            $isVisualQuery = !empty($visualParamsJson) && $visualParamsJson !== '[]' && $visualParamsJson !== '{}';
             
-            // Store visual params for the results view
-            $_SESSION['current_visual_params'] = json_encode($visualParams);
-            
-            Table::runquery();
+            // Check if this was a saved visual query
+            $wasSavedVisual = false;
+            if ($queryId && $isVisualQuery) {
+                $savedQuery = ORM::for_table('saved_queries')->find_one($queryId);
+                $wasSavedVisual = $savedQuery && $savedQuery->is_visual_query;
+            }
+
+            // For ad-hoc VQB queries without a query ID, create a temporary query record
+            // so that ETL and Format Table buttons can function
+            if (!$queryId && $isVisualQuery) {
+                try {
+                    $tempQuery = ORM::for_table('saved_queries')->create();
+                    $tempQuery->query_name = 'VQB Temp Query - ' . $currentTable . ' (' . date('Y-m-d H:i:s') . ')';
+                    $tempQuery->sql_query = $sql;
+                    $tempQuery->source_connection_id = $dataSourceId;
+                    $tempQuery->is_visual_query = true;
+                    $tempQuery->visual_params = $visualParamsJson;
+                    $tempQuery->created_at = date('Y-m-d H:i:s');
+                    $tempQuery->is_temporary = true; // Flag for cleanup later if needed
+                    $tempQuery->save();
+                    
+                    $queryId = $tempQuery->id;
+                    $queryName = $tempQuery->query_name;
+                    
+                } catch (Exception $e) {
+                    error_log("Error creating temporary query record: " . $e->getMessage());
+                    // Continue without query ID if temp record creation fails
+                }
+            }
+
+            // Render the VQB results view
+            Flight::render('vqb_results', array(
+                'title' => 'VQB Results - ' . strtoupper($currentTable),
+                'icon' => self::$icon,
+                'table_data' => $tableData,
+                'query' => '<pre>' . htmlspecialchars($sql, ENT_QUOTES, 'UTF-8') . '</pre>',
+                'timetaken' => $timeTaken,
+                'printArray' => '',
+                'visual_params_json' => $visualParamsJson,
+                'executed_query_id' => $queryId,
+                'executed_query_name' => $queryName,
+                'executed_query_source_connection_id' => $dataSourceId,
+                'executed_query_source_name' => $source_name,
+                'executed_query_was_saved_visual' => $wasSavedVisual,
+                'currentTable' => $currentTable
+            ));
 
         } catch (Exception $e) {
             Flight::set('error', 'Error running Visual Query: ' . $e->getMessage());
