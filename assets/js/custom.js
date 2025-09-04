@@ -990,8 +990,8 @@ $('body').on('click', '#btnUpdateVisualQuery', function () {
     if (queryId) {
         // --- EXISTING QUERY: UPDATE IT ---
         // Get query name and data source from VQB page globals or fetch from server
-        var queryName = (typeof vqbQueryName !== 'undefined') ? vqbQueryName : '';
-        var dataSourceId = (typeof vqbDataSourceId !== 'undefined') ? vqbDataSourceId : '';
+        var queryName = $currentContext.closest('form').data('query-name');
+        var dataSourceId = $currentContext.closest('form').data('source-id');
 
         // Generate SQL first to populate the save modal
         $thisButton.prop('disabled', true).find('i').removeClass('fa-save').addClass('fa-spinner fa-spin');
