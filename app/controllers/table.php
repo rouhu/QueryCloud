@@ -307,17 +307,18 @@ class Table
 
         // Process non-aggregated fields
         if (!empty($params['fields'])) {
-            foreach ($params['fields'] as $field) {
-                if ($field) {
-                    // Always apply an alias to avoid column name collisions, e.g., table1.name and table2.name
-                    $field_parts = explode('.', $field);
-                    if (count($field_parts) === 2) {
-                        $alias = $field_parts[0] . '_' . $field_parts[1];
-                        $select_parts[] = quote_identifier($field, $db_type) . ' AS ' . quote_identifier($alias, $db_type);
-                    } else {
-                        // Fallback for fields without a table prefix, though this is less likely in VQB
-                        $select_parts[] = quote_identifier($field, $db_type);
+            $duplicateNameFields = [];
+            foreach ($params['fields'] as $value) {
+                if ($value) {
+                    $baseValue = $value;
+                    if (in_array($baseValue, $duplicateNameFields)) {
+                        $fieldArray = explode('.', $baseValue);
+                        if (count($fieldArray) === 2) {
+                            $value = $baseValue . ' AS ' . $fieldArray[0] . '_' . $fieldArray[1];
+                        }
                     }
+                    $duplicateNameFields[] = $baseValue;
+                    $select_parts[] = $value;
                 }
             }
         }
