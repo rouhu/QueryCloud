@@ -39,7 +39,7 @@ $isEditMode = !empty($queryId);
                 </div>
                 
                 <div class="panel-body">
-                    <form action="<?php echo Flight::get('base'); ?>/vqb<?php echo $currentTable ? '/' . $currentTable : ''; ?>" method="post" class="form-horizontal" role="form" id="vqb-form" data-source-id="<?php echo htmlspecialchars($dataSourceId); ?>" data-query-name="<?php echo htmlspecialchars($queryName); ?>">
+                    <form action="<?php echo Flight::get('base'); ?>/vqb<?php echo $currentTable ? '/' . $currentTable : ''; ?>" method="post" class="form-horizontal" role="form" id="vqb-form">
                         <input type="hidden" id="visual_query_id_edit" name="visual_query_id_edit" value="<?php echo htmlspecialchars($queryId); ?>">
                         <input type="hidden" name="vquery"/>
                         <input type="hidden" name="visual_query_id_edit_submit" id="visual_query_id_edit_submit_field">
