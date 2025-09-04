@@ -939,14 +939,12 @@ function initializeVisualQueryBuilder(parsedParams, sqlQuery, queryName) {
 
 // --- Update Visual Query (works for both VQB Modal and VQB Page) ---
 $('body').on('click', '#btnUpdateVisualQuery', function () {
-    var $modal = $('#modal-visual-query');
     var $vqbForm = $('#vqb-form');
-    var $currentContext = $modal.length ? $modal : $vqbForm; // Use modal if available, otherwise VQB page form
-    var queryId = $currentContext.find('#visual_query_id_edit').val();
+    var queryId = $vqbForm.find('#visual_query_id_edit').val();
     var $thisButton = $(this);
 
     // Collect form data into a structured object
-    var formData = $currentContext.find('form').serializeArray();
+    var formData = $vqbForm.serializeArray();
     var visualParamsData = {};
     formData.forEach(function (item) {
         if (item.name.endsWith('[]')) {
@@ -959,7 +957,7 @@ $('body').on('click', '#btnUpdateVisualQuery', function () {
             }
         } else {
             if (item.value || item.name === 'chkDescending' || item.name === 'limitStart' || item.name === 'limitNumRows') {
-                if (item.name === 'chkDescending' && !$currentContext.find('input[name="chkDescending"]').is(':checked')) { } else {
+                if (item.name === 'chkDescending' && !$vqbForm.find('input[name="chkDescending"]').is(':checked')) { } else {
                     visualParamsData[item.name] = item.value;
                 }
             }
@@ -971,7 +969,7 @@ $('body').on('click', '#btnUpdateVisualQuery', function () {
             visualParamsData[fieldName] = [];
         }
     });
-    if ($currentContext.find('input[name="chkDescending"]').is(':checked')) {
+    if ($vqbForm.find('input[name="chkDescending"]').is(':checked')) {
         visualParamsData.chkDescending = 'on';
     } else {
         delete visualParamsData.chkDescending;
@@ -989,9 +987,8 @@ $('body').on('click', '#btnUpdateVisualQuery', function () {
 
     if (queryId) {
         // --- EXISTING QUERY: UPDATE IT ---
-        // Get query name and data source from VQB page globals or fetch from server
-        var queryName = $currentContext.closest('form').data('query-name');
-        var dataSourceId = $currentContext.closest('form').data('source-id');
+        var queryName = $vqbForm.data('query-name');
+        var dataSourceId = $vqbForm.data('source-id');
 
         // Generate SQL first to populate the save modal
         $thisButton.prop('disabled', true).find('i').removeClass('fa-save').addClass('fa-spinner fa-spin');
@@ -1005,11 +1002,6 @@ $('body').on('click', '#btnUpdateVisualQuery', function () {
             dataType: 'json',
             success: function (response) {
                 if (response.status === 'success' && response.sql_query) {
-                    // Hide VQB modal if it exists
-                    if ($modal.length) {
-                        $modal.modal('hide');
-                    }
-
                     // Open the Save Query modal with existing query data populated
                     $('#sql_query_save').val(response.sql_query);
                     $('#query_name_save').val(queryName); // Prepopulate existing name
@@ -1043,17 +1035,12 @@ $('body').on('click', '#btnUpdateVisualQuery', function () {
             dataType: 'json',
             success: function (response) {
                 if (response.status === 'success' && response.sql_query) {
-                    // Hide VQB modal if it exists
-                    if ($modal.length) {
-                        $modal.modal('hide');
-                    }
-
                     // Open the Save Query modal for new query
                     $('#sql_query_save').val(response.sql_query);
                     $('#query_name_save').val(''); // Clear name for a new save
-                    $('#source_connection_id_save').val((typeof vqbDataSourceId !== 'undefined') ? vqbDataSourceId : ''); // Set current data source
+                    $('#source_connection_id_save').val($vqbForm.data('source-id') || ''); // Set current data source
                     $('#modal-save-query').data('visual-params', visualParamsJsonString);
-                    $('#modal-save-query').removeData('update-mode'); // Ensure update mode is off
+                    $('#modal-save-query').removeData('update-mode');
                     $('#modal-save-query').removeData('update-query-id');
                     $('#saveQueryMsg').hide().removeClass('alert-success alert-danger').text('');
                     $('#modal-save-query').modal('show');
